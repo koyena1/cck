@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react"
+import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
@@ -200,10 +201,10 @@ export default function AboutPage() {
           variants={heroVariants}
           className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 lg:py-16 relative z-10 text-center"
         >
-          {/* Officially Certified Badge */}
+          {/* about our company */}
           <div className="flex items-center justify-center mb-6 md:mb-8">
             <BlinkingDot />
-            <span className="text-white text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">About Our Company</span>
+            <span className="text-red-500 text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">About Our Company</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black uppercase tracking-wider sm:tracking-wide md:tracking-wider text-white mb-4 md:mb-6 leading-tight">
@@ -213,6 +214,16 @@ export default function AboutPage() {
           <p className="text-gray-300 text-sm sm:text-base md:text-lg max-w-2xl md:max-w-3xl mx-auto mb-6 md:mb-8 px-4 sm:px-0">
             A team of passionate developers, analysts, and designers with the vision to transform your business through cutting-edge technology.
           </p>
+          <nav className="flex items-center justify-center space-x-2 text-base font-bold uppercase tracking-widest">
+            <Link 
+              href="/" 
+              className="text-[#e63946] hover:text-white transition-colors"
+            >
+              Home
+            </Link>
+            <span className="text-gray-600">/</span>
+            <span className="text-gray-400">About</span>
+          </nav>
         </motion.div>
       </section>
 

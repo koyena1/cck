@@ -23,7 +23,7 @@ export function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center p-6">
-      <div className="w-full max-w-7xl bg-black/40 backdrop-blur-md border border-white/5 rounded-full px-4 py-2 flex items-center justify-between">
+      <div className="w-full max-w-7xl bg-black/90 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 flex items-center justify-between shadow-lg">
         
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 pl-4">
@@ -56,7 +56,7 @@ export function Navbar() {
             className="ml-4 flex items-center gap-2 px-6 py-2 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-bold transition-transform active:scale-95"
           >
             <Zap size={14} fill="black" />
-            Get Instant Quote
+            Contact Us
           </Link>
         </div>
 

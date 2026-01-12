@@ -23,19 +23,11 @@ export function Footer() {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, ease: "easeOut" }
+      y: 0
     }
   }
 
-  const socialVariants = {
-    hover: {
-      scale: 1.1,
-      rotate: 5,
-      transition: { type: "spring", stiffness: 400, damping: 10 }
-    },
-    tap: { scale: 0.95 }
-  }
+
 
   return (
     <footer className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-300 overflow-hidden">
@@ -92,9 +84,9 @@ export function Footer() {
                 <motion.a
                   key={i}
                   href={social.href}
-                  variants={socialVariants}
-                  whileHover="hover"
-                  whileTap="tap"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
                   className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 hover:from-blue-600 hover:to-purple-600 text-gray-400 hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-blue-500/50 border border-slate-700 hover:border-blue-500"
                   aria-label={social.label}
                 >

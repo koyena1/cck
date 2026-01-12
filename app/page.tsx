@@ -158,7 +158,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center justify-center pt-32 pb-20 overflow-hidden bg-[#1a2332]">
         <HeroCarousel />
-        <div className="absolute inset-0 bg-black/60 z-[1]"></div>
+        <div className="absolute inset-0 bg-black/60 z-1"></div>
         <motion.div 
           initial="hidden"
           animate="visible"
@@ -358,7 +358,7 @@ export default function HomePage() {
                     scale: 1.02,
                     transition: { type: "spring", stiffness: 500, damping: 15 } 
                   }}
-                  className="min-w-[300px] md:min-w-[400px] group relative p-10 rounded-[2rem] bg-white/5 border border-white/10 hover:border-[#e63946]/50 transition-colors cursor-default"
+                  className="min-w-75 md:min-w-100 group relative p-10 rounded-[2rem] bg-white/5 border border-white/10 hover:border-[#e63946]/50 transition-colors cursor-default"
                 >
                   <div className="w-16 h-16 bg-[#e63946] rounded-full flex items-center justify-center text-white font-bold text-2xl mb-8 shadow-[0_0_20px_rgba(230,57,70,0.4)]">
                     {item.step}
@@ -462,13 +462,13 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="group relative bg-gradient-to-br from-[#1a2332] to-[#0d1520] overflow-hidden aspect-[4/3] flex flex-col items-center justify-center p-8 transition-all duration-500"
+                className="group relative bg-linear-to-br from-[#1a2332] to-[#0d1520] overflow-hidden aspect-4/3 flex flex-col items-center justify-center p-8 transition-all duration-500"
                 style={{
                   clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 40px), calc(100% - 40px) 100%, 0 100%)'
                 }}
               >
                 {/* Angled Corner Effect */}
-                <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-br from-[#2a3342] to-[#1d2534] transform rotate-0" 
+                <div className="absolute bottom-0 right-0 w-16 h-16 bg-linear-to-br from-[#2a3342] to-[#1d2534] transform rotate-0" 
                      style={{
                        clipPath: 'polygon(100% 0, 100% 100%, 0 100%)'
                      }}
@@ -508,7 +508,6 @@ export default function HomePage() {
       <section className="py-24 bg-[#1a2332] border-t border-gray-800">
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <div className="flex items-center justify-center mb-4">
-              <BlinkingDot />
               <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase">
                 <BlinkingDot />Availability
               </p>

@@ -22,7 +22,7 @@ export default function AuthPage() {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative h-[40vh] min-h-[300px] flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 overflow-hidden">
+      <section className="relative h-[40vh] min-h-75 flex items-center justify-center bg-linear-to-br from-slate-950 via-blue-950 to-slate-950 overflow-hidden">
         <div className="absolute inset-0 bg-[url('/pattern.svg')] opacity-5"></div>
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
@@ -48,7 +48,7 @@ export default function AuthPage() {
       </section>
 
       {/* Auth Forms Section */}
-      <section className="py-20 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <section className="py-20 bg-linear-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4">
           <motion.div 
             className="max-w-md mx-auto"
@@ -121,7 +121,7 @@ export default function AuthPage() {
                       </label>
                     </div>
 
-                    <Button className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold">
+                    <Button className="w-full h-11 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold">
                       Login
                     </Button>
 
@@ -262,7 +262,7 @@ export default function AuthPage() {
                       </label>
                     </div>
 
-                    <Button className="w-full h-11 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold">
+                    <Button className="w-full h-11 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold">
                       Create Account
                     </Button>
 
