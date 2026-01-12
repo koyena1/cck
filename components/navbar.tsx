@@ -14,7 +14,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
-    { href: "/how-it-works", label: "How it Works" },
+    { href: "/about", label: "About Us" },
   ]
 
   // This is the EXACT design of your "Home" pill from the screenshot

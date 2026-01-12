@@ -168,7 +168,7 @@ export default function HomePage() {
             {/* Officially Certified Badge */}
             <div className="flex items-center justify-center mb-8">
               <BlinkingDot />
-              <span className="text-white text-sm font-bold uppercase tracking-[0.2em]">Officially Certified</span>
+              <span className="text-red-500 text-sm font-bold uppercase tracking-[0.2em]">Officially Certified</span>
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-wider text-white mb-6 leading-tight">
@@ -324,6 +324,12 @@ export default function HomePage() {
       {/* How It Works */}
       <section className="py-24 bg-[#1a2332] overflow-hidden">
         <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center mb-4">
+              <BlinkingDot />
+              <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase">
+                Our process, simplified
+              </p>
+            </div>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -331,7 +337,7 @@ export default function HomePage() {
             transition={{ type: "spring", stiffness: 100 }}
             className="text-4xl font-black text-white uppercase mb-16 text-center flex items-center justify-center"
           >
-            <BlinkingDot />How It Works
+            How It Works
           </motion.h2>
           
           <div className="relative overflow-hidden">
@@ -396,13 +402,19 @@ export default function HomePage() {
       {/* Why Choose Our Platform? */}
       <section className="py-24 bg-[#0a1628]">
         <div className="container mx-auto px-4 text-center">
+          <div className="flex items-center justify-center mb-4">
+              <BlinkingDot />
+              <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase">
+                Trusted quality and performance
+              </p>
+            </div>
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-4xl font-black text-white uppercase tracking-wider mb-16 flex items-center justify-center"
           >
-            <BlinkingDot />Only the Best for Your Safety
+            Only the Best for Your Safety
           </motion.h2>
           
           <motion.div 
@@ -435,9 +447,10 @@ export default function HomePage() {
       <section className="py-24 bg-[#0a1628]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase mb-2">Most Complete</p>
+            <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase mb-2">
+              <BlinkingDot />Trusted brands</p>
             <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-wider flex items-center justify-center">
-              <BlinkingDot />Brand Choice
+              Brand Choice
             </h2>
           </div>
 
@@ -494,13 +507,19 @@ export default function HomePage() {
       {/* Service Area Check */}
       <section className="py-24 bg-[#1a2332] border-t border-gray-800">
         <div className="container mx-auto px-4 max-w-3xl text-center">
+          <div className="flex items-center justify-center mb-4">
+              <BlinkingDot />
+              <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase">
+                <BlinkingDot />Availability
+              </p>
+            </div>
           <motion.div
              initial={{ opacity: 0, scale: 0.9 }}
              whileInView={{ opacity: 1, scale: 1 }}
              viewport={{ once: true }}
           >
             <h2 className="text-4xl font-black text-white uppercase mb-6 flex items-center justify-center">
-              <BlinkingDot />Check Availability
+              Check Availability
             </h2>
             <p className="text-gray-400 mb-10">Enter your PIN code to see if we service your area.</p>
             
