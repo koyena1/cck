@@ -220,8 +220,14 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/60"></div>
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-12">
+            <div className="flex items-center justify-center mb-4">
+              <BlinkingDot />
+              <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase">
+                Get an instant price in just a few steps
+              </p>
+            </div>
             <h2 className="text-4xl font-black text-white uppercase tracking-wider flex items-center justify-center">
-              <BlinkingDot />Automated Quotation
+              Automated Quotation
             </h2>
             <p className="text-gray-200 mt-4">Select your requirements below</p>
           </div>
