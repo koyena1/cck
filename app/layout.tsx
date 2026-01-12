@@ -4,6 +4,7 @@ import { Poppins, Orbitron } from "next/font/google"
 import { WhatsAppFloat } from "@/components/whatsapp-float"
 import { Chatbot } from "@/components/chatbot"
 import { CookieConsent } from "@/components/cookie-consent"
+import { SmoothScroll } from "@/components/smooth-scroll"
 import "./globals.css"
 
 const poppins = Poppins({
@@ -161,6 +162,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${poppins.variable} ${orbitron.variable} font-sans antialiased`}>
+        <SmoothScroll />
         {children}
         <Chatbot />
         <WhatsAppFloat />
