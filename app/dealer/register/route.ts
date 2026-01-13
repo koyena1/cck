@@ -6,32 +6,24 @@ const sqlConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   server: process.env.DB_SERVER || 'localhost',
-  options: {
-    encrypt: true,
-    trustServerCertificate: true,
-  },
+  options: { encrypt: true, trustServerCertificate: true },
 };
 
 export async function POST(request: Request) {
   try {
-    // 1. Destructure the new phone field alongside name, email, and password
     const { name, email, phone, password } = await request.json();
     let pool = await sql.connect(sqlConfig);
     
-    // 2. Updated to target the 'Dealers' table with the new 'PhoneNumber' column
+    // Insert the new dealer into the database
     await pool.request()
       .input('name', sql.NVarChar, name)
       .input('email', sql.NVarChar, email)
       .input('phone', sql.NVarChar, phone)
-      .input('password', sql.NVarChar, password)
+      .input('password', sql.NVarChar, password) // Note: In production, hash this password
       .query('INSERT INTO Dealers (FullName, Email, PhoneNumber, PasswordHash) VALUES (@name, @email, @phone, @password)');
 
-    return NextResponse.json({ success: true, message: 'Dealer registered successfully' });
+    return NextResponse.json({ success: true, message: "Dealer registered successfully" });
   } catch (err) {
-    console.error("Registration Error:", err);
-    return NextResponse.json(
-      { success: false, message: 'Email already exists or database error' }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: "Registration failed" }, { status: 500 });
   }
 }
