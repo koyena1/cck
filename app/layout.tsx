@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Poppins, Orbitron } from "next/font/google"
 import { WhatsAppFloat } from "@/components/whatsapp-float"
-import { Chatbot } from "@/components/chatbot"
+import Chatbot from "@/components/chatbot" // This looks for the 'export default'
 import { CookieConsent } from "@/components/cookie-consent"
 import { SmoothScroll } from "@/components/smooth-scroll"
 import "./globals.css"

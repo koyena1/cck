@@ -1,6 +1,25 @@
+import { NextResponse } from 'next/server';
+import sql from 'mssql';
+
+const sqlConfig = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  server: process.env.DB_SERVER || 'localhost',
+  options: { encrypt: true, trustServerCertificate: true },
+};
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
+    
+    if (!email || !password) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "Email and password are required" 
+      }, { status: 400 });
+    }
+
     let pool = await sql.connect(sqlConfig);
     
     const result = await pool.request()
@@ -13,7 +32,11 @@ export async function POST(request: Request) {
     } else {
       return NextResponse.json({ success: false, message: "Invalid email or password" }, { status: 401 });
     }
-  } catch (err) {
-    return NextResponse.json({ success: false, message: "Database connection error" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Login Error:", err);
+    return NextResponse.json({ 
+      success: false, 
+      message: err.message || "Database connection error" 
+    }, { status: 500 });
   }
 }

@@ -34,7 +34,7 @@ export default function DealerLayout({
     // Clear any stored auth data and redirect to login page
     localStorage.removeItem('authToken');
     sessionStorage.clear();
-    window.location.href = "/login";
+    window.location.href = "/auth";
   };
 
   return (
