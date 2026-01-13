@@ -45,4 +45,44 @@ BEGIN
 END
 
 select*from Dealers;
+
 select * from Admins;
+
+select * from Admins;
+select * from Dealers;
+
+-- Update Dealers table to include business details
+ALTER TABLE Dealers ADD 
+    BusinessName NVARCHAR(150),
+    GSTIN NVARCHAR(20),
+    BusinessAddress NVARCHAR(MAX),
+    City NVARCHAR(50);
+
+    CREATE TABLE Products (
+    ProductID INT PRIMARY KEY IDENTITY(1,1),
+    ModelName NVARCHAR(100) NOT NULL,
+    Description NVARCHAR(MAX),
+    RetailPrice DECIMAL(10, 2) NOT NULL,
+    WholesalePrice DECIMAL(10, 2) NOT NULL, -- Only visible to verified dealers
+    StockQuantity INT DEFAULT 0,
+    ImageURL NVARCHAR(MAX),
+    CreatedAt DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE Technicians (
+    TechnicianID INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    PhoneNumber NVARCHAR(15) NOT NULL,
+    IsAvailable BIT DEFAULT 1
+);
+
+CREATE TABLE ServiceTickets (
+    TicketID INT PRIMARY KEY IDENTITY(1,1),
+    CustomerName NVARCHAR(100) NOT NULL,
+    CustomerPhone NVARCHAR(15) NOT NULL,
+    IssueDescription NVARCHAR(MAX),
+    Status NVARCHAR(20) DEFAULT 'Open', -- Open, In-Progress, Closed
+    AssignedTechnicianID INT FOREIGN KEY REFERENCES Technicians(TechnicianID),
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    ClosedAt DATETIME
+);
