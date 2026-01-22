@@ -10,38 +10,36 @@ export function Navbar() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
-  // Define your menu items here
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
     { href: "/about", label: "About Us" },
   ]
 
-  // This is the EXACT design of your "Home" pill from the screenshot
-  const activeStyle = "bg-[#222222] text-white rounded-full px-6 py-2"
-  const inactiveStyle = "text-gray-400 hover:text-white px-6 py-2 transition-colors"
+  // Light theme active style: Light grey background with dark text
+  const activeStyle = "bg-slate-100 text-[#e63946] rounded-full px-6 py-2"
+  const inactiveStyle = "text-slate-600 hover:text-[#e63946] px-6 py-2 transition-colors"
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center p-6">
-      <div className="w-full max-w-7xl bg-black/90 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 flex items-center justify-between shadow-lg">
+      {/* Container: White background with subtle shadow */}
+      <div className="w-full max-w-7xl bg-white/90 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center justify-between shadow-md">
         
-        {/* Logo */}
+        {/* Logo - Dark Text */}
         <Link href="/" className="flex items-center gap-2 pl-4">
-          <span className="text-white text-xl font-bold tracking-tight">Citive</span>
+          <span className="text-slate-900 text-xl font-bold tracking-tight">Citive</span>
         </Link>
 
         {/* Navigation Menu - Desktop */}
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => {
-            // Check if the current path matches the link href
             const isActive = pathname === link.href
-
             return (
               <Link
                 key={link.label}
                 href={link.href}
                 className={cn(
-                  "text-sm font-medium transition-all duration-300",
+                  "text-sm font-semibold transition-all duration-300",
                   isActive ? activeStyle : inactiveStyle
                 )}
               >
@@ -50,20 +48,20 @@ export function Navbar() {
             )
           })}
 
-          {/* Special CTA Button */}
+          {/* Special CTA Button - Red Accent */}
           <Link
             href="/quote"
-            className="ml-4 flex items-center gap-2 px-6 py-2 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-bold transition-transform active:scale-95"
+            className="ml-4 flex items-center gap-2 px-6 py-2 bg-[#e63946] text-white hover:bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
           >
-            <Zap size={14} fill="black" />
+            <Zap size={14} fill="white" />
             Contact Us
           </Link>
         </div>
 
-        {/* Mobile Menu Toggle Button */}
+        {/* Mobile Menu Toggle Button - Darker Icon */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="md:hidden text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+          className="md:hidden text-slate-900 p-2 hover:bg-slate-100 rounded-full transition-colors"
           aria-label="Toggle menu"
         >
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -73,7 +71,7 @@ export function Navbar() {
         <div className="pr-4 hidden md:block">
           <Link 
             href="/login" 
-            className="flex items-center gap-2 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+            className="flex items-center gap-2 text-slate-600 hover:text-[#e63946] text-sm font-medium transition-colors"
           >
             <UserCircle size={18} />
             Login / Register
@@ -81,13 +79,12 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu Dropdown - White Background */}
       {isMenuOpen && (
-        <div className="absolute top-20 left-6 right-6 bg-black/95 backdrop-blur-md border border-white/10 rounded-3xl p-6 md:hidden">
+        <div className="absolute top-24 left-6 right-6 bg-white border border-slate-200 shadow-xl rounded-3xl p-6 md:hidden">
           <div className="flex flex-col gap-4">
             {navLinks.map((link) => {
               const isActive = pathname === link.href
-
               return (
                 <Link
                   key={link.label}
@@ -95,32 +92,20 @@ export function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
                     "text-base font-medium transition-all duration-300 text-center py-3 rounded-full",
-                    isActive ? "bg-[#222222] text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
+                    isActive ? "bg-slate-100 text-[#e63946]" : "text-slate-600 hover:bg-slate-50"
                   )}
                 >
                   {link.label}
                 </Link>
               )
             })}
-
-            {/* Mobile CTA Button */}
             <Link
               href="/quote"
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-bold transition-transform active:scale-95"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-[#e63946] text-white rounded-full text-sm font-bold"
             >
-              <Zap size={14} fill="black" />
+              <Zap size={14} fill="white" />
               Get Instant Quote
-            </Link>
-
-            {/* Mobile Auth */}
-            <Link 
-              href="/login"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center justify-center gap-2 text-gray-400 hover:text-white text-sm font-medium transition-colors py-3"
-            >
-              <UserCircle size={18} />
-              Login / Register
             </Link>
           </div>
         </div>

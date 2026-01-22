@@ -1,98 +1,66 @@
 'use client'
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Navbar } from "@/components/navbar"
-import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Mail, Lock, User, Phone, Eye, EyeOff, Loader2 } from "lucide-react"
-import { motion } from "framer-motion"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox" // Ensure you have this shadcn component
+import { Navbar } from "@/components/navbar"
+import { Footer } from "@/components/footer"
+import { Loader2 } from "lucide-react"
 
+type Role = 'customer' | 'dealer' | 'admin'
 
-export default function LoginPage() {
+export default function UnifiedAuthPage() {
   const router = useRouter()
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLogin, setIsLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [message, setMessage] = useState("")
+  const [role, setRole] = useState<Role>('customer')
 
-  // Login Form State
-  const [loginData, setLoginData] = useState({ email: "", password: "" })
-
-  // Register Form State
-  const [registerData, setRegisterData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: ""
+  const [formData, setFormData] = useState({
+    name: "", email: "", phone: "", businessName: "",
+    businessLocation: "", gstNumber: "", registrationNumber: "",
+    password: "", confirmPassword: ""
   })
 
-  // Updated handleLogin Submission
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    setError(""); setMessage(""); setIsLoading(true)
+
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
+    
+    if (!isLogin && formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match"); setIsLoading(false); return
+    }
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData),
+        body: JSON.stringify({ ...formData, role }),
       })
-
       const result = await response.json()
 
-      if (response.ok && result.success) {
-        // Logic to redirect based on the role returned from backend
-        if (result.role === 'admin') {
-          router.push('/admin/dashboard')
+      if (response.ok) {
+        if (isLogin) {
+          if (result.role === 'admin') router.push('/admin/dashboard')
+          else if (result.role === 'customer') router.push('/customer/dashboard')
+          else router.push('/dealer/dashboard')
         } else {
-          router.push('/dealer/dashboard')
+          if (role === 'dealer') {
+            setMessage("Your account will be activated after admin approval.")
+          } else {
+            router.push(role === 'admin' ? '/admin/dashboard' : '/customer/dashboard')
+          }
         }
       } else {
-        setError(result.message || "Invalid login credentials")
+        setError(result.message || "Action failed")
       }
     } catch (err) {
-      setError("Failed to connect to the server")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Handle Register Submission
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Validation for confirm password
-    if (registerData.password !== registerData.confirmPassword) {
-      setError("Passwords do not match")
-      return
-    }
-    
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registerData),
-      })
-
-      const result = await response.json()
-
-      if (response.ok && result.success) {
-        // FIX: Direct redirect to Dealer Dashboard immediately after registration
-        router.push('/dealer/dashboard')
-      } else {
-        setError(result.message || "Registration failed")
-      }
-    } catch (err) {
-      setError("Failed to connect to the server")
+      setError("Connection error")
     } finally {
       setIsLoading(false)
     }
@@ -101,187 +69,108 @@ export default function LoginPage() {
   return (
     <>
       <Navbar />
-      
-      {/* Hero Section */}
-      <section className="relative h-[40vh] min-h-[300px] flex items-center justify-center bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/pattern.svg')] opacity-5"></div>
-        <div className="container relative mx-auto px-4 text-center">
-          <motion.h1 
-            className="text-5xl md:text-6xl font-bold text-white mb-4 font-orbitron uppercase tracking-tighter"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            Dealer Access
-          </motion.h1>
-          <motion.p className="text-xl text-gray-300 font-poppins">Join the network of professional CCTV installers</motion.p>
-        </div>
-      </section>
+      <div className="min-h-screen bg-slate-50 py-20 px-4">
+        <Card className="max-w-xl mx-auto shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-center text-2xl font-bold">
+              {isLogin ? "LOGIN ACCESS" : "JOIN THE NETWORK"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {error && <div className="p-3 mb-4 bg-red-100 text-red-700 text-sm rounded">{error}</div>}
+            {message && <div className="p-3 mb-4 bg-blue-100 text-blue-700 text-sm rounded">{message}</div>}
 
-      {/* Auth Forms Section */}
-      <section className="py-20 bg-slate-50 dark:bg-slate-900">
-        <div className="container mx-auto px-4">
-          <motion.div className="max-w-md mx-auto">
-            {error && (
-              <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-md font-poppins text-center font-bold">
-                {error}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Common Fields */}
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label>Full Name</Label>
+                  <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label>Email Address</Label>
+                <Input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
-            )}
 
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-8 h-12 bg-slate-200 dark:bg-slate-800">
-                <TabsTrigger value="login" className="font-poppins font-bold uppercase">Login</TabsTrigger>
-                <TabsTrigger value="register" className="font-poppins font-bold uppercase">Register</TabsTrigger>
-              </TabsList>
+              {!isLogin && (
+                <>
+                  {/* Role Selection */}
+                  <div className="py-4 border-y">
+                    <Label className="mb-3 block font-bold">Select Your Role:</Label>
+                    <div className="flex gap-6">
+                      {['customer', 'dealer', 'admin'].map((r) => (
+                        <div key={r} className="flex items-center space-x-2">
+                          <input 
+                            type="radio" 
+                            name="role" 
+                            checked={role === r} 
+                            onChange={() => setRole(r as Role)} 
+                          />
+                          <Label className="capitalize">{r}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Login Form */}
-              <TabsContent value="login">
-                <Card className="border-none shadow-2xl bg-white dark:bg-slate-800">
-                  <CardHeader>
-                    <CardTitle className="font-orbitron text-center uppercase">Sign In</CardTitle>
-                    <CardDescription className="text-center font-poppins text-xs">
-                      Access your assigned installation requests
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="login-email">Email Address</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input
-                            id="login-email"
-                            type="email"
-                            placeholder="dealer@company.com"
-                            required
-                            value={loginData.email}
-                            onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                            className="pl-10 font-poppins"
-                          />
-                        </div>
-                      </div>
+                  {/* Dynamic Fields */}
+                  {(role === 'customer' || role === 'dealer') && (
+                    <div className="space-y-2">
+                      <Label>Phone Number</Label>
+                      <Input required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                    </div>
+                  )}
 
+                  {role === 'dealer' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="login-password">Password</Label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input
-                            id="login-password"
-                            type={showPassword ? "text" : "password"}
-                            required
-                            value={loginData.password}
-                            onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                            className="pl-10 pr-10 font-poppins"
-                          />
-                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
+                        <Label>Business Name</Label>
+                        <Input required value={formData.businessName} onChange={e => setFormData({...formData, businessName: e.target.value})} />
                       </div>
+                      <div className="space-y-2">
+                        <Label>Business Location</Label>
+                        <Input required value={formData.businessLocation} onChange={e => setFormData({...formData, businessLocation: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>GST Number</Label>
+                        <Input required value={formData.gstNumber} onChange={e => setFormData({...formData, gstNumber: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Registration Number</Label>
+                        <Input required value={formData.registrationNumber} onChange={e => setFormData({...formData, registrationNumber: e.target.value})} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
-                      <Button disabled={isLoading} className="w-full font-orbitron bg-blue-600 hover:bg-blue-700 h-12">
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "AUTHENTICATE"}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+              </div>
 
-              {/* Register Form */}
-              <TabsContent value="register">
-                <Card className="border-none shadow-2xl bg-white dark:bg-slate-800">
-                  <CardHeader>
-                    <CardTitle className="font-orbitron text-center uppercase">Create Account</CardTitle>
-                    <CardDescription className="text-center font-poppins text-xs">
-                      Join the Citive Dealer Service Network
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Full Name / Business Name</Label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input 
-                            required 
-                            className="pl-10" 
-                            placeholder="John Doe"
-                            value={registerData.name}
-                            onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Email Address</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input 
-                            type="email" 
-                            placeholder="dealer@company.com"
-                            required 
-                            className="pl-10"
-                            value={registerData.email}
-                            onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Phone Number</Label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input 
-                            type="tel" 
-                            placeholder="+91 XXXXX XXXXX"
-                            required 
-                            className="pl-10"
-                            value={registerData.phone}
-                            onChange={(e) => setRegisterData({...registerData, phone: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Password</Label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input 
-                            type={showPassword ? "text" : "password"}
-                            required 
-                            className="pl-10 pr-10"
-                            value={registerData.password}
-                            onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-                          />
-                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Confirm Password</Label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                          <Input 
-                            type={showConfirmPassword ? "text" : "password"}
-                            required 
-                            className="pl-10 pr-10"
-                            value={registerData.confirmPassword}
-                            onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-                          />
-                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-                      </div>
-                      <Button disabled={isLoading} className="w-full font-orbitron bg-blue-600 hover:bg-blue-700 h-12">
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "REGISTER NOW"}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </motion.div>
-        </div>
-      </section>
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label>Confirm Password</Label>
+                  <Input type="password" required value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} />
+                </div>
+              )}
 
+              <Button disabled={isLoading} className="w-full bg-blue-600">
+                {isLoading ? <Loader2 className="animate-spin" /> : isLogin ? "LOGIN" : "CREATE ACCOUNT"}
+              </Button>
+            </form>
+
+            <button 
+              onClick={() => setIsLogin(!isLogin)} 
+              className="w-full mt-6 text-sm text-blue-600 hover:underline"
+            >
+              {isLogin ? "Don't have an account? Register here" : "Already have an account? Login here"}
+            </button>
+          </CardContent>
+        </Card>
+      </div>
       <Footer />
     </>
   )
