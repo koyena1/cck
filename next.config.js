@@ -1,17 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Required for static export
-  output: 'export',
-
-  // Recommended for Azure static hosting
-  trailingSlash: true,
-
-  // Prevent Next Image optimization issues in static export
+  // Server-side rendering enabled for API routes and database connections
+  // output: 'export', // REMOVED - incompatible with API routes
+  
   images: {
     unoptimized: true,
   },
 
-  // Disable server-only features explicitly (safety)
   reactStrictMode: true,
 };
 

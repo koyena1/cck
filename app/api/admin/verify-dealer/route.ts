@@ -1,17 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sql from 'mssql';
-
-// Database configuration matching your MSSQL setup
-const config = {
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER || 'localhost',
-    database: process.env.DB_NAME,
-    options: {
-        encrypt: true, 
-        trustServerCertificate: true 
-    }
-};
+import { getPool } from '@/lib/db';
 
 /**
  * PATCH: Updates a dealer's status.
@@ -29,21 +17,16 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
-        // Connect to MSSQL
-        let pool = await sql.connect(config);
-
-        // Execute Update query on the Dealers table
-        const result = await pool.request()
-            .input('DealerID', sql.Int, dealerId)
-            .input('Status', sql.NVarChar(50), status)
-            .query(`
-                UPDATE Dealers 
-                SET Status = @Status 
-                WHERE DealerID = @DealerID
-            `);
+        const pool = getPool();
+        
+        // Execute Update query on the dealers table
+        const result = await pool.query(
+            'UPDATE dealers SET status = $1 WHERE dealer_id = $2',
+            [status, dealerId]
+        );
 
         // Verify if the record existed
-        if (result.rowsAffected[0] === 0) {
+        if (result.rowCount === 0) {
             return NextResponse.json(
                 { error: "Dealer not found." },
                 { status: 404 }

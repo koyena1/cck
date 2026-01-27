@@ -1,60 +1,34 @@
 import { NextResponse } from 'next/server';
-import sql from 'mssql';
-
-const sqlConfig = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  server: process.env.DB_SERVER || 'localhost',
-  options: { encrypt: true, trustServerCertificate: true },
-};
+import { getPool } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { role, name, email, password } = body;
-    let pool = await sql.connect(sqlConfig);
+    const pool = getPool();
 
-    if (role === 'customer') {
-      await pool.request()
-        .input('name', sql.NVarChar, name)
-        .input('email', sql.NVarChar, email)
-        .input('phone', sql.NVarChar, body.phone)
-        .input('pass', sql.NVarChar, password)
-        .query('INSERT INTO Customers (FullName, Email, PhoneNumber, PasswordHash) VALUES (@name, @email, @phone, @pass)');
+    // Only allow dealer and admin registration
+    if (role === 'dealer') {
+      await pool.query(
+        `INSERT INTO dealers (full_name, email, phone_number, business_name, business_address, gstin, registration_number, password_hash, status) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [name, email, body.phone, body.businessName || null, body.businessLocation || null, body.gstNumber || null, body.registrationNumber || null, password, 'Pending Approval']
+      );
       
-      return NextResponse.json({ success: true, message: 'Customer registered' });
-
-    } else if (role === 'dealer') {
-      await pool.request()
-        .input('name', sql.NVarChar, name)
-        .input('email', sql.NVarChar, email)
-        .input('phone', sql.NVarChar, body.phone)
-        .input('bizName', sql.NVarChar, body.businessName)
-        .input('loc', sql.NVarChar, body.businessLocation)
-        .input('gst', sql.NVarChar, body.gstNumber)
-        .input('regNo', sql.NVarChar, body.registrationNumber)
-        .input('pass', sql.NVarChar, password)
-        .query(`
-          INSERT INTO Dealers (FullName, Email, PhoneNumber, BusinessName, BusinessAddress, GSTIN, RegistrationNumber, PasswordHash, Status) 
-          VALUES (@name, @email, @phone, @bizName, @loc, @gst, @regNo, @pass, 'Pending Approval')
-        `);
-      
-      return NextResponse.json({ success: true, requiresApproval: true });
+      return NextResponse.json({ success: true, requiresApproval: true, message: 'Dealer registration submitted. Waiting for admin approval.' });
 
     } else if (role === 'admin') {
-      await pool.request()
-        .input('name', sql.NVarChar, name)
-        .input('email', sql.NVarChar, email)
-        .input('pass', sql.NVarChar, password)
-        .query('INSERT INTO Admins (Username, Email, PasswordHash) VALUES (@name, @email, @pass)');
+      await pool.query(
+        'INSERT INTO admins (username, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+        [name, email, password, body.adminRole || 'admin']
+      );
       
-      return NextResponse.json({ success: true, message: 'Admin created' });
+      return NextResponse.json({ success: true, message: 'Admin account created successfully' });
     }
 
-    return NextResponse.json({ success: false, message: 'Invalid role' }, { status: 400 });
-  } catch (err) {
-    console.error("Auth Error:", err);
-    return NextResponse.json({ success: false, message: 'Database error or user exists' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Invalid role. Only dealer and admin registration allowed.' }, { status: 400 });
+  } catch (err: any) {
+    console.error("Registration Error:", err);
+    return NextResponse.json({ success: false, message: err.message || 'Database error or user already exists' }, { status: 500 });
   }
 }

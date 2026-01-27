@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server';
-import sql from 'mssql';
-
-const sqlConfig = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  server: process.env.DB_SERVER || 'localhost',
-  options: { encrypt: true, trustServerCertificate: true },
-};
+import { getPool } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
@@ -20,15 +12,15 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    let pool = await sql.connect(sqlConfig);
+    const pool = getPool();
     
-    const result = await pool.request()
-      .input('email', sql.NVarChar, email)
-      .input('password', sql.NVarChar, password)
-      .query('SELECT * FROM Dealers WHERE Email = @email AND PasswordHash = @password');
+    const result = await pool.query(
+      'SELECT * FROM dealers WHERE email = $1 AND password_hash = $2',
+      [email, password]
+    );
 
-    if (result.recordset.length > 0) {
-      return NextResponse.json({ success: true, user: result.recordset[0] });
+    if (result.rows.length > 0) {
+      return NextResponse.json({ success: true, user: result.rows[0] });
     } else {
       return NextResponse.json({ success: false, message: "Invalid email or password" }, { status: 401 });
     }

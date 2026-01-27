@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server';
-import sql from 'mssql';
+import { getPool } from '@/lib/db';
 
-const sqlConfig = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  server: process.env.DB_SERVER || 'localhost',
-  options: { encrypt: true, trustServerCertificate: true },
-};
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
 
+// Get all orders (for admin dashboard)
 export async function GET() {
   try {
-    let pool = await sql.connect(sqlConfig);
-    const result = await pool.request()
-      .query('SELECT * FROM CustomerLeads ORDER BY CreatedAt DESC');
-    return NextResponse.json(result.recordset);
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT 
+        order_id, order_number, customer_name, customer_phone, 
+        order_type, status, total_amount, pincode, city,
+        assigned_dealer_id, created_at, expected_delivery_date
+      FROM orders 
+      ORDER BY created_at DESC`
+    );
+    return NextResponse.json(result.rows);
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 });
+    console.error('Database error in /api/leads:', err);
+    return NextResponse.json({ error: 'Failed to fetch orders', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
   }
 }

@@ -14,6 +14,7 @@ export function Navbar() {
     { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
     { href: "/about", label: "About Us" },
+    { href: "/track-order", label: "Track Order" },
   ]
 
   // Light theme active style: Light grey background with dark text

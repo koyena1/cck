@@ -1,11 +1,15 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { 
-  Users, 
   TrendingUp, 
   Clock, 
   CheckCircle2, 
-  MoreVertical,
+  Users,
   ArrowUpRight,
-  MapPin
+  MapPin,
+  Package,
+  Phone
 } from "lucide-react"
 import { 
   Card, 
@@ -18,104 +22,234 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 export default function AdminDashboard() {
-  // Mock data representing your current business state
-  const stats = [
-    { title: "Total Leads", value: "128", icon: TrendingUp, trend: "+12%", color: "text-blue-500" },
-    { title: "Active Dealers", value: "42", icon: Users, trend: "Within 5-10km", color: "text-purple-500" },
-    { title: "Pending Verification", value: "14", icon: Clock, trend: "Requires Call", color: "text-orange-500" },
-    { title: "Completed Jobs", value: "89", icon: CheckCircle2, trend: "This Month", color: "text-green-500" },
-  ]
+  const [stats, setStats] = useState({
+    todayOrders: 0,
+    pendingOrders: 0,
+    completedOrders: 0,
+    activeDealers: 0
+  });
+  
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentLeads = [
-    { id: "L-001", customer: "John Doe", location: "Mumbai (400001)", status: "Pending Call", date: "2 mins ago" },
-    { id: "L-002", customer: "Sarah Smith", location: "Delhi (110001)", status: "Floated", date: "15 mins ago" },
-    { id: "L-003", customer: "TechCorp Inc", location: "Bangalore (560001)", status: "Verified", date: "1 hour ago" },
-  ]
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch orders
+      const ordersResponse = await fetch('/api/leads', {
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!ordersResponse.ok) {
+        const errorData = await ordersResponse.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('API error:', errorData);
+        setLoading(false);
+        return;
+      }
+      
+      const ordersData = await ordersResponse.json();
+      
+      if (Array.isArray(ordersData)) {
+        // Calculate stats
+        const today = new Date().toDateString();
+        const todayOrders = ordersData.filter(order => 
+          new Date(order.created_at).toDateString() === today
+        ).length;
+        
+        const pendingOrders = ordersData.filter(order => 
+          order.status === 'Pending' || order.status === 'Verified'
+        ).length;
+        
+        const completedOrders = ordersData.filter(order => 
+          order.status === 'Completed'
+        ).length;
+        
+        setStats({
+          todayOrders,
+          pendingOrders,
+          completedOrders,
+          activeDealers: 42 // Can fetch from dealers table later
+        });
+        
+        // Set recent orders (top 5)
+        setRecentOrders(ordersData.slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, string> = {
+      'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'Verified': 'bg-blue-100 text-blue-800 border-blue-200',
+      'Allocated': 'bg-purple-100 text-purple-800 border-purple-200',
+      'In_Transit': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      'Delivered': 'bg-green-100 text-green-800 border-green-200',
+      'Completed': 'bg-green-100 text-green-800 border-green-200',
+      'Cancelled': 'bg-red-100 text-red-800 border-red-200'
+    };
+    return variants[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-slate-500">Loading dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       {/* Header Section */}
       <div>
-        <h1 className="text-3xl font-bold font-orbitron tracking-tight">Executive Overview</h1>
-        <p className="text-muted-foreground mt-1">Real-time status of your service aggregation platform.</p>
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Executive Overview</h1>
+        <p className="text-slate-600 mt-1">Real-time status of your service aggregation platform.</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, index) => (
-          <Card key={index} className="border-primary/10 bg-card/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium font-poppins text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-orbitron">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1 font-poppins">{stat.trend}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-7">
-        {/* Recent Leads Table Component */}
-        <Card className="md:col-span-4 border-primary/10">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="font-orbitron">Recent Leads</CardTitle>
-                <CardDescription>Latest customer requests needing manual verification </CardDescription>
-              </div>
-              <Button variant="outline" size="sm" className="font-poppins">View All</Button>
-            </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-0 bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 text-white shadow-lg hover:shadow-xl transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-white/90">
+              Today's Orders
+            </CardTitle>
+            <Package className="w-5 h-5 text-white/80" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {recentLeads.map((lead) => (
-                <div key={lead.id} className="flex items-center justify-between group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-primary" />
+            <div className="text-4xl font-black text-white">{stats.todayOrders}</div>
+            <p className="text-xs text-white/80 mt-2 font-medium">New orders today</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-white/90">
+              Pending Orders
+            </CardTitle>
+            <Clock className="w-5 h-5 text-white/80" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-white">{stats.pendingOrders}</div>
+            <p className="text-xs text-white/80 mt-2 font-medium">Requires action</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-gradient-to-br from-teal-400 via-emerald-500 to-green-500 text-white shadow-lg hover:shadow-xl transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-white/90">
+              Completed Orders
+            </CardTitle>
+            <CheckCircle2 className="w-5 h-5 text-white/80" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-white">{stats.completedOrders}</div>
+            <p className="text-xs text-white/80 mt-2 font-medium">This month</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-gradient-to-br from-purple-400 via-purple-500 to-indigo-600 text-white shadow-lg hover:shadow-xl transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium text-white/90">
+              Active Dealers
+            </CardTitle>
+            <Users className="w-5 h-5 text-white/80" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-white">{stats.activeDealers}</div>
+            <p className="text-xs text-white/80 mt-2 font-medium">Within 5-10km</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-7">
+        {/* Recent Orders Table */}
+        <Card className="lg:col-span-4 border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 border-b">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-black text-slate-900">Recent Orders</CardTitle>
+                <CardDescription>Latest customer orders needing action</CardDescription>
+              </div>
+              <Link href="/admin/orders">
+                <Button variant="outline" size="sm" className="font-bold border-purple-200 hover:bg-purple-50 hover:text-purple-600">View All</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {recentOrders.length > 0 ? (
+                recentOrders.map((order: any) => (
+                  <div key={order.order_id} className="flex items-center justify-between p-4 hover:bg-purple-50/50 rounded-lg transition-all group border border-transparent hover:border-purple-200">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
+                        <MapPin className="w-6 h-6 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-900">{order.customer_name}</p>
+                        <p className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                          <Phone size={12} /> {order.customer_phone} • {order.pincode}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold font-poppins">{lead.customer}</p>
-                      <p className="text-xs text-muted-foreground">{lead.location} • {lead.date}</p>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-xs font-mono font-bold text-slate-400">{order.order_number}</p>
+                        <p className="text-sm font-black text-purple-600">₹{order.total_amount}</p>
+                      </div>
+                      <Badge className={`${getStatusBadge(order.status)} border font-bold`}>
+                        {order.status}
+                      </Badge>
+                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
+                        <ArrowUpRight className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant={lead.status === "Pending Call" ? "destructive" : "secondary"}>
-                      {lead.status}
-                    </Badge>
-                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ArrowUpRight className="w-4 h-4" />
-                    </Button>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-slate-400">
+                  <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                  <p className="font-semibold">No orders yet</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Quick Actions / Pricing Control Placeholder */}
-        <Card className="md:col-span-3 border-primary/10">
-          <CardHeader>
-            <CardTitle className="font-orbitron">Quick Actions</CardTitle>
+        {/* Quick Actions */}
+        <Card className="lg:col-span-3 border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 border-b">
+            <CardTitle className="font-black text-slate-900">Quick Actions</CardTitle>
             <CardDescription>Frequently used management tools</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
-            <Button variant="outline" className="justify-start gap-3 font-poppins h-12">
-              <TrendingUp className="w-4 h-4" />
-              Update Product Prices
-            </Button>
-            <Button variant="outline" className="justify-start gap-3 font-poppins h-12">
-              <Users className="w-4 h-4" />
-              Onboard New Dealer
-            </Button>
-            <Button variant="outline" className="justify-start gap-3 font-poppins h-12 text-destructive hover:text-destructive">
-              <Clock className="w-4 h-4" />
-              View Urgent Callbacks
-            </Button>
+          <CardContent className="p-6 space-y-3">
+            <Link href="/admin/orders">
+              <Button variant="outline" className="w-full justify-start gap-3 font-bold h-14 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-300">
+                <TrendingUp className="w-5 h-5" />
+                Update Product Prices
+              </Button>
+            </Link>
+            <Link href="/admin/access">
+              <Button variant="outline" className="w-full justify-start gap-3 font-bold h-14 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-300">
+                <Users className="w-5 h-5" />
+                Onboard New Dealer
+              </Button>
+            </Link>
+            <Link href="/admin/orders?filter=pending">
+              <Button variant="outline" className="w-full justify-start gap-3 font-bold h-14 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-300">
+                <Clock className="w-5 h-5" />
+                View Urgent Callbacks
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
