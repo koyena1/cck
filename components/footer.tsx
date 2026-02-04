@@ -1,5 +1,6 @@
 'use client'
 
+import React from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Facebook, Clock, MapPin, MessageSquare, ArrowRight } from "lucide-react"
@@ -7,25 +8,27 @@ import { motion } from "framer-motion"
 import { Badge } from "./ui/badge"
 import { Separator } from "./ui/separator"
 
-export function Footer() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
+// Define animation variants outside component to prevent recreation on each render
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
     }
   }
+}
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0
-    }
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0
   }
+}
+
+function FooterComponent() {
 
 
 
@@ -258,3 +261,7 @@ export function Footer() {
     </footer>
   )
 }
+
+// Memoize the Footer component to prevent unnecessary re-renders
+export const Footer = React.memo(FooterComponent)
+Footer.displayName = 'Footer'

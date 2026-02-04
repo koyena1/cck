@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, Plus, Edit, Trash2, DollarSign, Cable, Wrench, Shield } from "lucide-react";
+import { Package, Plus, Edit, Trash2, DollarSign, Cable, Wrench, Shield, Save, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,17 @@ export default function PricingManagementPage() {
   const [showAMCModal, setShowAMCModal] = useState(false);
   
   const [editingItem, setEditingItem] = useState<any>(null);
+  
+  // Bulk price adjustment
+  const [bulkPercentage, setBulkPercentage] = useState<string>('');
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  
+  // Global settings
+  const [globalSettings, setGlobalSettings] = useState<any>({});
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  // Base pricing edits (temporary state before saving)
+  const [basePriceEdits, setBasePriceEdits] = useState<Record<string, any>>({});
 
   useEffect(() => {
     fetchPricingData();
@@ -49,9 +60,36 @@ export default function PricingManagementPage() {
       if (response.ok) {
         const data = await response.json();
         setQuotationSettings(data);
+        setGlobalSettings(data.settings || { gst_rate: 18, default_discount: 0, installation_charges_base: 5000 });
       }
     } catch (error) {
       console.error('Failed to fetch quotation settings:', error);
+    }
+  };
+
+  const handleSaveGlobalSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const response = await fetch('/api/quotation-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'settings',
+          id: 1,
+          ...globalSettings
+        })
+      });
+      
+      if (response.ok) {
+        alert('Global settings saved successfully!');
+      } else {
+        alert('Failed to save global settings');
+      }
+    } catch (error) {
+      console.error('Save settings error:', error);
+      alert('Failed to save global settings');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -103,6 +141,149 @@ export default function PricingManagementPage() {
     }
   };
 
+  const handleBulkPriceAdjustment = async () => {
+    const percentage = parseFloat(bulkPercentage);
+    
+    if (isNaN(percentage) || percentage === 0) {
+      alert('Please enter a valid percentage (e.g., 10 or -10)');
+      return;
+    }
+    
+    if (!confirm(`Are you sure you want to ${percentage > 0 ? 'increase' : 'decrease'} all product prices by ${Math.abs(percentage)}%? This will affect all cameras, accessories, cables, installation, and AMC prices.`)) {
+      return;
+    }
+    
+    setIsBulkUpdating(true);
+    
+    try {
+      const response = await fetch('/api/enhanced-pricing/bulk-adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ percentage })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(`Success! Prices updated:\n- Cameras: ${data.updated.cameras}\n- HD Accessories: ${data.updated.hd_accessories}\n- IP Accessories: ${data.updated.ip_accessories}\n- Cables: ${data.updated.cables}\n- Installation: ${data.updated.installation}\n- AMC: ${data.updated.amc}`);
+        setBulkPercentage('');
+        fetchPricingData();
+      } else {
+        alert(`Failed to update prices: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      alert('Failed to update prices');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleUpdateQuotationPrice = async (table: string, id: number, price: number) => {
+    try {
+      console.log('Updating price:', { table, id, price });
+      const response = await fetch('/api/quotation-manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table, id, price })
+      });
+      
+      const data = await response.json();
+      console.log('Response:', data);
+      
+      if (response.ok) {
+        alert('Price updated successfully!');
+        fetchQuotationSettings();
+      } else {
+        alert(`Failed to update price: ${data.error || 'Unknown error'}`);
+        console.error('API Error:', data);
+      }
+    } catch (error) {
+      console.error('Update price error:', error);
+      alert(`Failed to update price: ${error}`);
+    }
+  };
+
+  const handleUpdateBrandPrice = async (brandId: number, cameraTypeId: number, price: number) => {
+    try {
+      console.log('Updating brand price:', { brandId, cameraTypeId, price });
+      const response = await fetch('/api/quotation-manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          table: 'brand_camera_type_pricing',
+          brand_id: brandId,
+          camera_type_id: cameraTypeId,
+          price: price
+        })
+      });
+      
+      const data = await response.json();
+      console.log('Response:', data);
+      
+      if (response.ok) {
+        alert('Brand price updated successfully!');
+        fetchQuotationSettings();
+      } else {
+        alert(`Failed to update brand price: ${data.error || 'Unknown error'}`);
+        console.error('API Error:', data);
+      }
+    } catch (error) {
+      console.error('Update brand price error:', error);
+      alert(`Failed to update brand price: ${error}`);
+    }
+  };
+
+  const handleUpdateTechTypePrice = async (id: number, hdPrice: number, ipPrice: number) => {
+    try {
+      console.log('Updating tech type price:', { id, hdPrice, ipPrice });
+      const response = await fetch('/api/quotation-manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: 'camera_tech_types', id, hd_price: hdPrice, ip_price: ipPrice })
+      });
+      
+      const data = await response.json();
+      console.log('Response:', data);
+      
+      if (response.ok) {
+        alert('Tech type prices updated successfully!');
+        fetchQuotationSettings();
+      } else {
+        alert(`Failed to update tech type prices: ${data.error || 'Unknown error'}`);
+        console.error('API Error:', data);
+      }
+    } catch (error) {
+      console.error('Update tech type price error:', error);
+      alert(`Failed to update tech type prices: ${error}`);
+    }
+  };
+
+  const handleUpdateStoragePrice = async (id: number, hdPrice: number, ipPrice: number) => {
+    try {
+      console.log('Updating storage price:', { id, hdPrice, ipPrice });
+      const response = await fetch('/api/quotation-manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: 'storage_options', id, hd_price: hdPrice, ip_price: ipPrice })
+      });
+      
+      const data = await response.json();
+      console.log('Response:', data);
+      
+      if (response.ok) {
+        alert('Storage prices updated successfully!');
+        fetchQuotationSettings();
+      } else {
+        alert(`Failed to update storage prices: ${data.error || 'Unknown error'}`);
+        console.error('API Error:', data);
+      }
+    } catch (error) {
+      console.error('Update storage price error:', error);
+      alert(`Failed to update storage prices: ${error}`);
+    }
+  };
+
   if (loading) return <div>Loading...</div>;
 
   const { cameras = [], hd_accessories = [], ip_accessories = [], cables = [], installation = [], amc = [] } = pricingData;
@@ -111,12 +292,110 @@ export default function PricingManagementPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-900">Complete Pricing Management</h1>
-        <p className="text-slate-600 mt-1">Manage all pricing: cameras, accessories, cables, installation & AMC</p>
+        <h1 className="text-3xl font-black text-slate-900">Product & Pricing Master</h1>
+        <p className="text-slate-600 mt-1">Complete product catalog with pricing - Single source of truth for all products</p>
       </div>
 
-      <Tabs defaultValue="cameras" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+      {/* Bulk Price Adjustment Section */}
+      <Card className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-orange-900">
+            <DollarSign className="w-5 h-5" />
+            Bulk Price Adjustment (Backend Only)
+          </CardTitle>
+          <CardDescription className="text-orange-700">
+            Adjust all product prices by a percentage. Use positive values to increase (e.g., 10) or negative values to decrease (e.g., -10). 
+            <strong className="block mt-1">Note: This changes database prices but does NOT affect frontend display.</strong>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3 max-w-md">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="bulkPercentage">Percentage Change</Label>
+              <Input
+                id="bulkPercentage"
+                type="number"
+                step="0.01"
+                placeholder="Enter percentage (e.g., 10 or -10)"
+                value={bulkPercentage}
+                onChange={(e) => setBulkPercentage(e.target.value)}
+                disabled={isBulkUpdating}
+              />
+            </div>
+            <Button 
+              onClick={handleBulkPriceAdjustment}
+              disabled={isBulkUpdating || !bulkPercentage}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {isBulkUpdating ? 'Updating...' : 'Apply to All Products'}
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500 mt-3">
+            Example: Enter "10" to increase all prices by 10%, or "-5" to decrease by 5%
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Global Settings Section */}
+      <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <Settings className="w-5 h-5" />
+            Global Pricing Settings
+          </CardTitle>
+          <CardDescription className="text-blue-700">
+            Configure GST, default discounts, and base installation charges for all quotations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="gst" className="font-bold">GST Rate (%)</Label>
+              <Input 
+                id="gst" 
+                type="number" 
+                value={globalSettings?.gst_rate || 18}
+                onChange={(e) => setGlobalSettings({...globalSettings, gst_rate: parseFloat(e.target.value)})}
+                disabled={isSavingSettings}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="discount" className="font-bold">Default Discount (%)</Label>
+              <Input 
+                id="discount" 
+                type="number" 
+                value={globalSettings?.default_discount || 0}
+                onChange={(e) => setGlobalSettings({...globalSettings, default_discount: parseFloat(e.target.value)})}
+                disabled={isSavingSettings}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="installation" className="font-bold">Base Installation Charges (₹)</Label>
+              <Input 
+                id="installation" 
+                type="number" 
+                value={globalSettings?.installation_charges_base || 5000}
+                onChange={(e) => setGlobalSettings({...globalSettings, installation_charges_base: parseFloat(e.target.value)})}
+                disabled={isSavingSettings}
+              />
+            </div>
+          </div>
+          <Button 
+            onClick={handleSaveGlobalSettings}
+            disabled={isSavingSettings}
+            className="w-full mt-4 bg-blue-600 hover:bg-blue-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {isSavingSettings ? 'Saving...' : 'Save Global Settings'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="base-pricing" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-9">
+          <TabsTrigger value="base-pricing">Base Pricing</TabsTrigger>
+          <TabsTrigger value="tech-types">Camera Tech Types</TabsTrigger>
+          <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="cameras">Cameras</TabsTrigger>
           <TabsTrigger value="hd-accessories">HD Accessories</TabsTrigger>
           <TabsTrigger value="ip-accessories">IP Accessories</TabsTrigger>
@@ -124,6 +403,353 @@ export default function PricingManagementPage() {
           <TabsTrigger value="installation">Installation</TabsTrigger>
           <TabsTrigger value="amc">AMC</TabsTrigger>
         </TabsList>
+
+        {/* Base Pricing Tab - Camera Types, Brands, Channels, Pixels */}
+        <TabsContent value="base-pricing">
+          <div className="space-y-6">
+            {/* Camera Type Pricing */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Camera Type Pricing
+                </CardTitle>
+                <CardDescription>Set base prices for IP and HD camera types</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full">
+                  <thead className="bg-slate-100 border-b-2">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold uppercase">Camera Type</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Price (₹)</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {quotationSettings?.cameraTypes?.map((ct: any) => (
+                      <tr key={ct.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-bold">{ct.name}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Input 
+                            type="number" 
+                            className="w-32 ml-auto text-right"
+                            defaultValue={ct.price || 0}
+                            onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`ct_${ct.id}`]: parseFloat(e.target.value) || 0 }))}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              const price = basePriceEdits[`ct_${ct.id}`] ?? ct.price ?? 0;
+                              handleUpdateQuotationPrice('camera_types', ct.id, price);
+                            }}
+                          >
+                            Update
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            {/* Brand Pricing */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Brand Pricing
+                </CardTitle>
+                <CardDescription>Set different prices for each brand based on camera type</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full">
+                  <thead className="bg-slate-100 border-b-2">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold uppercase">Brand</th>
+                      {quotationSettings?.cameraTypes?.map((ct: any) => (
+                        <th key={ct.id} className="px-4 py-3 text-right text-xs font-bold uppercase">
+                          {ct.name} Price (₹)
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {quotationSettings?.brands?.map((brand: any) => (
+                      <tr key={brand.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-bold">{brand.name}</td>
+                        {quotationSettings?.cameraTypes?.map((ct: any) => (
+                          <td key={ct.id} className="px-4 py-3 text-right">
+                            <Input 
+                              type="number" 
+                              className="w-32 ml-auto text-right"
+                              defaultValue={brand.pricing?.[`camera_type_${ct.id}`] || 0}
+                              onChange={(e) => setBasePriceEdits(prev => ({ 
+                                ...prev, 
+                                [`brand_${brand.id}_ct_${ct.id}`]: parseFloat(e.target.value) || 0 
+                              }))}
+                            />
+                          </td>
+                        ))}
+                        <td className="px-4 py-3 text-center">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={async () => {
+                              // Update all camera type prices for this brand
+                              for (const ct of quotationSettings?.cameraTypes || []) {
+                                const price = basePriceEdits[`brand_${brand.id}_ct_${ct.id}`] 
+                                  ?? brand.pricing?.[`camera_type_${ct.id}`] 
+                                  ?? 0;
+                                await handleUpdateBrandPrice(brand.id, ct.id, price);
+                              }
+                            }}
+                          >
+                            Update
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            {/* Channel Pricing */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  DVR/NVR Channel Pricing
+                </CardTitle>
+                <CardDescription>Set prices for different channel options (4CH, 8CH, 16CH)</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full">
+                  <thead className="bg-slate-100 border-b-2">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold uppercase">Channels</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Price (₹)</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {quotationSettings?.channels?.map((ch: any) => (
+                      <tr key={ch.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-bold">{ch.channel_count} CH</td>
+                        <td className="px-4 py-3 text-right">
+                          <Input 
+                            type="number" 
+                            className="w-32 ml-auto text-right"
+                            defaultValue={ch.price || 0}
+                            onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`ch_${ch.id}`]: parseFloat(e.target.value) || 0 }))}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              const price = basePriceEdits[`ch_${ch.id}`] ?? ch.price ?? 0;
+                              handleUpdateQuotationPrice('channel_options', ch.id, price);
+                            }}
+                          >
+                            Update
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            {/* Pixel Pricing */}
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Pixel/Resolution Pricing
+                </CardTitle>
+                <CardDescription>Set premium prices for higher resolution options (2MP, 5MP, 8MP)</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full">
+                  <thead className="bg-slate-100 border-b-2">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold uppercase">Megapixel</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Premium Price (₹)</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {quotationSettings?.pixels?.map((px: any) => (
+                      <tr key={px.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-bold">{px.name}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Input 
+                            type="number" 
+                            className="w-32 ml-auto text-right"
+                            defaultValue={px.price || 0}
+                            onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`px_${px.id}`]: parseFloat(e.target.value) || 0 }))}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              const price = basePriceEdits[`px_${px.id}`] ?? px.price ?? 0;
+                              handleUpdateQuotationPrice('pixel_options', px.id, price);
+                            }}
+                          >
+                            Update
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Camera Tech Type Pricing Tab */}
+        <TabsContent value="tech-types">
+          <Card>
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Camera Technology Type Pricing (HD vs IP)
+              </CardTitle>
+              <CardDescription>Set different prices for each camera tech type based on HD or IP camera</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full">
+                <thead className="bg-slate-100 border-b-2">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase">Tech Type</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Camera Type</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Location</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">HD Price (₹)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">IP Price (₹)</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {quotationSettings?.techTypes?.map((tech: any) => (
+                    <tr key={tech.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-bold">{tech.name}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={tech.camera_type === 'IP' ? 'default' : 'secondary'}>
+                          {tech.camera_type}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant="outline">{tech.location}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Input 
+                          type="number" 
+                          className="w-32 ml-auto text-right"
+                          defaultValue={tech.hd_price || tech.base_price || 0}
+                          onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`tech_hd_${tech.id}`]: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Input 
+                          type="number" 
+                          className="w-32 ml-auto text-right"
+                          defaultValue={tech.ip_price || tech.base_price || 0}
+                          onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`tech_ip_${tech.id}`]: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={async () => {
+                            const hdPrice = basePriceEdits[`tech_hd_${tech.id}`] ?? tech.hd_price ?? tech.base_price ?? 0;
+                            const ipPrice = basePriceEdits[`tech_ip_${tech.id}`] ?? tech.ip_price ?? tech.base_price ?? 0;
+                            await handleUpdateTechTypePrice(tech.id, hdPrice, ipPrice);
+                          }}
+                        >
+                          Update
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Storage Pricing Tab */}
+        <TabsContent value="storage">
+          <Card>
+            <CardHeader className="bg-gradient-to-r from-teal-50 to-cyan-50">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Storage Pricing (HD vs IP)
+              </CardTitle>
+              <CardDescription>Set different prices for each storage capacity based on HD or IP camera system</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full">
+                <thead className="bg-slate-100 border-b-2">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase">Capacity</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">HD Price (₹)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">IP Price (₹)</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {quotationSettings?.storage?.map((storage: any) => (
+                    <tr key={storage.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-bold">{storage.capacity}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Input 
+                          type="number" 
+                          className="w-32 ml-auto text-right"
+                          defaultValue={storage.hd_price || storage.price || 0}
+                          onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`storage_hd_${storage.id}`]: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Input 
+                          type="number" 
+                          className="w-32 ml-auto text-right"
+                          defaultValue={storage.ip_price || storage.price || 0}
+                          onChange={(e) => setBasePriceEdits(prev => ({ ...prev, [`storage_ip_${storage.id}`]: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={async () => {
+                            const hdPrice = basePriceEdits[`storage_hd_${storage.id}`] ?? storage.hd_price ?? storage.price ?? 0;
+                            const ipPrice = basePriceEdits[`storage_ip_${storage.id}`] ?? storage.ip_price ?? storage.price ?? 0;
+                            await handleUpdateStoragePrice(storage.id, hdPrice, ipPrice);
+                          }}
+                        >
+                          Update
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Cameras Tab */}
         <TabsContent value="cameras">

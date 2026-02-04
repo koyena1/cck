@@ -4,9 +4,9 @@ import { getPool } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    const { orderNumber, phoneNumber, otpCode } = await request.json();
+    const { phoneNumber, otpCode } = await request.json();
 
-    if (!orderNumber || !phoneNumber || !otpCode) {
+    if (!phoneNumber || !otpCode) {
       return NextResponse.json({ 
         success: false, 
         message: 'All fields are required' 
@@ -15,17 +15,16 @@ export async function POST(request: Request) {
 
     const pool = getPool();
 
-    // Verify OTP
+    // Verify OTP (updated to work with current table structure)
     const otpResult = await pool.query(
       `SELECT * FROM order_tracking_otps 
-       WHERE order_number = $1 
-       AND phone_number = $2 
-       AND otp_code = $3 
+       WHERE phone_number = $1 
+       AND otp_code = $2 
        AND is_verified = false 
        AND expires_at > NOW()
        ORDER BY created_at DESC 
        LIMIT 1`,
-      [orderNumber, phoneNumber, otpCode]
+      [phoneNumber, otpCode]
     );
 
     if (otpResult.rows.length === 0) {
@@ -41,49 +40,36 @@ export async function POST(request: Request) {
       [otpResult.rows[0].otp_id]
     );
 
-    // Fetch complete order details
-    const orderResult = await pool.query(
+    // Fetch all orders for this phone number
+    const ordersResult = await pool.query(
       `SELECT 
         o.*,
         d.full_name as dealer_name,
         d.phone_number as dealer_phone
       FROM orders o
       LEFT JOIN dealers d ON o.assigned_dealer_id = d.dealer_id
-      WHERE o.order_number = $1`,
-      [orderNumber]
+      WHERE o.customer_phone = $1
+      ORDER BY o.created_at DESC`,
+      [phoneNumber]
     );
 
-    if (orderResult.rows.length === 0) {
+    if (ordersResult.rows.length === 0) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Order not found' 
+        message: 'No orders found' 
       }, { status: 404 });
     }
 
-    const order = orderResult.rows[0];
-
-    // Fetch order status history
-    const historyResult = await pool.query(
-      `SELECT status, remarks, created_at 
-       FROM order_status_history 
-       WHERE order_id = $1 
-       ORDER BY created_at ASC`,
-      [order.order_id]
-    );
-
     return NextResponse.json({ 
       success: true,
-      order: {
-        ...order,
-        history: historyResult.rows
-      }
+      orders: ordersResult.rows
     });
 
   } catch (err: any) {
     console.error('Verify OTP Error:', err);
     return NextResponse.json({ 
       success: false, 
-      message: 'Verification failed' 
+      message: 'Failed to verify OTP' 
     }, { status: 500 });
   }
 }

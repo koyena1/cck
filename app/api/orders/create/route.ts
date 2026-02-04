@@ -44,6 +44,12 @@ export async function POST(request: Request) {
       
       // Delivery
       expectedDeliveryDate,
+      expectedInstallationDate,
+      
+      // Payment
+      paymentMethod,
+      paymentStatus,
+      status,
       
       // Bill of Materials
       billOfMaterials
@@ -73,11 +79,11 @@ export async function POST(request: Request) {
           indoor_cameras, outdoor_cameras, storage_size, cable_option,
           includes_accessories, includes_installation,
           subtotal, installation_charges, delivery_charges, tax_amount, discount_amount, total_amount,
-          expected_delivery_date,
-          status, payment_status
+          expected_delivery_date, installation_date,
+          payment_method, payment_status, status
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-          $20, $21, $22, $23, $24, $25, $26, $27, $28
+          $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
         ) RETURNING order_id, order_number`,
         [
           customerName, customerPhone, customerEmail || null,
@@ -90,39 +96,39 @@ export async function POST(request: Request) {
           includesAccessories || false, includesInstallation || false,
           subtotal || 0, installationCharges || 0, deliveryCharges || 0,
           taxAmount || 0, discountAmount || 0, totalAmount,
-          expectedDeliveryDate || null,
-          'Pending', 'Pending'
+          expectedDeliveryDate || null, expectedInstallationDate || null,
+          paymentMethod || null, paymentStatus || 'Pending', status || 'Pending'
         ]
       );
 
       const { order_id, order_number } = orderResult.rows[0];
 
-      // Insert order items (Bill of Materials)
-      if (billOfMaterials && billOfMaterials.length > 0) {
-        for (const item of billOfMaterials) {
-          await pool.query(
-            `INSERT INTO order_items (
-              order_id, item_type, item_name, item_description, quantity, unit_price, total_price
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-              order_id,
-              item.type || 'Product',
-              item.name,
-              item.description || null,
-              item.quantity,
-              item.unitPrice || 0,
-              item.totalPrice || (item.quantity * item.unitPrice)
-            ]
-          );
-        }
-      }
+      // Insert order items (Bill of Materials) - Commented out as order_items table doesn't exist yet
+      // if (billOfMaterials && billOfMaterials.length > 0) {
+      //   for (const item of billOfMaterials) {
+      //     await pool.query(
+      //       `INSERT INTO order_items (
+      //         order_id, item_type, item_name, item_description, quantity, unit_price, total_price
+      //       ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      //       [
+      //         order_id,
+      //         item.type || 'Product',
+      //         item.name,
+      //         item.description || null,
+      //         item.quantity,
+      //         item.unitPrice || 0,
+      //         item.totalPrice || (item.quantity * item.unitPrice)
+      //       ]
+      //     );
+      //   }
+      // }
 
-      // Create initial status history
-      await pool.query(
-        `INSERT INTO order_status_history (order_id, status, remarks)
-         VALUES ($1, $2, $3)`,
-        [order_id, 'Pending', 'Order created from website quotation']
-      );
+      // Create initial status history - Commented out as order_status_history table doesn't exist yet
+      // await pool.query(
+      //   `INSERT INTO order_status_history (order_id, status, remarks)
+      //    VALUES ($1, $2, $3)`,
+      //   [order_id, 'Pending', 'Order created from website quotation']
+      // );
 
       // Commit transaction
       await pool.query('COMMIT');

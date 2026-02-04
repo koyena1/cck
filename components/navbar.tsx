@@ -1,19 +1,23 @@
 "use client"
 
+import React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Zap, UserCircle, Menu, X } from "lucide-react"
+import { Zap, UserCircle, Menu, X, ShoppingBag } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useCart } from "./cart-context"
 
-export function Navbar() {
+function NavbarComponent() {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { cartCount, setIsCartOpen } = useCart()
 
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
     { href: "/about", label: "About Us" },
+    { href: "/quotation-management", label: "Quotation Management", highlighted: true },
     { href: "/track-order", label: "Track Order" },
   ]
 
@@ -35,13 +39,16 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => {
             const isActive = pathname === link.href
+            const linkStyle = link.highlighted 
+              ? "ml-2 flex items-center gap-2 px-6 py-2 bg-[#e63946] text-white hover:bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
+              : isActive ? activeStyle : inactiveStyle
             return (
               <Link
                 key={link.label}
                 href={link.href}
                 className={cn(
                   "text-sm font-semibold transition-all duration-300",
-                  isActive ? activeStyle : inactiveStyle
+                  linkStyle
                 )}
               >
                 {link.label}
@@ -57,6 +64,20 @@ export function Navbar() {
             <Zap size={14} fill="white" />
             Contact Us
           </Link>
+          
+          {/* Cart Icon */}
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="ml-2 relative p-2 hover:bg-slate-100 rounded-full transition-colors"
+            aria-label="Shopping cart"
+          >
+            <ShoppingBag className="w-6 h-6 text-slate-900 stroke-2" />
+            {cartCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg border-2 border-white">
+                {cartCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Mobile Menu Toggle Button - Darker Icon */}
@@ -86,6 +107,9 @@ export function Navbar() {
           <div className="flex flex-col gap-4">
             {navLinks.map((link) => {
               const isActive = pathname === link.href
+              const linkStyle = link.highlighted
+                ? "bg-[#e63946] text-white"
+                : isActive ? "bg-slate-100 text-[#e63946]" : "text-slate-600 hover:bg-slate-50"
               return (
                 <Link
                   key={link.label}
@@ -93,7 +117,7 @@ export function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
                     "text-base font-medium transition-all duration-300 text-center py-3 rounded-full",
-                    isActive ? "bg-slate-100 text-[#e63946]" : "text-slate-600 hover:bg-slate-50"
+                    linkStyle
                   )}
                 >
                   {link.label}
@@ -114,3 +138,7 @@ export function Navbar() {
     </nav>
   )
 }
+
+// Memoize the Navbar component to prevent unnecessary re-renders
+export const Navbar = React.memo(NavbarComponent)
+Navbar.displayName = 'Navbar'

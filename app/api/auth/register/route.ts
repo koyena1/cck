@@ -4,7 +4,7 @@ import { getPool } from '@/lib/db';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { role, name, email, password } = body;
+    const { role, name, email, password, username } = body;
     const pool = getPool();
 
     // Only allow dealer and admin registration
@@ -18,9 +18,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, requiresApproval: true, message: 'Dealer registration submitted. Waiting for admin approval.' });
 
     } else if (role === 'admin') {
+      // Use username from body for admin registration
+      const adminUsername = username || name;
       await pool.query(
         'INSERT INTO admins (username, email, password_hash, role) VALUES ($1, $2, $3, $4)',
-        [name, email, password, body.adminRole || 'admin']
+        [adminUsername, email, password, body.adminRole || 'admin']
       );
       
       return NextResponse.json({ success: true, message: 'Admin account created successfully' });

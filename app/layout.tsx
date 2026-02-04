@@ -5,6 +5,8 @@ import { WhatsAppFloat } from "@/components/whatsapp-float"
 import Chatbot from "@/components/chatbot" // This looks for the 'export default'
 import { CookieConsent } from "@/components/cookie-consent"
 import { SmoothScroll } from "@/components/smooth-scroll"
+import { CartProvider } from "@/components/cart-context"
+import { CartSidebar } from "@/components/cart-sidebar"
 import "./globals.css"
 
 const poppins = Poppins({
@@ -162,11 +164,14 @@ export default function RootLayout({
         />
       </head>
       <body className={`${poppins.variable} ${orbitron.variable} font-sans antialiased`}>
-        <SmoothScroll />
-        {children}
-        <Chatbot />
-        <WhatsAppFloat />
-        <CookieConsent />
+        <CartProvider>
+          <SmoothScroll />
+          {children}
+          <CartSidebar />
+          <Chatbot />
+          <WhatsAppFloat />
+          <CookieConsent />
+        </CartProvider>
       </body>
     </html>
   )

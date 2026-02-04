@@ -21,23 +21,24 @@ import {
 } from "lucide-react";
 
 export default function TrackOrderPage() {
-  // Step 1: Enter Order ID & Phone
-  const [orderNumber, setOrderNumber] = useState("");
+  // Step 1: Enter Phone Number
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   
-  // Step 2: OTP Verification
+  // Step 2: Verify OTP
   const [otpCode, setOtpCode] = useState("");
-  const [isVerified, setIsVerified] = useState(false);
+  const [verified, setVerified] = useState(false);
   
-  // Step 3: Order Details
-  const [orderDetails, setOrderDetails] = useState<any>(null);
+  // Step 3: Display Orders
+  const [orders, setOrders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSendOTP = async () => {
-    if (!orderNumber || phoneNumber.length < 10) {
-      setError("Please enter valid Order ID and Phone Number");
+    if (phoneNumber.length !== 10) {
+      setError("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -48,7 +49,7 @@ export default function TrackOrderPage() {
       const response = await fetch("/api/track-order/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber, phoneNumber }),
+        body: JSON.stringify({ phoneNumber }),
       });
 
       const data = await response.json();
@@ -56,12 +57,17 @@ export default function TrackOrderPage() {
       if (data.success) {
         setOtpSent(true);
         setError("");
-        alert(`OTP sent to ${phoneNumber}. Check your messages!`);
+        // Show dev OTP in console for testing
+        if (data.devOtp) {
+          console.log("DEV OTP:", data.devOtp);
+          alert(`DEV MODE: OTP is ${data.devOtp}`);
+        }
       } else {
-        setError(data.message || "Order not found or phone number mismatch");
+        setError(data.message || data.error || "No orders found for this phone number");
       }
-    } catch (err) {
-      setError("Failed to send OTP. Please try again.");
+    } catch (err: any) {
+      console.error("Send OTP error:", err);
+      setError("Failed to send OTP. Please check console for details.");
     } finally {
       setLoading(false);
     }
@@ -69,7 +75,7 @@ export default function TrackOrderPage() {
 
   const handleVerifyOTP = async () => {
     if (otpCode.length !== 6) {
-      setError("Please enter 6-digit OTP");
+      setError("Please enter a valid 6-digit OTP");
       return;
     }
 
@@ -80,37 +86,36 @@ export default function TrackOrderPage() {
       const response = await fetch("/api/track-order/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber, phoneNumber, otpCode }),
+        body: JSON.stringify({ phoneNumber, otpCode }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setIsVerified(true);
-        setOrderDetails(data.order);
+        setVerified(true);
+        setOrders(data.orders || []);
         setError("");
       } else {
-        setError(data.message || "Invalid OTP");
+        setError(data.message || "Invalid OTP. Please try again.");
       }
     } catch (err) {
-      setError("Verification failed. Please try again.");
+      setError("Failed to verify OTP. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase() || '';
     const colors: Record<string, string> = {
-      Pending: "bg-yellow-100 text-yellow-800",
-      Verified: "bg-blue-100 text-blue-800",
-      Allocated: "bg-purple-100 text-purple-800",
-      In_Transit: "bg-indigo-100 text-indigo-800",
-      Delivered: "bg-green-100 text-green-800",
-      Installation_Pending: "bg-orange-100 text-orange-800",
-      Completed: "bg-green-100 text-green-800",
-      Cancelled: "bg-red-100 text-red-800",
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "in progress": "bg-blue-100 text-blue-800 border-blue-200",
+      "in-progress": "bg-blue-100 text-blue-800 border-blue-200",
+      completed: "bg-green-100 text-green-800 border-green-200",
+      cancelled: "bg-red-100 text-red-800 border-red-200",
+      delivered: "bg-green-100 text-green-800 border-green-200",
     };
-    return colors[status] || "bg-gray-100 text-gray-800";
+    return colors[statusLower] || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
   const StatusTimeline = ({ history }: { history: any[] }) => (
@@ -142,49 +147,40 @@ export default function TrackOrderPage() {
       <section className="pt-32 pb-20">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="text-center mb-12">
-            <Package className="w-16 h-16 text-[#e63946] mx-auto mb-4" />
+            <Shield className="w-16 h-16 text-[#e63946] mx-auto mb-4" />
             <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tight mb-2">
-              Track Your Order
+              Track Your Orders
             </h1>
-            <p className="text-slate-600">Enter your order details to check the latest status</p>
+            <p className="text-slate-600">Secure access with OTP verification</p>
           </div>
 
-          {!isVerified ? (
+          {!verified ? (
             <Card className="bg-white shadow-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="text-[#e63946]" size={24} />
-                  Secure Verification
+                  <Phone className="text-[#e63946]" size={24} />
+                  {!otpSent ? "Enter Your Phone Number" : "Verify OTP"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {!otpSent ? (
                   <>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-bold uppercase text-slate-700 mb-2 block">
-                          Order Number
-                        </label>
-                        <Input
-                          placeholder="e.g., ORD-20260125-0001"
-                          value={orderNumber}
-                          onChange={(e) => setOrderNumber(e.target.value.toUpperCase())}
-                          className="text-lg font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-bold uppercase text-slate-700 mb-2 block">
-                          Registered Phone Number
-                        </label>
-                        <Input
-                          type="tel"
-                          maxLength={10}
-                          placeholder="10-digit mobile number"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                          className="text-lg"
-                        />
-                      </div>
+                    <div>
+                      <label className="text-sm font-bold uppercase text-slate-700 mb-2 block">
+                        Registered Mobile Number
+                      </label>
+                      <Input
+                        type="tel"
+                        maxLength={10}
+                        placeholder="10-digit mobile number"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                        className="text-lg"
+                        onKeyPress={(e) => e.key === 'Enter' && handleSendOTP()}
+                      />
+                      <p className="text-xs text-slate-500 mt-2">
+                        Enter the phone number you used when placing your orders
+                      </p>
                     </div>
 
                     {error && (
@@ -205,7 +201,7 @@ export default function TrackOrderPage() {
                   <>
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-sm font-bold text-green-800">
-                        OTP sent to {phoneNumber}
+                        ✓ OTP sent to +91 {phoneNumber}
                       </p>
                       <p className="text-xs text-green-600 mt-1">
                         Please check your SMS messages
@@ -223,6 +219,7 @@ export default function TrackOrderPage() {
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                         className="text-2xl font-mono text-center tracking-widest"
+                        onKeyPress={(e) => e.key === 'Enter' && handleVerifyOTP()}
                       />
                     </div>
 
@@ -242,14 +239,14 @@ export default function TrackOrderPage() {
                         variant="outline"
                         className="flex-1"
                       >
-                        Change Details
+                        Change Number
                       </Button>
                       <Button
                         onClick={handleVerifyOTP}
                         disabled={loading}
                         className="flex-1 bg-[#e63946] hover:bg-red-700 font-bold"
                       >
-                        {loading ? "Verifying..." : "Verify & Track"}
+                        {loading ? "Verifying..." : "Verify & View Orders"}
                       </Button>
                     </div>
                   </>
@@ -258,91 +255,159 @@ export default function TrackOrderPage() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Order Summary */}
+              {/* Orders List */}
               <Card className="bg-white shadow-xl">
                 <CardHeader className="bg-slate-900 text-white">
                   <CardTitle className="flex items-center justify-between">
-                    <span>Order #{orderDetails.order_number}</span>
-                    <Badge className={getStatusColor(orderDetails.status)}>
-                      {orderDetails.status.replace(/_/g, " ")}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="flex items-start gap-3">
-                      <User className="text-[#e63946] mt-1" size={20} />
-                      <div>
-                        <p className="text-xs font-bold uppercase text-slate-500">Customer</p>
-                        <p className="text-sm font-bold text-slate-900">{orderDetails.customer_name}</p>
-                        <p className="text-xs text-slate-600">{orderDetails.customer_phone}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <MapPin className="text-[#e63946] mt-1" size={20} />
-                      <div>
-                        <p className="text-xs font-bold uppercase text-slate-500">Location</p>
-                        <p className="text-sm text-slate-900">{orderDetails.installation_address}</p>
-                        <p className="text-xs text-slate-600">{orderDetails.city}, {orderDetails.pincode}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <Calendar className="text-[#e63946] mt-1" size={20} />
-                      <div>
-                        <p className="text-xs font-bold uppercase text-slate-500">Expected Delivery</p>
-                        <p className="text-sm font-bold text-slate-900">
-                          {orderDetails.expected_delivery_date 
-                            ? new Date(orderDetails.expected_delivery_date).toLocaleDateString() 
-                            : "TBD"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <CreditCard className="text-[#e63946] mt-1" size={20} />
-                      <div>
-                        <p className="text-xs font-bold uppercase text-slate-500">Total Amount</p>
-                        <p className="text-2xl font-black text-[#e63946]">₹{orderDetails.total_amount}</p>
-                        <p className="text-xs text-slate-600">{orderDetails.payment_status}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Status Timeline */}
-              <Card className="bg-white shadow-xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="text-[#e63946]" size={24} />
-                    Order Timeline
+                    <span>Your Orders ({orders.length})</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setVerified(false);
+                        setOtpSent(false);
+                        setOtpCode("");
+                        setPhoneNumber("");
+                        setOrders([]);
+                        setSelectedOrder(null);
+                      }}
+                      className="text-white border-white hover:bg-white hover:text-slate-900"
+                    >
+                      Logout
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {orderDetails.history && orderDetails.history.length > 0 ? (
-                    <StatusTimeline history={orderDetails.history} />
+                  {orders.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400">
+                      <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                      <p className="font-semibold">No orders found</p>
+                    </div>
                   ) : (
-                    <p className="text-slate-500 text-sm">No tracking history available yet.</p>
+                    <div className="space-y-4">
+                      {orders.map((order: any) => (
+                        <div
+                          key={order.order_id}
+                          className="p-4 border border-slate-200 rounded-lg hover:border-[#e63946] transition-colors cursor-pointer"
+                          onClick={() => setSelectedOrder(order)}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <p className="font-mono font-bold text-slate-900">{order.order_number}</p>
+                              <p className="text-xs text-slate-500">
+                                {new Date(order.created_at).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                            <Badge className={getStatusColor(order.status)}>
+                              {order.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">
+                              {order.order_type === 'product_cart' ? '🛒 Cart Order' : 
+                               order.order_type === 'hd_combo' ? '📦 HD Combo' :
+                               order.order_type === 'quotation' ? '📋 Quotation' : 
+                               order.order_type}
+                            </span>
+                            <span className="font-bold text-[#e63946]">
+                              ₹{order.total_amount?.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
 
-              <Button
-                onClick={() => {
-                  setIsVerified(false);
-                  setOtpSent(false);
-                  setOrderNumber("");
-                  setPhoneNumber("");
-                  setOtpCode("");
-                  setOrderDetails(null);
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Track Another Order
-              </Button>
+              {/* Selected Order Details */}
+              {selectedOrder && (
+                <Card className="bg-white shadow-xl">
+                  <CardHeader className="bg-[#e63946] text-white">
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Order Details</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSelectedOrder(null)}
+                        className="text-white hover:bg-white/20"
+                      >
+                        ✕ Close
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="flex items-start gap-3">
+                        <User className="text-[#e63946] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-500">Customer</p>
+                          <p className="text-sm font-bold text-slate-900">{selectedOrder.customer_name}</p>
+                          <p className="text-xs text-slate-600">{selectedOrder.customer_phone}</p>
+                          {selectedOrder.customer_email && (
+                            <p className="text-xs text-slate-600">{selectedOrder.customer_email}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <MapPin className="text-[#e63946] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-500">Location</p>
+                          <p className="text-sm text-slate-900">{selectedOrder.installation_address || selectedOrder.address}</p>
+                          <p className="text-xs text-slate-600">
+                            {selectedOrder.city}, {selectedOrder.state} - {selectedOrder.pincode}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <Calendar className="text-[#e63946] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-500">Order Date</p>
+                          <p className="text-sm font-bold text-slate-900">
+                            {new Date(selectedOrder.created_at).toLocaleDateString('en-IN')}
+                          </p>
+                          {selectedOrder.expected_delivery_date && (
+                            <p className="text-xs text-slate-600">
+                              Expected: {new Date(selectedOrder.expected_delivery_date).toLocaleDateString('en-IN')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <CreditCard className="text-[#e63946] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs font-bold uppercase text-slate-500">Payment</p>
+                          <p className="text-2xl font-black text-[#e63946]">
+                            ₹{selectedOrder.total_amount?.toLocaleString('en-IN')}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            {selectedOrder.payment_method?.toUpperCase() || 'N/A'} • {selectedOrder.payment_status}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <p className="text-xs font-bold uppercase text-slate-500 mb-2">Current Status</p>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${getStatusColor(selectedOrder.status)} text-sm px-3 py-1`}>
+                          {selectedOrder.status}
+                        </Badge>
+                        <span className="text-xs text-slate-500">
+                          Last updated: {new Date(selectedOrder.updated_at).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </div>

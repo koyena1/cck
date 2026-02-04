@@ -4,38 +4,30 @@ import { getPool } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    const { orderNumber, phoneNumber } = await request.json();
+    const { phoneNumber } = await request.json();
 
-    if (!orderNumber || !phoneNumber) {
+    if (!phoneNumber) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Order number and phone number are required' 
+        message: 'Phone number is required' 
       }, { status: 400 });
     }
 
     const pool = getPool();
 
-    // Verify order exists and phone matches
+    // Check if phone number has any orders
     const orderResult = await pool.query(
-      'SELECT order_id, customer_phone FROM orders WHERE order_number = $1',
-      [orderNumber]
+      'SELECT COUNT(*)::int as order_count FROM orders WHERE customer_phone = $1',
+      [phoneNumber]
     );
 
-    if (orderResult.rows.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Order not found' 
-      }, { status: 404 });
-    }
+    console.log(`Phone: ${phoneNumber}, Order Count: ${orderResult.rows[0].order_count}`);
 
-    const order = orderResult.rows[0];
-    
-    // Check if phone number matches
-    if (order.customer_phone !== phoneNumber) {
+    if (orderResult.rows[0].order_count === 0 || orderResult.rows[0].order_count === '0') {
       return NextResponse.json({ 
         success: false, 
-        message: 'Phone number does not match our records' 
-      }, { status: 403 });
+        message: 'No orders found for this phone number' 
+      }, { status: 404 });
     }
 
     // Generate 6-digit OTP
@@ -45,10 +37,11 @@ export async function POST(request: Request) {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     // Store OTP in database
+    // Temporarily use 'PHONE-ONLY' as order_number until migration is run
     await pool.query(
       `INSERT INTO order_tracking_otps (order_number, phone_number, otp_code, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [orderNumber, phoneNumber, otpCode, expiresAt]
+      ['PHONE-ONLY', phoneNumber, otpCode, expiresAt]
     );
 
     // TODO: Integrate SMS gateway (Twilio, MSG91, etc.)
@@ -67,9 +60,11 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error('Send OTP Error:', err);
+    console.error('Error details:', err.message, err.stack);
     return NextResponse.json({ 
       success: false, 
-      message: 'Failed to send OTP' 
+      message: err.message || 'Failed to send OTP',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 });
   }
 }

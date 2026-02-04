@@ -29,7 +29,7 @@ export default function AdminDashboard() {
     activeDealers: 0
   });
   
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

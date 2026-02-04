@@ -8,10 +8,10 @@ export async function PUT(request: Request) {
   try {
     const body = await request.json();
     console.log('PUT request received:', body);
-    const { id, name, display_order, is_active, table, channel_count, features, capacity, price, base_price, camera_type, location, cable_type, length } = body;
+    const { id, name, display_order, is_active, table, channel_count, features, capacity, price, base_price, camera_type, location, cable_type, length, hd_price, ip_price, brand_id, camera_type_id } = body;
     const pool = getPool();
     
-    const validTables = ['camera_types', 'brands', 'pixel_options', 'channel_options', 'camera_tech_types', 'storage_options', 'cable_options', 'accessories'];
+    const validTables = ['camera_types', 'brands', 'pixel_options', 'channel_options', 'camera_tech_types', 'storage_options', 'cable_options', 'accessories', 'brand_camera_type_pricing'];
     if (!validTables.includes(table)) {
       console.error('Invalid table:', table);
       return NextResponse.json({ error: 'Invalid table' }, { status: 400 });
@@ -20,31 +20,103 @@ export async function PUT(request: Request) {
     let query = '';
     let values: any[] = [];
     
-    switch (table) {
-      case 'channel_options':
-        query = `UPDATE ${table} SET channel_count = $1, features = $2, display_order = $3, is_active = $4 WHERE id = $5`;
-        values = [channel_count, JSON.stringify(features || []), display_order || 0, is_active !== false, id];
-        break;
-      case 'storage_options':
-        query = `UPDATE ${table} SET capacity = $1, price = $2, display_order = $3, is_active = $4 WHERE id = $5`;
-        values = [capacity, price, display_order || 0, is_active !== false, id];
-        break;
-      case 'accessories':
-        query = `UPDATE ${table} SET name = $1, price = $2, display_order = $3, is_active = $4 WHERE id = $5`;
-        values = [name, price, display_order || 0, is_active !== false, id];
-        break;
-      case 'camera_tech_types':
-        query = `UPDATE ${table} SET name = $1, camera_type = $2, location = $3, base_price = $4, display_order = $5, is_active = $6 WHERE id = $7`;
-        values = [name, camera_type, location, base_price, display_order || 0, is_active !== false, id];
-        console.log('Updating camera_tech_types with query:', query, 'values:', values);
-        break;
-      case 'cable_options':
-        query = `UPDATE ${table} SET name = $1, cable_type = $2, length = $3, price = $4, display_order = $5, is_active = $6 WHERE id = $7`;
-        values = [name, cable_type, length, price, display_order || 0, is_active !== false, id];
-        break;
-      default:
-        query = `UPDATE ${table} SET name = $1, display_order = $2, is_active = $3 WHERE id = $4`;
-        values = [name, display_order || 0, is_active !== false, id];
+    // Handle brand_camera_type_pricing updates
+    if (table === 'brand_camera_type_pricing' && brand_id && camera_type_id && price !== undefined) {
+      // Insert or update brand pricing for a specific camera type
+      query = `
+        INSERT INTO brand_camera_type_pricing (brand_id, camera_type_id, price, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+        ON CONFLICT (brand_id, camera_type_id) 
+        DO UPDATE SET price = $3, updated_at = CURRENT_TIMESTAMP
+      `;
+      values = [brand_id, camera_type_id, price];
+    } else if (price !== undefined && !name && table === 'camera_types') {
+      query = `UPDATE camera_types SET price = $1 WHERE id = $2`;
+      values = [price, id];
+    } else if (price !== undefined && !name && table === 'channel_options') {
+      query = `UPDATE channel_options SET price = $1 WHERE id = $2`;
+      values = [price, id];
+    } else if (price !== undefined && !name && table === 'pixel_options') {
+      query = `UPDATE pixel_options SET price = $1 WHERE id = $2`;
+      values = [price, id];
+    } else if ((hd_price !== undefined || ip_price !== undefined) && table === 'brands') {
+      // Handle brand pricing (HD and IP prices)
+      const updateFields = [];
+      const updateValues = [];
+      if (hd_price !== undefined) {
+        updateFields.push(`hd_price = $${updateValues.length + 1}`);
+        updateValues.push(hd_price);
+      }
+      if (ip_price !== undefined) {
+        updateFields.push(`ip_price = $${updateValues.length + 1}`);
+        updateValues.push(ip_price);
+      }
+      updateValues.push(id);
+      query = `UPDATE brands SET ${updateFields.join(', ')} WHERE id = $${updateValues.length}`;
+      values = updateValues;
+    } else if ((hd_price !== undefined || ip_price !== undefined) && table === 'camera_tech_types') {
+      // Handle camera tech type pricing (HD and IP prices)
+      const updateFields = [];
+      const updateValues = [];
+      if (hd_price !== undefined) {
+        updateFields.push(`hd_price = $${updateValues.length + 1}`);
+        updateValues.push(hd_price);
+      }
+      if (ip_price !== undefined) {
+        updateFields.push(`ip_price = $${updateValues.length + 1}`);
+        updateValues.push(ip_price);
+      }
+      updateValues.push(id);
+      query = `UPDATE camera_tech_types SET ${updateFields.join(', ')} WHERE id = $${updateValues.length}`;
+      values = updateValues;
+    } else if ((hd_price !== undefined || ip_price !== undefined) && table === 'storage_options') {
+      // Handle storage pricing (HD and IP prices)
+      const updateFields = [];
+      const updateValues = [];
+      if (hd_price !== undefined) {
+        updateFields.push(`hd_price = $${updateValues.length + 1}`);
+        updateValues.push(hd_price);
+      }
+      if (ip_price !== undefined) {
+        updateFields.push(`ip_price = $${updateValues.length + 1}`);
+        updateValues.push(ip_price);
+      }
+      updateValues.push(id);
+      query = `UPDATE storage_options SET ${updateFields.join(', ')} WHERE id = $${updateValues.length}`;
+      values = updateValues;
+    } else {
+      // Original full update logic
+      switch (table) {
+        case 'channel_options':
+          query = `UPDATE ${table} SET channel_count = $1, features = $2, display_order = $3, is_active = $4 WHERE id = $5`;
+          values = [channel_count, JSON.stringify(features || []), display_order || 0, is_active !== false, id];
+          break;
+        case 'storage_options':
+          query = `UPDATE ${table} SET capacity = $1, price = $2, display_order = $3, is_active = $4 WHERE id = $5`;
+          values = [capacity, price, display_order || 0, is_active !== false, id];
+          break;
+        case 'accessories':
+          query = `UPDATE ${table} SET name = $1, price = $2, display_order = $3, is_active = $4 WHERE id = $5`;
+          values = [name, price, display_order || 0, is_active !== false, id];
+          break;
+        case 'camera_tech_types':
+          query = `UPDATE ${table} SET name = $1, camera_type = $2, location = $3, base_price = $4, display_order = $5, is_active = $6 WHERE id = $7`;
+          values = [name, camera_type, location, base_price, display_order || 0, is_active !== false, id];
+          console.log('Updating camera_tech_types with query:', query, 'values:', values);
+          break;
+        case 'cable_options':
+          query = `UPDATE ${table} SET name = $1, cable_type = $2, length = $3, price = $4, display_order = $5, is_active = $6 WHERE id = $7`;
+          values = [name, cable_type, length, price, display_order || 0, is_active !== false, id];
+          break;
+        default:
+          query = `UPDATE ${table} SET name = $1, display_order = $2, is_active = $3 WHERE id = $4`;
+          values = [name, display_order || 0, is_active !== false, id];
+          // Special handling for brands with image
+          if (table === 'brands' && body.image_url !== undefined) {
+            query = `UPDATE ${table} SET name = $1, display_order = $2, is_active = $3, image_url = $4 WHERE id = $5`;
+            values = [name, display_order || 0, is_active !== false, body.image_url, id];
+          }
+      }
     }
     
     await pool.query(query, values);
@@ -53,7 +125,17 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Update error:', err);
-    return NextResponse.json({ error: 'Failed to update', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    
+    // Check if it's a column not found error
+    if (errorMessage.includes('column') && errorMessage.includes('does not exist')) {
+      return NextResponse.json({ 
+        error: 'Database column missing. Please run the SQL migration: update-base-pricing-columns.sql', 
+        details: errorMessage 
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json({ error: 'Failed to update', details: errorMessage }, { status: 500 });
   }
 }
 
@@ -90,30 +172,33 @@ export async function POST(request: Request) {
     
     switch (table) {
       case 'camera_types':
-      case 'brands':
       case 'pixel_options':
         query = `INSERT INTO ${table} (name, display_order) VALUES ($1, $2) RETURNING id`;
         values = [data.name, data.display_order || 0];
+        break;
+      case 'brands':
+        query = `INSERT INTO brands (name, display_order, image_url) VALUES ($1, $2, $3) RETURNING id`;
+        values = [data.name, data.display_order || 0, data.image_url || null];
         break;
       case 'channel_options':
         query = `INSERT INTO channel_options (channel_count, features, display_order) VALUES ($1, $2, $3) RETURNING id`;
         values = [data.channel_count, JSON.stringify(data.features || []), data.display_order || 0];
         break;
       case 'camera_tech_types':
-        query = `INSERT INTO camera_tech_types (name, camera_type, location, base_price, display_order) VALUES ($1, $2, $3, $4, $5) RETURNING id`;
-        values = [data.name, data.camera_type, data.location, data.base_price, data.display_order || 0];
+        query = `INSERT INTO camera_tech_types (name, camera_type, location, base_price, hd_price, ip_price, display_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`;
+        values = [data.name, data.camera_type, data.location, data.base_price || 0, data.hd_price || data.base_price || 0, data.ip_price || data.base_price || 0, data.display_order || 0];
         break;
       case 'storage_options':
         query = `INSERT INTO storage_options (capacity, price, display_order) VALUES ($1, $2, $3) RETURNING id`;
-        values = [data.capacity, data.price, data.display_order || 0];
+        values = [data.capacity, data.price || 0, data.display_order || 0];
         break;
       case 'cable_options':
         query = `INSERT INTO cable_options (name, cable_type, length, price, display_order) VALUES ($1, $2, $3, $4, $5) RETURNING id`;
-        values = [data.name, data.cable_type, data.length, data.price, data.display_order || 0];
+        values = [data.name, data.cable_type, data.length, data.price || 0, data.display_order || 0];
         break;
       case 'accessories':
         query = `INSERT INTO accessories (name, price, display_order) VALUES ($1, $2, $3) RETURNING id`;
-        values = [data.name, data.price, data.display_order || 0];
+        values = [data.name, data.price || 0, data.display_order || 0];
         break;
       default:
         return NextResponse.json({ error: 'Invalid table' }, { status: 400 });

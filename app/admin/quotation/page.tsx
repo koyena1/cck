@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import { notifyGlobalDataChange } from "@/lib/globalDataChangeEmitter";
+import Image from "next/image";
 import { 
   Settings, 
   Plus, 
   Edit, 
   Trash2,
-  Save,
-  Package,
   Camera,
   Tag,
   Grid,
@@ -35,26 +35,8 @@ export default function QuotationManagementPage() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
-  const [cameraPricing, setCameraPricing] = useState<any[]>([]);
-  const [showPricingModal, setShowPricingModal] = useState(false);
-  const [editingPricing, setEditingPricing] = useState<any>(null);
-
-  useEffect(() => {
-    fetchQuotationSettings();
-    fetchCameraPricing();
-  }, []);
-
-  const fetchCameraPricing = async () => {
-    try {
-      const response = await fetch('/api/camera-pricing');
-      if (response.ok) {
-        const data = await response.json();
-        setCameraPricing(data.data || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch camera pricing:', error);
-    }
-  };
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
 
   useEffect(() => {
     fetchQuotationSettings();
@@ -90,6 +72,8 @@ export default function QuotationManagementPage() {
       if (response.ok) {
         alert('Item deleted successfully!');
         fetchQuotationSettings();
+        // Notify all pages that data has changed
+        notifyGlobalDataChange();
       } else {
         alert('Failed to delete item');
       }
@@ -101,17 +85,98 @@ export default function QuotationManagementPage() {
 
   const handleAdd = async () => {
     try {
+      // Auto-generate display order for all item types
+      let displayOrder = formData.display_order || 0;
+      
+      if (showAddModal === 'brands') {
+        const maxOrder = quotationSettings?.brands?.reduce((max: number, brand: any) => 
+          Math.max(max, brand.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'camera_types') {
+        const maxOrder = quotationSettings?.cameraTypes?.reduce((max: number, item: any) => 
+          Math.max(max, item.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'channel_options') {
+        const maxOrder = quotationSettings?.channels?.reduce((max: number, channel: any) => 
+          Math.max(max, channel.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'pixel_options') {
+        const maxOrder = quotationSettings?.pixels?.reduce((max: number, pixel: any) => 
+          Math.max(max, pixel.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'camera_tech_types') {
+        const maxOrder = quotationSettings?.techTypes?.reduce((max: number, tech: any) => 
+          Math.max(max, tech.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'storage_options') {
+        const maxOrder = quotationSettings?.storage?.reduce((max: number, storage: any) => 
+          Math.max(max, storage.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'cable_options') {
+        const maxOrder = quotationSettings?.cables?.reduce((max: number, cable: any) => 
+          Math.max(max, cable.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      if (showAddModal === 'accessories') {
+        const maxOrder = quotationSettings?.accessories?.reduce((max: number, accessory: any) => 
+          Math.max(max, accessory.display_order || 0), 0) || 0;
+        displayOrder = maxOrder + 1;
+      }
+      
+      // Handle image upload for brands
+      let imageUrl = formData.image_url || '';
+      if (showAddModal === 'brands' && imageFile) {
+        const imageFormData = new FormData();
+        imageFormData.append('file', imageFile);
+        imageFormData.append('folder', 'brands');
+        
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: imageFormData
+        });
+        
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          imageUrl = uploadData.url;
+        } else {
+          alert('Failed to upload image');
+          return;
+        }
+      }
+      
       const response = await fetch('/api/quotation-manage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, table: showAddModal })
+        body: JSON.stringify({ 
+          ...formData, 
+          table: showAddModal,
+          display_order: displayOrder,
+          image_url: imageUrl
+        })
       });
       
       if (response.ok) {
         alert('Item added successfully!');
         setShowAddModal(null);
         setFormData({});
+        setImageFile(null);
+        setImagePreview('');
         fetchQuotationSettings();
+        // Notify all pages that data has changed
+        notifyGlobalDataChange();
       } else {
         alert('Failed to add item');
       }
@@ -121,59 +186,77 @@ export default function QuotationManagementPage() {
     }
   };
 
-  const handleDeletePricing = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this price?')) return;
-    
-    try {
-      const response = await fetch(`/api/camera-pricing?id=${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        alert('Price deleted successfully!');
-        fetchCameraPricing();
-      } else {
-        alert('Failed to delete price');
-      }
-    } catch (error) {
-      console.error('Delete pricing error:', error);
-      alert('Failed to delete price');
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleSavePricing = async () => {
-    try {
-      const method = editingPricing?.id ? 'PUT' : 'POST';
-      const response = await fetch('/api/camera-pricing', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingPricing)
-      });
-      
-      if (response.ok) {
-        alert(editingPricing?.id ? 'Price updated!' : 'Price added!');
-        setShowPricingModal(false);
-        setEditingPricing(null);
-        fetchCameraPricing();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Failed to save price');
-      }
-    } catch (error) {
-      console.error('Save pricing error:', error);
-      alert('Failed to save price');
-    }
-  };
+
 
   const handleEdit = async () => {
     try {
-      console.log('Sending update request:', editingItem);
+      console.log('Edit button clicked');
+      console.log('Current editingItem:', editingItem);
+      console.log('Image file:', imageFile);
+      
+      if (!editingItem) {
+        alert('No item selected for editing');
+        return;
+      }
+      
+      // Handle image upload for brands during edit
+      let imageUrl = editingItem.image_url || '';
+      if (editingItem.table === 'brands' && imageFile) {
+        console.log('Uploading new brand image...');
+        const imageFormData = new FormData();
+        imageFormData.append('file', imageFile);
+        imageFormData.append('folder', 'brands');
+        
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: imageFormData
+        });
+        
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          imageUrl = uploadData.url;
+          console.log('Image uploaded successfully:', imageUrl);
+        } else {
+          const errorText = await uploadRes.text();
+          console.error('Image upload failed:', errorText);
+          alert('Failed to upload image');
+          return;
+        }
+      }
+      
+      console.log('Sending update request...');
+      const updateData = {
+        ...editingItem,
+        image_url: imageUrl
+      };
+      console.log('Update data:', updateData);
+      
       const response = await fetch('/api/quotation-manage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingItem)
+        body: JSON.stringify(updateData)
       });
       
       if (response.ok) {
+        console.log('Update successful');
         alert('Item updated successfully!');
+        // Notify all pages that data has changed
+        notifyGlobalDataChange();
         setEditingItem(null);
+        setImageFile(null);
+        setImagePreview('');
         fetchQuotationSettings();
       } else {
         const errorData = await response.json();
@@ -182,7 +265,7 @@ export default function QuotationManagementPage() {
       }
     } catch (error) {
       console.error('Update error:', error);
-      alert('Failed to update item');
+      alert(`Failed to update item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -209,8 +292,8 @@ export default function QuotationManagementPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Quotation Management</h1>
-          <p className="text-slate-600 mt-1">Control all automated quotation settings - changes reflect immediately on homepage</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Quotation Settings</h1>
+          <p className="text-slate-600 mt-1">Configure dropdown options for the quotation calculator - changes reflect immediately on homepage</p>
         </div>
       </div>
 
@@ -220,10 +303,10 @@ export default function QuotationManagementPage() {
           <div className="flex items-start gap-3">
             <Settings className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
-              <p className="font-bold text-blue-900 text-sm">Live Quotation Control</p>
+              <p className="font-bold text-blue-900 text-sm">Configuration Options Only</p>
               <p className="text-blue-700 text-xs mt-1">
-                All settings here directly control the customer-facing quotation engine on the homepage. 
-                Add, edit, or remove options to customize what customers see.
+                Manage dropdown options for the quotation calculator (Camera Types, Brands, Channels, etc.). 
+                For pricing, go to <strong>Product & Pricing Master</strong> page.
               </p>
             </div>
           </div>
@@ -231,9 +314,8 @@ export default function QuotationManagementPage() {
       </Card>
 
       {/* Tabs for different settings */}
-      <Tabs defaultValue="pricing-matrix" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-9">
-          <TabsTrigger value="pricing-matrix">Pricing Matrix</TabsTrigger>
+      <Tabs defaultValue="camera-types" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="camera-types">Camera Types</TabsTrigger>
           <TabsTrigger value="brands">Brands</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
@@ -243,71 +325,6 @@ export default function QuotationManagementPage() {
           <TabsTrigger value="cables">Cables</TabsTrigger>
           <TabsTrigger value="accessories">Accessories</TabsTrigger>
         </TabsList>
-
-        {/* Pricing Matrix Tab */}
-        <TabsContent value="pricing-matrix">
-          <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
-                    <Package className="w-5 h-5" />
-                    Camera Pricing Matrix
-                  </CardTitle>
-                  <CardDescription>Manage prices for each camera combination (Type + Brand + Pixel + Tech)</CardDescription>
-                </div>
-                <Button className="font-bold bg-purple-600 hover:bg-purple-700" onClick={() => { setShowPricingModal(true); setEditingPricing({ camera_type_id: '', brand_id: '', pixel_id: '', tech_type_id: '', base_price: '', notes: '' }); }}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Price
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
-                  <tr>
-                    <th className="px-4 py-4 text-left text-xs font-black text-slate-600 uppercase">Camera Type</th>
-                    <th className="px-4 py-4 text-left text-xs font-black text-slate-600 uppercase">Brand</th>
-                    <th className="px-4 py-4 text-left text-xs font-black text-slate-600 uppercase">Pixel</th>
-                    <th className="px-4 py-4 text-left text-xs font-black text-slate-600 uppercase">Tech Type</th>
-                    <th className="px-4 py-4 text-right text-xs font-black text-slate-600 uppercase">Price</th>
-                    <th className="px-4 py-4 text-left text-xs font-black text-slate-600 uppercase">Notes</th>
-                    <th className="px-4 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {cameraPricing.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-4">
-                        <Badge className="bg-blue-100 text-blue-800">{item.camera_type}</Badge>
-                      </td>
-                      <td className="px-4 py-4 font-bold">{item.brand}</td>
-                      <td className="px-4 py-4">
-                        <Badge className="bg-green-100 text-green-800">{item.pixel}</Badge>
-                      </td>
-                      <td className="px-4 py-4 text-sm">{item.tech_type}</td>
-                      <td className="px-4 py-4 text-right font-bold text-green-600">₹{parseFloat(item.base_price).toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-4 text-sm text-slate-600">{item.notes || '-'}</td>
-                      <td className="px-4 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => { setEditingPricing(item); setShowPricingModal(true); }}><Edit className="w-3 h-3" /></Button>
-                          <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDeletePricing(item.id)}><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {cameraPricing.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                        No pricing data available. Click "Add Price" to create your first price entry.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Camera Types Tab */}
         <TabsContent value="camera-types">
@@ -371,7 +388,12 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>Hikvision, CP Plus, Honeywell options in Step 2</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('brands'); setFormData({ name: '', display_order: 0 }); }}>
+                <Button className="font-bold" onClick={() => { 
+                  setShowAddModal('brands'); 
+                  setFormData({ name: '', display_order: 0 }); 
+                  setImageFile(null);
+                  setImagePreview('');
+                }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Brand
                 </Button>
@@ -381,6 +403,7 @@ export default function QuotationManagementPage() {
               <table className="w-full">
                 <thead className="bg-slate-100 border-b-2">
                   <tr>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Brand Logo</th>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Brand Name</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Display Order</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
@@ -390,15 +413,40 @@ export default function QuotationManagementPage() {
                 <tbody className="divide-y">
                   {brands.map((item: any) => (
                     <tr key={item.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4">
+                        {item.image_url ? (
+                          <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-slate-200 bg-white">
+                            <Image 
+                              src={item.image_url} 
+                              alt={item.name}
+                              fill
+                              className="object-contain p-2"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-bold">
+                            No Logo
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 font-bold">{item.name}</td>
-                      <td className="px-6 py-4 text-center">{item.display_order}</td>
+                      <td className="px-6 py-4 text-center">
+                        <Badge variant="outline" className="font-mono">{item.display_order}</Badge>
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <Badge className="bg-green-100 text-green-800">Active</Badge>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setEditingItem({ ...item, table: 'brands' })}><Edit className="w-3 h-3" /></Button>
-                          <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDelete(item.id, 'brands')}><Trash2 className="w-3 h-3" /></Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setEditingItem({ ...item, table: 'brands' });
+                            setImagePreview(item.image_url || '');
+                          }}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDelete(item.id, 'brands')}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -527,7 +575,7 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>HD Non Audio, HD Audio, HD Smart Hybrid pricing in Step 5</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('camera_tech_types'); setFormData({ name: '', camera_type: 'HD', location: 'indoor', base_price: '', display_order: 0 }); }}>
+                <Button className="font-bold" onClick={() => { setShowAddModal('camera_tech_types'); setFormData({ name: '', camera_type: 'HD', location: 'indoor', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Tech Type
                 </Button>
@@ -540,7 +588,6 @@ export default function QuotationManagementPage() {
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Type Name</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Camera</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Location</th>
-                    <th className="px-6 py-4 text-right text-xs font-black text-slate-600 uppercase">Price</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -553,9 +600,6 @@ export default function QuotationManagementPage() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <Badge variant="outline">{item.location}</Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right font-black text-[#e63946]">
-                        ₹{parseFloat(item.base_price).toLocaleString('en-IN')}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -583,7 +627,7 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>HDD capacity options in Step 7</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('storage_options'); setFormData({ capacity: '', price: '', display_order: 0 }); }}>
+                <Button className="font-bold" onClick={() => { setShowAddModal('storage_options'); setFormData({ capacity: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Storage Option
                 </Button>
@@ -594,7 +638,6 @@ export default function QuotationManagementPage() {
                 <thead className="bg-slate-100 border-b-2">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Capacity</th>
-                    <th className="px-6 py-4 text-right text-xs font-black text-slate-600 uppercase">Price</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
                   </tr>
@@ -603,9 +646,6 @@ export default function QuotationManagementPage() {
                   {storage.map((item: any) => (
                     <tr key={item.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-bold">{item.capacity}</td>
-                      <td className="px-6 py-4 text-right font-black text-[#e63946]">
-                        ₹{parseFloat(item.price).toLocaleString('en-IN')}
-                      </td>
                       <td className="px-6 py-4 text-center">
                         <Badge className="bg-green-100 text-green-800">Active</Badge>
                       </td>
@@ -635,7 +675,7 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>Coaxial and LAN cable options in Step 9</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('cable_options'); setFormData({ name: '', cable_type: 'HD', length: '', price: '', display_order: 0 }); }}>
+                <Button className="font-bold" onClick={() => { setShowAddModal('cable_options'); setFormData({ name: '', cable_type: 'HD', length: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Cable Option
                 </Button>
@@ -648,7 +688,6 @@ export default function QuotationManagementPage() {
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Cable Name</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Type</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Length</th>
-                    <th className="px-6 py-4 text-right text-xs font-black text-slate-600 uppercase">Price</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -660,9 +699,6 @@ export default function QuotationManagementPage() {
                         <Badge variant="outline">{item.cable_type}</Badge>
                       </td>
                       <td className="px-6 py-4 text-center">{item.length}</td>
-                      <td className="px-6 py-4 text-right font-black text-[#e63946]">
-                        ₹{parseFloat(item.price).toLocaleString('en-IN')}
-                      </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => setEditingItem({ ...item, table: 'cable_options' })}><Edit className="w-3 h-3" /></Button>
@@ -689,7 +725,7 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>Additional items like BNC connectors, SMPS in Step 10</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('accessories'); setFormData({ name: '', price: 0, display_order: 0 }); }}>
+                <Button className="font-bold" onClick={() => { setShowAddModal('accessories'); setFormData({ name: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Accessory
                 </Button>
@@ -700,7 +736,6 @@ export default function QuotationManagementPage() {
                 <thead className="bg-slate-100 border-b-2">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Accessory Name</th>
-                    <th className="px-6 py-4 text-right text-xs font-black text-slate-600 uppercase">Price</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
                     <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
                   </tr>
@@ -709,9 +744,6 @@ export default function QuotationManagementPage() {
                   {accessories.map((item: any) => (
                     <tr key={item.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-bold">{item.name}</td>
-                      <td className="px-6 py-4 text-right font-black text-[#e63946]">
-                        ₹{parseFloat(item.price).toLocaleString('en-IN')}
-                      </td>
                       <td className="px-6 py-4 text-center">
                         <Badge className="bg-green-100 text-green-800">Active</Badge>
                       </td>
@@ -729,46 +761,6 @@ export default function QuotationManagementPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Global Settings */}
-      <Card className="border-2">
-        <CardHeader className="bg-slate-50 border-b">
-          <CardTitle className="font-black text-slate-900">Global Settings</CardTitle>
-          <CardDescription>Configure GST, discounts, and other general settings</CardDescription>
-        </CardHeader>
-        <CardContent className="p-6 space-y-4">
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="gst" className="font-bold">GST Rate (%)</Label>
-              <Input 
-                id="gst" 
-                type="number" 
-                defaultValue={settings?.gst_rate || "18"} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="discount" className="font-bold">Default Discount (%)</Label>
-              <Input 
-                id="discount" 
-                type="number" 
-                defaultValue={settings?.default_discount || "0"} 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="installation" className="font-bold">Base Installation Charges (₹)</Label>
-              <Input 
-                id="installation" 
-                type="number" 
-                defaultValue={settings?.installation_charges_base || "5000"} 
-              />
-            </div>
-          </div>
-          <Button className="w-full font-bold">
-            <Save className="w-4 h-4 mr-2" />
-            Save Global Settings
-          </Button>
-        </CardContent>
-      </Card>
 
       {/* Edit Modal */}
       <Dialog open={editingItem !== null} onOpenChange={() => setEditingItem(null)}>
@@ -827,14 +819,6 @@ export default function QuotationManagementPage() {
                     <option value="outdoor">Outdoor</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Base Price (₹)</Label>
-                  <Input 
-                    type="number"
-                    value={editingItem?.base_price || ''} 
-                    onChange={(e) => setEditingItem({...editingItem, base_price: parseFloat(e.target.value)})}
-                  />
-                </div>
               </>
             ) : editingItem?.table === 'cable_options' ? (
               <>
@@ -863,14 +847,6 @@ export default function QuotationManagementPage() {
                     onChange={(e) => setEditingItem({...editingItem, length: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Price (₹)</Label>
-                  <Input 
-                    type="number"
-                    value={editingItem?.price || ''} 
-                    onChange={(e) => setEditingItem({...editingItem, price: parseFloat(e.target.value)})}
-                  />
-                </div>
               </>
             ) : (
               <>
@@ -881,36 +857,48 @@ export default function QuotationManagementPage() {
                     onChange={(e) => setEditingItem({...editingItem, name: e.target.value, capacity: e.target.value})}
                   />
                 </div>
-                {editingItem?.base_price !== undefined && editingItem?.table !== 'camera_tech_types' && (
+                {editingItem?.table === 'brands' && (
                   <div className="space-y-2">
-                    <Label>Price</Label>
+                    <Label>Brand Logo/Image</Label>
+                    {imagePreview && (
+                      <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-slate-200 mb-2">
+                        <Image 
+                          src={imagePreview} 
+                          alt="Preview"
+                          fill
+                          className="object-contain p-2"
+                        />
+                      </div>
+                    )}
                     <Input 
-                      type="number"
-                      value={editingItem?.base_price || editingItem?.price || ''} 
-                      onChange={(e) => setEditingItem({...editingItem, base_price: e.target.value, price: e.target.value})}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="cursor-pointer"
                     />
-                  </div>
-                )}
-                {editingItem?.price !== undefined && !editingItem?.base_price && (
-                  <div className="space-y-2">
-                    <Label>Price</Label>
-                    <Input 
-                      type="number"
-                      value={editingItem?.price || ''} 
-                      onChange={(e) => setEditingItem({...editingItem, price: e.target.value})}
-                    />
+                    <p className="text-xs text-slate-500">Upload a brand logo (PNG, JPG, or WebP recommended)</p>
                   </div>
                 )}
               </>
             )}
-            <div className="space-y-2">
-              <Label>Display Order</Label>
-              <Input 
-                type="number"
-                value={editingItem?.display_order || 0} 
-                onChange={(e) => setEditingItem({...editingItem, display_order: parseInt(e.target.value)})}
-              />
-            </div>
+            {/* Hide display order field for all auto-generated items */}
+            {editingItem?.table !== 'brands' && 
+             editingItem?.table !== 'camera_types' && 
+             editingItem?.table !== 'channel_options' && 
+             editingItem?.table !== 'pixel_options' && 
+             editingItem?.table !== 'camera_tech_types' && 
+             editingItem?.table !== 'storage_options' && 
+             editingItem?.table !== 'cable_options' && 
+             editingItem?.table !== 'accessories' && (
+              <div className="space-y-2">
+                <Label>Display Order</Label>
+                <Input 
+                  type="number"
+                  value={editingItem?.display_order || 0} 
+                  onChange={(e) => setEditingItem({...editingItem, display_order: parseInt(e.target.value)})}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingItem(null)}>Cancel</Button>
@@ -929,43 +917,69 @@ export default function QuotationManagementPage() {
             {showAddModal === 'camera_types' || showAddModal === 'brands' || showAddModal === 'pixel_options' ? (
               <>
                 <div className="space-y-2">
-                  <Label>Name</Label>
+                  <Label>Name *</Label>
                   <Input 
                     value={formData.name || ''} 
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                     placeholder="Enter name"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Display Order</Label>
-                  <Input 
-                    type="number"
-                    value={formData.display_order || 0} 
-                    onChange={(e) => setFormData({...formData, display_order: parseInt(e.target.value)})}
-                  />
-                </div>
+                {showAddModal === 'brands' && (
+                  <div className="space-y-2">
+                    <Label>Brand Logo/Image</Label>
+                    {imagePreview && (
+                      <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-slate-200 mb-2">
+                        <Image 
+                          src={imagePreview} 
+                          alt="Preview"
+                          fill
+                          className="object-contain p-2"
+                        />
+                      </div>
+                    )}
+                    <Input 
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-xs text-slate-500">Upload a brand logo (PNG, JPG, or WebP recommended)</p>
+                    <p className="text-xs text-blue-600 font-semibold">Display order will be auto-generated based on entry sequence</p>
+                  </div>
+                )}
+                {(showAddModal === 'camera_types' || showAddModal === 'pixel_options') && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
+                    <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                  </div>
+                )}
+                <input type="hidden" value={formData.display_order || 0} />
               </>
             ) : showAddModal === 'channel_options' ? (
               <>
                 <div className="space-y-2">
-                  <Label>Channel Count</Label>
+                  <Label>Channel Count *</Label>
                   <Input 
                     type="number"
                     value={formData.channel_count || ''} 
                     onChange={(e) => setFormData({...formData, channel_count: parseInt(e.target.value)})}
-                    placeholder="e.g., 4, 8, 16"
+                    placeholder="e.g., 4, 8, 16, 32"
                   />
+                  <p className="text-xs text-slate-500">Enter the number of channels (e.g., 4, 8, 16)</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Features (one per line)</Label>
+                  <Label>Features (Optional - one per line)</Label>
                   <textarea
                     className="w-full px-3 py-2 border rounded-md min-h-[100px]"
                     value={Array.isArray(formData.features) ? formData.features.join('\n') : ''} 
                     onChange={(e) => setFormData({...formData, features: e.target.value.split('\n').filter((f: string) => f.trim())})}
-                    placeholder="Supports up to 4 Cameras&#10;1080p/5MP Lite Resolution&#10;1 SATA Port&#10;H.265+ Compression"
+                    placeholder="Supports up to 16 Cameras&#10;4K Resolution Support&#10;2 SATA Ports&#10;H.265+ Compression&#10;Smart Detection"
                   />
+                  <p className="text-xs text-slate-500">These features will be displayed only on the Automated Quotation page</p>
                 </div>
-                <div className="space-y-2">
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                </div>
+                <div className="space-y-2" style={{display: 'none'}}>
                   <Label>Display Order</Label>
                   <Input 
                     type="number"
@@ -977,30 +991,19 @@ export default function QuotationManagementPage() {
             ) : showAddModal === 'storage_options' ? (
               <>
                 <div className="space-y-2">
-                  <Label>Capacity</Label>
+                  <Label>Capacity *</Label>
                   <Input 
                     value={formData.capacity || ''} 
                     onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                    placeholder="e.g., 1TB"
+                    placeholder="e.g., 1TB, 2TB, 4TB"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Price (₹)</Label>
-                  <Input 
-                    type="number"
-                    value={formData.price || ''} 
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Display Order</Label>
-                  <Input 
-                    type="number"
-                    value={formData.display_order || 0} 
-                    onChange={(e) => setFormData({...formData, display_order: parseInt(e.target.value)})}
-                  />
-                </div>
+                <input type="hidden" value={formData.display_order || 0} />
               </>
+            
             ) : showAddModal === 'camera_tech_types' ? (
               <>
                 <div className="space-y-2">
@@ -1033,23 +1036,10 @@ export default function QuotationManagementPage() {
                     <option value="outdoor">Outdoor</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Base Price (₹) *</Label>
-                  <Input 
-                    type="number"
-                    value={formData.base_price || ''} 
-                    onChange={(e) => setFormData({...formData, base_price: parseFloat(e.target.value)})}
-                    placeholder="e.g., 1200"
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Display Order</Label>
-                  <Input 
-                    type="number"
-                    value={formData.display_order || 0} 
-                    onChange={(e) => setFormData({...formData, display_order: parseInt(e.target.value)})}
-                  />
-                </div>
+                <input type="hidden" value={formData.display_order || 0} />
               </>
             ) : showAddModal === 'cable_options' ? (
               <>
@@ -1080,145 +1070,31 @@ export default function QuotationManagementPage() {
                     placeholder="e.g., 90M, 180M, 305M"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Price (₹) *</Label>
-                  <Input 
-                    type="number"
-                    value={formData.price || ''} 
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
-                    placeholder="e.g., 1800"
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Display Order</Label>
-                  <Input 
-                    type="number"
-                    value={formData.display_order || 0} 
-                    onChange={(e) => setFormData({...formData, display_order: parseInt(e.target.value)})}
-                  />
-                </div>
+                <input type="hidden" value={formData.display_order || 0} />
               </>
             ) : showAddModal === 'accessories' ? (
               <>
                 <div className="space-y-2">
-                  <Label>Name</Label>
+                  <Label>Name *</Label>
                   <Input 
                     value={formData.name || ''} 
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                     placeholder="e.g., BNC Connectors"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Price (₹)</Label>
-                  <Input 
-                    type="number"
-                    value={formData.price || ''} 
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Display Order</Label>
-                  <Input 
-                    type="number"
-                    value={formData.display_order || 0} 
-                    onChange={(e) => setFormData({...formData, display_order: parseInt(e.target.value)})}
-                  />
-                </div>
+                <input type="hidden" value={formData.display_order || 0} />
               </>
             ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddModal(null)}>Cancel</Button>
             <Button onClick={handleAdd}>Add Item</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Pricing Matrix Modal */}
-      <Dialog open={showPricingModal} onOpenChange={() => setShowPricingModal(false)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingPricing?.id ? 'Edit Price' : 'Add New Price'}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Camera Type *</Label>
-              <select 
-                className="w-full px-3 py-2 border rounded-md"
-                value={editingPricing?.camera_type_id || ''}
-                onChange={(e) => setEditingPricing({...editingPricing, camera_type_id: e.target.value})}
-                disabled={!!editingPricing?.id}
-              >
-                <option value="">Select...</option>
-                {cameraTypes?.map((ct: any) => (
-                  <option key={ct.id} value={ct.id}>{ct.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Brand *</Label>
-              <select 
-                className="w-full px-3 py-2 border rounded-md"
-                value={editingPricing?.brand_id || ''}
-                onChange={(e) => setEditingPricing({...editingPricing, brand_id: e.target.value})}
-                disabled={!!editingPricing?.id}
-              >
-                <option value="">Select...</option>
-                {brands?.map((b: any) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Pixel *</Label>
-              <select 
-                className="w-full px-3 py-2 border rounded-md"
-                value={editingPricing?.pixel_id || ''}
-                onChange={(e) => setEditingPricing({...editingPricing, pixel_id: e.target.value})}
-                disabled={!!editingPricing?.id}
-              >
-                <option value="">Select...</option>
-                {pixels?.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tech Type *</Label>
-              <select 
-                className="w-full px-3 py-2 border rounded-md"
-                value={editingPricing?.tech_type_id || ''}
-                onChange={(e) => setEditingPricing({...editingPricing, tech_type_id: e.target.value})}
-                disabled={!!editingPricing?.id}
-              >
-                <option value="">Select...</option>
-                {techTypes?.map((tt: any) => (
-                  <option key={tt.id} value={tt.id}>{tt.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2 col-span-2">
-              <Label>Base Price (₹) *</Label>
-              <Input 
-                type="number"
-                step="0.01"
-                placeholder="2500.00"
-                value={editingPricing?.base_price || ''}
-                onChange={(e) => setEditingPricing({...editingPricing, base_price: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2 col-span-2">
-              <Label>Notes (Optional)</Label>
-              <Input 
-                placeholder="e.g., Hikvision 2MP IP Non-Audio"
-                value={editingPricing?.notes || ''}
-                onChange={(e) => setEditingPricing({...editingPricing, notes: e.target.value})}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPricingModal(false)}>Cancel</Button>
-            <Button onClick={handleSavePricing}>Save Price</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

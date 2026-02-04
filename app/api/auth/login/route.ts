@@ -24,6 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         success: true, 
         role: 'admin',
+        token: `admin_${admin.admin_id}_${Date.now()}`, // Simple token for demo
+        name: admin.username,
         user: {
           id: admin.admin_id,
           name: admin.username,
