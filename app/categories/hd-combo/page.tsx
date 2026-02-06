@@ -82,9 +82,18 @@ function HdComboContent() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/hd-combo-products');
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/hd-combo-products?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       const data = await res.json();
-      console.log('API Response:', data);
+      console.log('📦 HD Combo API Response:', data);
+      console.log(`Found ${data.products?.length || 0} active products`);
+      
       if (data.success) {
         // Map database fields to frontend format
         const mappedProducts = data.products.map((p: any) => ({
@@ -103,7 +112,7 @@ function HdComboContent() {
           rating: parseFloat(p.rating) || 4.5,
           reviews: p.reviews || 0
         }));
-        console.log('Mapped Products:', mappedProducts);
+        console.log('✅ Mapped Products:', mappedProducts.length, 'products');
         setProducts(mappedProducts);
       }
     } catch (error) {
@@ -134,8 +143,12 @@ function HdComboContent() {
   // Filtered products
   const filteredProducts = useMemo(() => {
     const filtered = products.filter(product => {
-      // Filter by brand from URL parameter
-      if (selectedBrand && product.brand !== selectedBrand) return false;
+      // Filter by brand from URL parameter (case-insensitive and space-insensitive)
+      if (selectedBrand) {
+        const normalizedProductBrand = product.brand.toLowerCase().replace(/\s+/g, '');
+        const normalizedSelectedBrand = selectedBrand.toLowerCase().replace(/\s+/g, '');
+        if (normalizedProductBrand !== normalizedSelectedBrand) return false;
+      }
       // Filter by selected channels
       if (selectedChannels.length > 0 && !selectedChannels.includes(product.channels)) return false;
       // Filter by resolution
@@ -144,10 +157,11 @@ function HdComboContent() {
       if (selectedHDD.length > 0 && !selectedHDD.includes(product.hdd)) return false;
       return true;
     });
-    console.log('Filtered Products:', filtered);
-    console.log('Total Products:', products.length);
-    console.log('Selected Brand:', selectedBrand);
-    console.log('Selected Channels:', selectedChannels);
+    console.log('📦 HD Combo Filtering:');
+    console.log('  Total Products:', products.length);
+    console.log('  After Brand Filter:', filtered.length);
+    console.log('  Selected Brand:', selectedBrand, '(normalized:', selectedBrand.toLowerCase().replace(/\s+/g, ''), ')');
+    console.log('  Products:', products.map(p => ({ name: p.name, brand: p.brand, normalized: p.brand.toLowerCase().replace(/\s+/g, '') })));
     return filtered;
   }, [selectedBrand, selectedChannels, selectedResolutions, selectedHDD, products]);
 

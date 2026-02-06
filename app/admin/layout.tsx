@@ -14,7 +14,8 @@ import {
   Grid3x3,
   Package,
   Menu,
-  X
+  X,
+  Users
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { AdminAuthGuard } from "./AdminAuthGuard"
@@ -56,13 +57,19 @@ export default function AdminLayout({
       description: "Summary, Sales, Purchase, Payments"
     },
     { 
-      label: "D. SERVICE SUPPORT", 
+      label: "D. DEALERS", 
+      href: "/admin/dealers", 
+      icon: Users,
+      description: "Approve, Manage & Monitor Dealers"
+    },
+    { 
+      label: "E. SERVICE SUPPORT", 
       href: "/admin/service", 
       icon: Headphones,
       description: "Calls, AMC, Site Visits"
     },
     { 
-      label: "E. LOGIN", 
+      label: "F. LOGIN", 
       href: "/admin/access", 
       icon: LogIn,
       description: "Tele, Field, Marchent, Online Sales"

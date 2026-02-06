@@ -44,6 +44,17 @@ function BuyNowContent() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
 
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
   // Customer details form
   const [customerName, setCustomerName] = useState('');
   const [email, setEmail] = useState('');
@@ -227,8 +238,115 @@ function BuyNowContent() {
       return;
     }
 
-    // Create order in database
-    await submitOrder('razorpay');
+    try {
+      // First create order in database
+      const orderResult = await submitOrder('razorpay');
+      if (!orderResult) return;
+
+      const { orderNumber, totalAmount } = orderResult;
+
+      // Create Razorpay order
+      const razorpayResponse = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: totalAmount,
+          receipt: orderNumber,
+          notes: {
+            orderNumber,
+            customerName,
+            phone,
+          },
+        }),
+      });
+
+      const razorpayData = await razorpayResponse.json();
+
+      if (!razorpayData.success) {
+        alert(razorpayData.error || 'Failed to initialize payment');
+        return;
+      }
+
+      // Development mode: Skip Razorpay and auto-verify
+      if (razorpayData.devMode) {
+        console.log('🧪 DEV MODE - Simulating successful payment...');
+        
+        const verifyResponse = await fetch('/api/razorpay/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: razorpayData.orderId,
+            razorpay_payment_id: `pay_DEV${Date.now()}`,
+            razorpay_signature: 'dev_signature',
+            order_number: orderNumber,
+          }),
+        });
+
+        const verifyData = await verifyResponse.json();
+
+        if (verifyData.success) {
+          alert('✅ Payment successful (DEV MODE)! Order placed.');
+          localStorage.removeItem('cart');
+          localStorage.removeItem('cartCheckout');
+          router.push('/');
+        }
+        return;
+      }
+
+      // Production mode: Use real Razorpay
+      // Initialize Razorpay checkout
+      const options = {
+        key: 'rzp_test_SC7jHw0oYI68Ps', // Your Razorpay test key
+        amount: razorpayData.amount,
+        currency: razorpayData.currency,
+        name: 'CCTV Store',
+        description: `Order #${orderNumber}`,
+        order_id: razorpayData.orderId,
+        handler: async function (response: any) {
+          // Verify payment
+          const verifyResponse = await fetch('/api/razorpay/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              order_number: orderNumber,
+            }),
+          });
+
+          const verifyData = await verifyResponse.json();
+
+          if (verifyData.success) {
+            alert('Payment successful! Order placed.');
+            localStorage.removeItem('cart');
+            localStorage.removeItem('cartCheckout');
+            router.push('/');
+          } else {
+            alert('Payment verification failed');
+          }
+        },
+        prefill: {
+          name: customerName,
+          email: email,
+          contact: phone,
+        },
+        theme: {
+          color: '#e63946',
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment cancelled by user');
+          }
+        }
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      console.error('Razorpay error:', error);
+      alert('Payment initialization failed. Please try again.');
+    }
   };
 
   const handleCOD = async () => {
@@ -275,17 +393,28 @@ function BuyNowContent() {
 
       if (response.ok) {
         const result = await response.json();
-        alert(paymentMethod === 'cod' ? 'Order placed successfully with COD!' : 'Proceeding to Razorpay...');
-        // Clear cart
-        localStorage.removeItem('cart');
-        localStorage.removeItem('cartCheckout');
-        router.push('/');
+        
+        if (paymentMethod === 'cod') {
+          alert('Order placed successfully with COD!');
+          localStorage.removeItem('cart');
+          localStorage.removeItem('cartCheckout');
+          router.push('/');
+          return null;
+        }
+        
+        // For Razorpay, return order details
+        return {
+          orderNumber: result.order.order_number,
+          totalAmount: result.order.total_amount,
+        };
       } else {
         alert('Failed to place order. Please try again.');
+        return null;
       }
     } catch (error) {
       console.error('Error submitting order:', error);
       alert('Error placing order. Please try again.');
+      return null;
     }
   };
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
+import { useGlobalQuotationData } from '@/lib/useGlobalQuotationData';
 
 interface Product {
   id: number;
@@ -23,6 +24,9 @@ interface Product {
 }
 
 export default function IPComboAdmin() {
+  // Get global data from admin quotation management
+  const { data: globalData, loading: loadingGlobal } = useGlobalQuotationData();
+  
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -52,8 +56,15 @@ export default function IPComboAdmin() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/ip-combo-products?admin=true');
+      setLoading(true);
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/ip-combo-products?admin=true&t=${timestamp}`, {
+        cache: 'no-store'
+      });
       const data = await res.json();
+      
+      console.log('👨‍💻 Admin: Fetched', data.products?.length || 0, 'IP Combo products');
       
       if (data.success) {
         const mappedProducts = data.products.map((p: any) => ({
@@ -77,6 +88,8 @@ export default function IPComboAdmin() {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,7 +123,15 @@ export default function IPComboAdmin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Immediate validation before setting loading
+    if (!formData.name || !formData.brand || !formData.price) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
     setLoading(true);
+    console.log('🚀 Starting IP Combo form submission...');
 
     try {
       const url = editingProduct
@@ -119,40 +140,68 @@ export default function IPComboAdmin() {
 
       const method = editingProduct ? 'PUT' : 'POST';
 
+      const payload = {
+        name: formData.name,
+        brand: formData.brand,
+        channels: parseInt(formData.channels),
+        camera_type: formData.cameraType,
+        resolution: formData.resolution,
+        hdd: formData.hdd,
+        cable: formData.cable,
+        price: parseFloat(formData.price),
+        original_price: parseFloat(formData.originalPrice),
+        image: formData.image,
+        specs: formData.specs.filter(spec => spec.trim() !== ''),
+        rating: parseFloat(formData.rating),
+        reviews: parseInt(formData.reviews),
+        is_active: formData.isActive
+      };
+
+      console.log('📤 Sending request to:', url);
+      console.log('📦 Payload:', payload);
+
+      // Add timeout to prevent infinite loading
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.error('⏱️ Request timeout after 10 seconds');
+      }, 10000); // 10 second timeout
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          brand: formData.brand,
-          channels: parseInt(formData.channels),
-          camera_type: formData.cameraType,
-          resolution: formData.resolution,
-          hdd: formData.hdd,
-          cable: formData.cable,
-          price: parseFloat(formData.price),
-          original_price: parseFloat(formData.originalPrice),
-          image: formData.image,
-          specs: formData.specs.filter(spec => spec.trim() !== ''),
-          rating: parseFloat(formData.rating),
-          reviews: parseInt(formData.reviews),
-          is_active: formData.isActive
-        })
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+      console.log('📥 Response received:', res.status, res.statusText);
+
       if (res.ok) {
-        fetchProducts();
+        const data = await res.json();
+        console.log('✅ Success:', data);
+        await fetchProducts();
         handleCloseModal();
         alert(editingProduct ? 'Product updated successfully!' : 'Product added successfully!');
       } else {
-        const data = await res.json();
-        alert('Error: ' + data.error);
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ API Error:', res.status, errorData);
+        alert('Error: ' + (errorData.error || `Server returned ${res.status}`));
+        setLoading(false); // Reset loading on error
       }
-    } catch (error) {
-      console.error('Error saving product:', error);
-      alert('Error saving product');
+    } catch (error: any) {
+      console.error('💥 Exception caught:', error);
+      if (error.name === 'AbortError') {
+        alert('Request timeout - Server is not responding. Please check:\n1. Next.js dev server is running\n2. Database connection is working\n3. Internet connection');
+      } else if (error.message.includes('Failed to fetch')) {
+        alert('Cannot connect to server. Make sure:\n1. Next.js dev server is running (npm run dev)\n2. Server is on http://localhost:3000');
+      } else {
+        alert('Error: ' + (error.message || 'Unknown error'));
+      }
+      setLoading(false); // Reset loading on error
     } finally {
-      setLoading(false);
+      // Safety net - ensure loading is reset
+      setTimeout(() => setLoading(false), 100);
     }
   };
 
@@ -319,6 +368,21 @@ export default function IPComboAdmin() {
               </button>
             </div>
 
+            {/* Global Data Loading Banner */}
+            {loadingGlobal && (
+              <div className="mx-6 mt-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">🔄 Loading brands, channels, and options from Quotation Management...</p>
+              </div>
+            )}
+
+            {/* Global Data Info Banner */}
+            <div className="mx-6 mt-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✨ <strong>Global Data System Active:</strong> All brands, channels, resolutions, storage, and cable lengths are managed in <strong>Quotation Management</strong>. 
+                Any additions there will automatically appear in these dropdowns!
+              </p>
+            </div>
+
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Name */}
@@ -335,7 +399,7 @@ export default function IPComboAdmin() {
                   />
                 </div>
 
-                {/* Brand */}
+                {/* Brand - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Brand *
@@ -347,29 +411,37 @@ export default function IPComboAdmin() {
                     required
                   >
                     <option value="">Select Brand</option>
-                    <option value="Hikvision">Hikvision</option>
-                    <option value="CP Plus">CP Plus</option>
-                    <option value="Dahua">Dahua</option>
-                    <option value="Prama">Prama</option>
-                    <option value="Secureye">Secureye</option>
-                    <option value="Zebronics">Zebronics</option>
-                    <option value="Daichi">Daichi</option>
-                    <option value="Godrej">Godrej</option>
+                    {globalData?.brands?.map((brand) => (
+                      <option key={brand.id} value={brand.name}>
+                        {brand.name}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit brands in Quotation Management
+                  </p>
                 </div>
 
-                {/* Channels */}
+                {/* Channels - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Channels *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.channels}
                     onChange={(e) => setFormData({ ...formData, channels: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                  >
+                    {globalData?.channels?.map((channel) => (
+                      <option key={channel.id} value={channel.channel_count}>
+                        {channel.channel_count} Channel
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit channels in Quotation Management
+                  </p>
                 </div>
 
                 {/* Camera Type */}
@@ -386,46 +458,70 @@ export default function IPComboAdmin() {
                   />
                 </div>
 
-                {/* Resolution */}
+                {/* Resolution - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Resolution *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.resolution}
                     onChange={(e) => setFormData({ ...formData, resolution: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                  >
+                    {globalData?.pixels?.map((pixel) => (
+                      <option key={pixel.id} value={pixel.name}>
+                        {pixel.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit resolutions in Quotation Management
+                  </p>
                 </div>
 
-                {/* Hard Disk */}
+                {/* Hard Disk - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Hard Disk *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.hdd}
                     onChange={(e) => setFormData({ ...formData, hdd: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                  >
+                    {globalData?.storage?.map((storage) => (
+                      <option key={storage.id} value={storage.capacity}>
+                        {storage.capacity}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit storage in Quotation Management
+                  </p>
                 </div>
 
-                {/* Cable Length */}
+                {/* Cable Length - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cable Length *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.cable}
                     onChange={(e) => setFormData({ ...formData, cable: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                  >
+                    {globalData?.cables?.map((cable) => (
+                      <option key={cable.id} value={cable.length}>
+                        {cable.length}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit cable lengths in Quotation Management
+                  </p>
                 </div>
 
                 {/* Price */}

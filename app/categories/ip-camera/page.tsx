@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,8 +35,10 @@ const cameraTypes = ["Bullet", "Dome", "PTZ"];
 const nightVisionOptions = ["20M", "30M", "40M", "50M"];
 const lensSizeOptions = ["2.8mm", "3.6mm", "6mm", "8mm", "12mm"];
 
-export default function IpCameraPage() {
+function IpCameraContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedBrand = searchParams.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels from admin panel)
@@ -77,9 +79,13 @@ export default function IpCameraPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/ip-camera-products');
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/ip-camera-products?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
-      console.log('API Response:', data);
+      console.log('📦 IP Camera API Response:', data);
       if (data.success) {
         // Map database fields to frontend format
         const mappedProducts = data.products.map((p: any) => ({
@@ -128,6 +134,12 @@ export default function IpCameraPage() {
   // Filtered products
   const filteredProducts = useMemo(() => {
     const filtered = products.filter(product => {
+      // Filter by brand from URL parameter (case-insensitive and space-insensitive)
+      if (selectedBrand) {
+        const normalizedProductBrand = product.brand.toLowerCase().replace(/\s+/g, '');
+        const normalizedSelectedBrand = selectedBrand.toLowerCase().replace(/\s+/g, '');
+        if (normalizedProductBrand !== normalizedSelectedBrand) return false;
+      }
       if (selectedCameraTypes.length > 0 && !selectedCameraTypes.includes(product.cameraType)) return false;
       if (selectedResolutions.length > 0 && !selectedResolutions.includes(product.resolution)) return false;
       if (selectedNightVision.length > 0 && !selectedNightVision.includes(product.nightVision)) return false;
@@ -137,9 +149,9 @@ export default function IpCameraPage() {
     });
     console.log('Filtered Products:', filtered);
     console.log('Total Products:', products.length);
-    console.log('Filters Active:', { selectedCameraTypes, selectedResolutions, selectedNightVision, selectedLensSize, priceRange });
+    console.log('Filters Active:', { selectedBrand, selectedCameraTypes, selectedResolutions, selectedNightVision, selectedLensSize, priceRange });
     return filtered;
-  }, [selectedCameraTypes, selectedResolutions, selectedNightVision, selectedLensSize, priceRange, products]);
+  }, [selectedBrand, selectedCameraTypes, selectedResolutions, selectedNightVision, selectedLensSize, priceRange, products]);
 
   const FilterSection = ({ 
     title, 
@@ -466,5 +478,13 @@ export default function IpCameraPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function IpCameraPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <IpCameraContent />
+    </Suspense>
   );
 }

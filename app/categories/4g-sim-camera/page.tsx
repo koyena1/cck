@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,9 +34,9 @@ interface Product {
 const powerSupplyOptions = ["DC Adapter", "Solar", "Battery"];
 const simSupportOptions = ["Single SIM", "Dual SIM"];
 
-export default function FourGSimCameraPage() {
-  const router = useRouter();
-  const { addToCart, setIsCartOpen } = useCart();
+function FourGSimCameraContent() {
+  const router = useRouter();  const searchParams = useSearchParams();
+  const selectedBrand = searchParams.get('brand') || '';  const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels, storage from admin panel)
   const { data: quotationSettings, loading: loadingSettings } = useGlobalQuotationData();
@@ -81,9 +81,13 @@ export default function FourGSimCameraPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/sim-4g-camera-products');
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/sim-4g-camera-products?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
-      console.log('API Response:', data);
+      console.log('📦 4G SIM Camera API Response:', data);
       if (data.success) {
         // Map database fields to frontend format
         const mappedProducts = data.products.map((p: any) => ({
@@ -132,6 +136,12 @@ export default function FourGSimCameraPage() {
   // Filtered products
   const filteredProducts = useMemo(() => {
     const filtered = products.filter(product => {
+      // Filter by brand from URL parameter (case-insensitive and space-insensitive)
+      if (selectedBrand) {
+        const normalizedProductBrand = product.brand.toLowerCase().replace(/\s+/g, '');
+        const normalizedSelectedBrand = selectedBrand.toLowerCase().replace(/\s+/g, '');
+        if (normalizedProductBrand !== normalizedSelectedBrand) return false;
+      }
       if (selectedResolutions.length > 0 && !selectedResolutions.includes(product.resolution)) return false;
       if (selectedPowerSupply.length > 0 && !selectedPowerSupply.includes(product.powerSupply)) return false;
       if (selectedSimSupport.length > 0 && !selectedSimSupport.includes(product.simSupport)) return false;
@@ -141,9 +151,9 @@ export default function FourGSimCameraPage() {
     });
     console.log('Filtered Products:', filtered);
     console.log('Total Products:', products.length);
-    console.log('Filters Active:', { selectedResolutions, selectedPowerSupply, selectedSimSupport, selectedStorage, priceRange });
+    console.log('Filters Active:', { selectedBrand, selectedResolutions, selectedPowerSupply, selectedSimSupport, selectedStorage, priceRange });
     return filtered;
-  }, [selectedResolutions, selectedPowerSupply, selectedSimSupport, selectedStorage, priceRange, products]);
+  }, [selectedBrand, selectedResolutions, selectedPowerSupply, selectedSimSupport, selectedStorage, priceRange, products]);
 
   const FilterSection = ({ 
     title, 
@@ -469,5 +479,13 @@ export default function FourGSimCameraPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function FourGSimCameraPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <FourGSimCameraContent />
+    </Suspense>
   );
 }

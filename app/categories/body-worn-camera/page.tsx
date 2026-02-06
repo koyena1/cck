@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,8 +34,10 @@ interface Product {
 const batteryOptions = ["2000mAh", "3000mAh", "4000mAh", "5000mAh"];
 const featuresOptions = ["Night Vision", "GPS", "WiFi", "Live Streaming"];
 
-export default function BodyWornCameraPage() {
+function BodyWornCameraContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedBrand = searchParams.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels, storage from admin panel)
@@ -81,9 +83,13 @@ export default function BodyWornCameraPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/body-worn-camera-products');
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/body-worn-camera-products?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
-      console.log('API Response:', data);
+      console.log('📦 Body Worn Camera API Response:', data);
       if (data.success) {
         // Map database fields to frontend format
         const mappedProducts = data.products.map((p: any) => ({
@@ -132,6 +138,12 @@ export default function BodyWornCameraPage() {
   // Filtered products
   const filteredProducts = useMemo(() => {
     const filtered = products.filter(product => {
+      // Filter by brand from URL parameter (case-insensitive and space-insensitive)
+      if (selectedBrand) {
+        const normalizedProductBrand = product.brand.toLowerCase().replace(/\s+/g, '');
+        const normalizedSelectedBrand = selectedBrand.toLowerCase().replace(/\s+/g, '');
+        if (normalizedProductBrand !== normalizedSelectedBrand) return false;
+      }
       if (selectedResolutions.length > 0 && !selectedResolutions.includes(product.resolution)) return false;
       if (selectedStorage.length > 0 && !selectedStorage.includes(product.storage)) return false;
       if (selectedBattery.length > 0 && !selectedBattery.includes(product.battery)) return false;
@@ -141,9 +153,9 @@ export default function BodyWornCameraPage() {
     });
     console.log('Filtered Products:', filtered);
     console.log('Total Products:', products.length);
-    console.log('Filters Active:', { selectedResolutions, selectedStorage, selectedBattery, selectedFeatures, priceRange });
+    console.log('Filters Active:', { selectedBrand, selectedResolutions, selectedStorage, selectedBattery, selectedFeatures, priceRange });
     return filtered;
-  }, [selectedResolutions, selectedStorage, selectedBattery, selectedFeatures, priceRange, products]);
+  }, [selectedBrand, selectedResolutions, selectedStorage, selectedBattery, selectedFeatures, priceRange, products]);
 
   const FilterSection = ({ 
     title, 
@@ -469,5 +481,13 @@ export default function BodyWornCameraPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function BodyWornCameraPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <BodyWornCameraContent />
+    </Suspense>
   );
 }

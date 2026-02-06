@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
+import { useGlobalQuotationData } from '@/lib/useGlobalQuotationData';
 
 interface Product {
   id: number;
@@ -21,6 +22,9 @@ interface Product {
 }
 
 export default function FourGSIMCameraAdmin() {
+  // Get global data from admin quotation management
+  const { data: globalData, loading: loadingGlobal } = useGlobalQuotationData();
+  
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -303,6 +307,21 @@ export default function FourGSIMCameraAdmin() {
               </button>
             </div>
 
+            {/* Global Data Loading Banner */}
+            {loadingGlobal && (
+              <div className="mx-6 mt-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">🔄 Loading brands and resolutions from Quotation Management...</p>
+              </div>
+            )}
+
+            {/* Global Data Info Banner */}
+            <div className="mx-6 mt-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✨ <strong>Global Data System Active:</strong> All brands and resolutions are managed in <strong>Quotation Management</strong>. 
+                Any additions there will automatically appear in these dropdowns!
+              </p>
+            </div>
+
             <form onSubmit={handleSubmit} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Name */}
@@ -319,7 +338,7 @@ export default function FourGSIMCameraAdmin() {
                   />
                 </div>
 
-                {/* Brand */}
+                {/* Brand - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Brand *
@@ -331,29 +350,37 @@ export default function FourGSIMCameraAdmin() {
                     required
                   >
                     <option value="">Select Brand</option>
-                    <option value="Hikvision">Hikvision</option>
-                    <option value="CP Plus">CP Plus</option>
-                    <option value="Dahua">Dahua</option>
-                    <option value="Prama">Prama</option>
-                    <option value="Secureye">Secureye</option>
-                    <option value="Zebronics">Zebronics</option>
-                    <option value="Daichi">Daichi</option>
-                    <option value="Godrej">Godrej</option>
+                    {globalData?.brands?.map((brand) => (
+                      <option key={brand.id} value={brand.name}>
+                        {brand.name}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit brands in Quotation Management
+                  </p>
                 </div>
 
-                {/* Resolution */}
+                {/* Resolution - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Resolution *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.resolution}
-                    onChange={(e) => setFormData({ ...formData, resolution: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, resolution: e.target. value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                  >
+                    {globalData?.pixels?.map((pixel) => (
+                      <option key={pixel.id} value={pixel.name}>
+                        {pixel.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📝 Add/edit resolutions in Quotation Management
+                  </p>
                 </div>
 
                 {/* SIM Support */}

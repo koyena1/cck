@@ -778,14 +778,14 @@ export default function HomePage() {
           <div className="flex items-center justify-between gap-6 overflow-x-auto scrollbar-hide">
             {[
               { icon: Zap, label: "24 hrs", sublabel: "Delivery", highlight: true, useIcon: true },
-              { image: "/cctv.jpg", label: "CCTV", link: "/categories" },
-              { image: "/categories/industrial.png", label: "BIOMETRIC ATTENDENCE &", sublabel: "ACCESS CONTROL" },
-              { icon: Box, label: "INTERCOM ", sublabel: "SYSTEM", useIcon: true },
-              { image: "/categories/safety.png", label: "SYSTEM" },
-              { icon: Monitor, label: "GPS", sublabel: "(BRAND TRAXSMART)", useIcon: true },
-              { image: "/categories/agri.png", label: "FIRE", sublabel: "ALARM" },
-              { image: "/categories/construction.png", label: "MOTION", sublabel: "DETECTION" },
-              { image: "/categories/automotive.png", label: "PA", sublabel: "SYSTEM" }
+              { image: "/ct.png", label: "CCTV", link: "/categories" },
+              { image: "/biometric.png", label: "BIOMETRIC ACCESS" },
+              { image: "/gps.png", label: "GPS SYSTEM"},
+              { image: "/system.png", label: "SYSTEM" },
+              { image: "/fire.jpg", label: "FIRE ALARM" },
+              { image: "/intercom.png", label: "INTERCOM SYSTEM"},
+              { image: "/motion.png", label: "MOTION DETECTION", },
+              { image: "/pasys.png", label: "PA SYSTEM" }
             ].map((item, i) => (
               <div 
                 key={i} 
@@ -816,11 +816,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative pt-16 pb-12 bg-white print:hidden">
-        <motion.div initial="hidden" animate="visible" variants={heroVariants} className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center mb-6"><BlinkingDot /><span className="text-[#e63946] text-sm font-bold uppercase tracking-[0.2em]">Officially Certified</span></div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-wider text-slate-900 mb-6 leading-tight">Professional CCTV & <br /><span className="text-[#e63946]">Security Services</span></h1>
-          <p className="text-slate-600 text-base md:text-lg max-w-3xl mx-auto mb-8">Verified hardware installed by certified experts across India.</p>
+      <section className="relative pt-16 pb-12 bg-white print:hidden overflow-hidden">
+        {/* Background Video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/vid.mp4" type="video/mp4" />
+        </video>
+        
+        {/* Overlay for better text visibility */}
+        <div className="absolute inset-0 bg-black/40"></div>
+        
+        <motion.div initial="hidden" animate="visible" variants={heroVariants} className="container mx-auto px-4 text-center relative z-10">
+          <div className="flex items-center justify-center mb-6"><BlinkingDot /><span className="text-white text-sm font-bold uppercase tracking-[0.2em] drop-shadow-lg">Officially Certified</span></div>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-wider text-white mb-6 leading-tight drop-shadow-2xl">Professional CCTV & <br /><span className="text-[#e63946]">Security Services</span></h1>
+          <p className="text-white text-base md:text-lg max-w-3xl mx-auto mb-8 drop-shadow-lg">Verified hardware installed by certified experts across India.</p>
         </motion.div>
       </section>
 

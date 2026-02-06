@@ -112,6 +112,19 @@ const BlinkingDot = () => (
 export default function HomePage() {
   const router = useRouter();
 
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
   // --- NEW STATE: BOOKING TYPE ---
   const [bookingType, setBookingType] = useState<string | null>(null);
 
@@ -679,21 +692,28 @@ export default function HomePage() {
       const data = await response.json();
 
       if (data.success) {
-        setCreatedOrderNumber(data.order.orderNumber || data.order.order_number);
-        setOrderSuccess(true);
-        alert(`Order created successfully! Order Number: ${data.order.orderNumber || data.order.order_number}`);
-        // Reset form
-        setCustName("");
-        setCustPhone("");
-        setCustEmail("");
-        setCustAddress("");
-        setCustCity("");
-        setCustState("");
-        setPincode("");
-        setCustLandmark("");
-        setIsVerified(false);
+        const orderNum = data.order.orderNumber || data.order.order_number;
+        setCreatedOrderNumber(orderNum);
+        
+        if (paymentMethod === 'cod') {
+          setOrderSuccess(true);
+          alert(`Order created successfully! Order Number: ${orderNum}`);
+          // Reset form
+          setCustName("");
+          setCustPhone("");
+          setCustEmail("");
+          setCustAddress("");
+          setCustCity("");
+          setCustState("");
+          setPincode("");
+          setCustLandmark("");
+          setIsVerified(false);
+        }
+        
+        return { orderNumber: orderNum, totalAmount: totalPrice };
       } else {
         alert(`Order creation failed: ${data.error || 'Unknown error'}`);
+        return null;
       }
     } catch (error) {
       console.error('Order submission error:', error);
@@ -704,7 +724,130 @@ export default function HomePage() {
   };
 
   const handleCOD = () => submitOrder('cod');
-  const handleRazorpay = () => submitOrder('razorpay');
+  
+  const handleRazorpay = async () => {
+    if (!isVerified) {
+      alert('Please verify your mobile number before placing order');
+      return;
+    }
+
+    try {
+      setOrderSubmitting(true);
+      
+      // First create order in database
+      const orderResult = await submitOrder('razorpay');
+      if (!orderResult || !createdOrderNumber) {
+        setOrderSubmitting(false);
+        return;
+      }
+
+      const orderNumberToUse = orderResult.orderNumber || createdOrderNumber;
+
+      // Create Razorpay order
+      const razorpayResponse = await fetch('/api/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: totalPrice,
+          receipt: orderNumberToUse,
+          notes: {
+            orderNumber: orderNumberToUse,
+            customerName: custName,
+            phone: custPhone,
+          },
+        }),
+      });
+
+      const razorpayData = await razorpayResponse.json();
+
+      if (!razorpayData.success) {
+        alert(razorpayData.error || 'Failed to initialize payment');
+        setOrderSubmitting(false);
+        return;
+      }
+
+      // Development mode: Skip Razorpay and auto-verify
+      if (razorpayData.devMode) {
+        console.log('🧪 DEV MODE - Simulating successful payment...');
+        
+        const verifyResponse = await fetch('/api/razorpay/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: razorpayData.orderId,
+            razorpay_payment_id: `pay_DEV${Date.now()}`,
+            razorpay_signature: 'dev_signature',
+            order_number: orderNumberToUse,
+          }),
+        });
+
+        const verifyData = await verifyResponse.json();
+
+        if (verifyData.success) {
+          alert('✅ Payment successful (DEV MODE)! Order placed.');
+          setOrderSuccess(true);
+        } else {
+          alert('Payment verification failed');
+        }
+        setOrderSubmitting(false);
+        return;
+      }
+
+      // Production mode: Use real Razorpay
+      // Initialize Razorpay checkout
+      const options = {
+        key: 'rzp_test_SC7jHw0oYI68Ps', // Your Razorpay test key
+        amount: razorpayData.amount,
+        currency: razorpayData.currency,
+        name: 'CCTV Store',
+        description: `Order #${orderNumberToUse}`,
+        order_id: razorpayData.orderId,
+        handler: async function (response: any) {
+          // Verify payment
+          const verifyResponse = await fetch('/api/razorpay/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              order_number: orderNumberToUse,
+            }),
+          });
+
+          const verifyData = await verifyResponse.json();
+
+          if (verifyData.success) {
+            alert('Payment successful! Order placed.');
+            setOrderSuccess(true);
+          } else {
+            alert('Payment verification failed');
+          }
+          setOrderSubmitting(false);
+        },
+        prefill: {
+          name: custName,
+          email: custEmail,
+          contact: custPhone,
+        },
+        theme: {
+          color: '#e63946',
+        },
+        modal: {
+          ondismiss: function() {
+            setOrderSubmitting(false);
+          }
+        }
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      console.error('Razorpay error:', error);
+      alert('Payment initialization failed. Please try again.');
+      setOrderSubmitting(false);
+    }
+  };
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [constraints, setConstraints] = useState(0);

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,8 +35,10 @@ const connectivityOptions = ["WiFi", "4G SIM"];
 const solarPanelOptions = ["10W", "20W", "30W", "40W"];
 const batteryOptions = ["5000mAh", "10000mAh", "15000mAh", "20000mAh"];
 
-export default function SolarCameraPage() {
+function SolarCameraContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedBrand = searchParams.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels from admin panel)
@@ -77,9 +79,13 @@ export default function SolarCameraPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/solar-camera-products');
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/solar-camera-products?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
-      console.log('API Response:', data);
+      console.log('📦 Solar Camera API Response:', data);
       if (data.success) {
         // Map database fields to frontend format
         const mappedProducts = data.products.map((p: any) => ({
@@ -128,6 +134,12 @@ export default function SolarCameraPage() {
   // Filtered products
   const filteredProducts = useMemo(() => {
     const filtered = products.filter(product => {
+      // Filter by brand from URL parameter (case-insensitive and space-insensitive)
+      if (selectedBrand) {
+        const normalizedProductBrand = product.brand.toLowerCase().replace(/\s+/g, '');
+        const normalizedSelectedBrand = selectedBrand.toLowerCase().replace(/\s+/g, '');
+        if (normalizedProductBrand !== normalizedSelectedBrand) return false;
+      }
       if (selectedResolutions.length > 0 && !selectedResolutions.includes(product.resolution)) return false;
       if (selectedConnectivity.length > 0 && !selectedConnectivity.includes(product.connectivity)) return false;
       if (selectedSolarPanel.length > 0 && !selectedSolarPanel.includes(product.solarPanel)) return false;
@@ -137,9 +149,9 @@ export default function SolarCameraPage() {
     });
     console.log('Filtered Products:', filtered);
     console.log('Total Products:', products.length);
-    console.log('Filters Active:', { selectedResolutions, selectedConnectivity, selectedSolarPanel, selectedBattery, priceRange });
+    console.log('Filters Active:', { selectedBrand, selectedResolutions, selectedConnectivity, selectedSolarPanel, selectedBattery, priceRange });
     return filtered;
-  }, [selectedResolutions, selectedConnectivity, selectedSolarPanel, selectedBattery, priceRange, products]);
+  }, [selectedBrand, selectedResolutions, selectedConnectivity, selectedSolarPanel, selectedBattery, priceRange, products]);
 
   const FilterSection = ({ 
     title, 
@@ -465,5 +477,13 @@ export default function SolarCameraPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function SolarCameraPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <SolarCameraContent />
+    </Suspense>
   );
 }

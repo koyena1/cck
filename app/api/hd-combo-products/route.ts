@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Get database connection pool
 const pool = getPool();
 
@@ -26,6 +30,9 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await pool.query(query, params);
+    
+    console.log(`HD Combo Products fetched: ${result.rows.length} products (admin=${admin})`);
+    console.log('Products:', result.rows.map(p => ({ id: p.id, name: p.name, brand: p.brand, is_active: p.is_active })));
 
     return NextResponse.json({ success: true, products: result.rows });
   } catch (error: any) {
@@ -103,6 +110,12 @@ export async function POST(request: NextRequest) {
     ];
 
     const result = await pool.query(query, values);
+
+    console.log('✅ HD Combo product created:', {
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+      is_active: result.rows[0].is_active
+    });
 
     return NextResponse.json({
       success: true,

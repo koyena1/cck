@@ -1,75 +1,87 @@
-// app/api/track-order/verify-otp/route.ts
 import { NextResponse } from 'next/server';
+import twilio from 'twilio';
 import { getPool } from '@/lib/db';
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export async function POST(request: Request) {
   try {
-    const { phoneNumber, otpCode } = await request.json();
+    const { phoneNumber, otpCode, orderNumber } = await request.json();
 
     if (!phoneNumber || !otpCode) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'All fields are required' 
-      }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Phone number and OTP are required" },
+        { status: 400 }
+      );
     }
 
-    const pool = getPool();
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
 
-    // Verify OTP (updated to work with current table structure)
-    const otpResult = await pool.query(
-      `SELECT * FROM order_tracking_otps 
-       WHERE phone_number = $1 
-       AND otp_code = $2 
-       AND is_verified = false 
-       AND expires_at > NOW()
-       ORDER BY created_at DESC 
-       LIMIT 1`,
-      [phoneNumber, otpCode]
-    );
+    // Verify OTP with Twilio
+    const verificationCheck = await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID!)
+      .verificationChecks.create({ to: formattedPhone, code: otpCode });
 
-    if (otpResult.rows.length === 0) {
+    if (verificationCheck.status === 'approved') {
+      // Fetch orders from the database for verified user
+      const pool = getPool();
+      
+      let query = `SELECT 
+        order_id,
+        order_number,
+        customer_name,
+        customer_phone,
+        customer_email,
+        order_type,
+        installation_address,
+        city,
+        state,
+        pincode,
+        total_amount,
+        status,
+        payment_method,
+        payment_status,
+        created_at,
+        updated_at,
+        expected_delivery_date,
+        installation_date
+      FROM orders 
+      WHERE customer_phone = $1`;
+      
+      const params: any[] = [phoneNumber];
+      
+      // If orderNumber is provided, filter by it too
+      if (orderNumber) {
+        query += ` AND order_number = $2`;
+        params.push(orderNumber);
+      }
+      
+      query += ` ORDER BY created_at DESC`;
+      
+      const ordersResult = await pool.query(query, params);
+
+      if (ordersResult.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "No orders found for this phone number" },
+          { status: 404 }
+        );
+      }
+
       return NextResponse.json({ 
-        success: false, 
-        message: 'Invalid or expired OTP' 
-      }, { status: 401 });
+        success: true, 
+        orders: ordersResult.rows 
+      });
+    } else {
+      return NextResponse.json(
+        { success: false, message: "Invalid OTP" },
+        { status: 401 }
+      );
     }
-
-    // Mark OTP as verified
-    await pool.query(
-      'UPDATE order_tracking_otps SET is_verified = true WHERE otp_id = $1',
-      [otpResult.rows[0].otp_id]
+  } catch (error: any) {
+    console.error('OTP verification error:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Verification failed" },
+      { status: 500 }
     );
-
-    // Fetch all orders for this phone number
-    const ordersResult = await pool.query(
-      `SELECT 
-        o.*,
-        d.full_name as dealer_name,
-        d.phone_number as dealer_phone
-      FROM orders o
-      LEFT JOIN dealers d ON o.assigned_dealer_id = d.dealer_id
-      WHERE o.customer_phone = $1
-      ORDER BY o.created_at DESC`,
-      [phoneNumber]
-    );
-
-    if (ordersResult.rows.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'No orders found' 
-      }, { status: 404 });
-    }
-
-    return NextResponse.json({ 
-      success: true,
-      orders: ordersResult.rows
-    });
-
-  } catch (err: any) {
-    console.error('Verify OTP Error:', err);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Failed to verify OTP' 
-    }, { status: 500 });
   }
 }

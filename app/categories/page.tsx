@@ -71,7 +71,6 @@ const categories = [
 export default function CategoriesPage() {
   const router = useRouter();
   const [selectedBrand, setSelectedBrand] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const brandScrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -135,12 +134,6 @@ export default function CategoriesPage() {
   };
 
   const handleCategoryClick = (categoryName: string) => {
-    setSelectedCategory(categoryName === selectedCategory ? "" : categoryName);
-  };
-
-  const handleGoClick = () => {
-    if (!selectedBrand || !selectedCategory) return;
-    
     const routes: Record<string, string> = {
       "HD Combo": '/categories/hd-combo',
       "IP Combo": '/categories/ip-combo',
@@ -152,9 +145,14 @@ export default function CategoriesPage() {
       "IP Camera": '/categories/ip-camera'
     };
     
-    const route = routes[selectedCategory];
+    const route = routes[categoryName];
     if (route) {
-      router.push(`${route}?brand=${encodeURIComponent(selectedBrand)}`);
+      // If brand is selected, navigate with brand filter; otherwise show all products
+      if (selectedBrand) {
+        router.push(`${route}?brand=${encodeURIComponent(selectedBrand)}`);
+      } else {
+        router.push(route);
+      }
     }
   };
 
@@ -288,9 +286,7 @@ export default function CategoriesPage() {
                 onClick={() => handleCategoryClick(category.name)}
                 className="group cursor-pointer"
               >
-                <div className={`relative bg-slate-100 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 ${
-                  selectedCategory === category.name ? 'ring-4 ring-[#e63946]' : ''
-                }`}>
+                <div className="relative bg-slate-100 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                   {/* Image Container */}
                   <div className="relative h-56 bg-gradient-to-br from-slate-200 to-slate-100 flex items-center justify-center p-6">
                     <div className="relative w-full h-full">
@@ -330,29 +326,6 @@ export default function CategoriesPage() {
               </motion.div>
             ))}
           </div>
-
-          {/* Go Button - Shows when both brand and category are selected */}
-          {selectedBrand && selectedCategory && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-              className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50"
-            >
-              <button
-                onClick={handleGoClick}
-                className="bg-[#e63946] hover:bg-[#d62839] text-white font-bold py-4 px-12 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center gap-3 text-lg"
-              >
-                <span>Go to {selectedCategory}</span>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
-              <div className="text-center mt-2 text-sm text-slate-600 bg-white px-4 py-2 rounded-full shadow-md">
-                Brand: <span className="font-bold text-[#e63946]">{selectedBrand}</span>
-              </div>
-            </motion.div>
-          )}
 
           {/* View Less Button (Optional) */}
           <motion.div

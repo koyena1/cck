@@ -132,6 +132,33 @@ function NavbarComponent() {
               <Zap size={14} fill="white" />
               Get Instant Quote
             </Link>
+            
+            {/* Cart Button for Mobile */}
+            <button
+              onClick={() => {
+                setIsCartOpen(true)
+                setIsMenuOpen(false)
+              }}
+              className="relative flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              Shopping Cart
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            
+            {/* Login/Register for Mobile */}
+            <Link
+              href="/login"
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+            >
+              <UserCircle size={18} />
+              Login / Register
+            </Link>
           </div>
         </div>
       )}

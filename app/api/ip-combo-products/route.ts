@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const isAdmin = searchParams.get('admin') === 'true';
@@ -15,6 +19,9 @@ export async function GET(request: NextRequest) {
     query += ' ORDER BY created_at DESC';
     
     const result = await pool.query(query);
+    
+    console.log(`IP Combo Products fetched: ${result.rows.length} products (admin=${isAdmin})`);
+    console.log('Products:', result.rows.map(p => ({ id: p.id, name: p.name, is_active: p.is_active })));
     
     return NextResponse.json({ success: true, products: result.rows });
   } catch (error: any) {

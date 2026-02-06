@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,8 +35,10 @@ const connectivityOptions = ["WiFi", "Dual Antenna"];
 const powerSupplyOptions = ["DC Adapter", "PoE"];
 const nightVisionOptions = ["10M", "20M", "30M", "40M"];
 
-export default function WifiCameraPage() {
+function WifiCameraContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedBrand = searchParams.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels from admin panel)
@@ -77,9 +79,13 @@ export default function WifiCameraPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/wifi-camera-products');
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/wifi-camera-products?t=${timestamp}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const data = await res.json();
-      console.log('API Response:', data);
+      console.log('📦 WiFi Camera API Response:', data);
       if (data.success) {
         // Map database fields to frontend format
         const mappedProducts = data.products.map((p: any) => ({
@@ -128,6 +134,12 @@ export default function WifiCameraPage() {
   // Filtered products
   const filteredProducts = useMemo(() => {
     const filtered = products.filter(product => {
+      // Filter by brand from URL parameter (case-insensitive and space-insensitive)
+      if (selectedBrand) {
+        const normalizedProductBrand = product.brand.toLowerCase().replace(/\s+/g, '');
+        const normalizedSelectedBrand = selectedBrand.toLowerCase().replace(/\s+/g, '');
+        if (normalizedProductBrand !== normalizedSelectedBrand) return false;
+      }
       if (selectedResolutions.length > 0 && !selectedResolutions.includes(product.resolution)) return false;
       if (selectedConnectivity.length > 0 && !selectedConnectivity.includes(product.connectivity)) return false;
       if (selectedPowerSupply.length > 0 && !selectedPowerSupply.includes(product.powerSupply)) return false;
@@ -137,9 +149,9 @@ export default function WifiCameraPage() {
     });
     console.log('Filtered Products:', filtered);
     console.log('Total Products:', products.length);
-    console.log('Filters Active:', { selectedResolutions, selectedConnectivity, selectedPowerSupply, selectedNightVision, priceRange });
+    console.log('Filters Active:', { selectedBrand, selectedResolutions, selectedConnectivity, selectedPowerSupply, selectedNightVision, priceRange });
     return filtered;
-  }, [selectedResolutions, selectedConnectivity, selectedPowerSupply, selectedNightVision, priceRange, products]);
+  }, [selectedBrand, selectedResolutions, selectedConnectivity, selectedPowerSupply, selectedNightVision, priceRange, products]);
 
   const FilterSection = ({ 
     title, 
@@ -467,5 +479,13 @@ export default function WifiCameraPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function WifiCameraPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <WifiCameraContent />
+    </Suspense>
   );
 }

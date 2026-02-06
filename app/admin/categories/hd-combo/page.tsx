@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
+import { useGlobalQuotationData } from '@/lib/useGlobalQuotationData';
 
 interface HDComboProduct {
   id: number;
@@ -23,6 +24,9 @@ interface HDComboProduct {
 }
 
 export default function HDComboAdmin() {
+  // Get global data from admin quotation management
+  const { data: globalData, loading: loadingGlobal } = useGlobalQuotationData();
+  
   const [products, setProducts] = useState<HDComboProduct[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<HDComboProduct | null>(null);
@@ -52,8 +56,15 @@ export default function HDComboAdmin() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/hd-combo-products?admin=true');
+      setLoading(true);
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/hd-combo-products?admin=true&t=${timestamp}`, {
+        cache: 'no-store'
+      });
       const data = await res.json();
+      
+      console.log('👨‍💻 Admin: Fetched', data.products?.length || 0, 'products');
       
       if (data.success) {
         // Map database fields to frontend format
@@ -75,9 +86,13 @@ export default function HDComboAdmin() {
         isActive: p.is_active
       }));
       setProducts(mappedProducts);
+      console.log('✅ Active products:', mappedProducts.filter((p: HDComboProduct) => p.isActive).length);
+      console.log('❌ Inactive products:', mappedProducts.filter((p: HDComboProduct) => !p.isActive).length);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -339,7 +354,7 @@ export default function HDComboAdmin() {
                   />
                 </div>
 
-                {/* Brand */}
+                {/* Brand - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Brand *
@@ -351,18 +366,18 @@ export default function HDComboAdmin() {
                     required
                   >
                     <option value="">Select Brand</option>
-                    <option value="Hikvision">Hikvision</option>
-                    <option value="CP Plus">CP Plus</option>
-                    <option value="Dahua">Dahua</option>
-                    <option value="Prama">Prama</option>
-                    <option value="Secureye">Secureye</option>
-                    <option value="Zebronics">Zebronics</option>
-                    <option value="Daichi">Daichi</option>
-                    <option value="Godrej">Godrej</option>
+                    {globalData?.brands?.map((brand) => (
+                      <option key={brand.id} value={brand.name}>
+                        {brand.name}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Brands are managed in Quotation Management
+                  </p>
                 </div>
 
-                {/* Channels */}
+                {/* Channels - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Channels *
@@ -373,11 +388,15 @@ export default function HDComboAdmin() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="2">2 Channel</option>
-                    <option value="4">4 Channel</option>
-                    <option value="8">8 Channel</option>
-                    <option value="16">16 Channel</option>
+                    {globalData?.channels?.map((channel) => (
+                      <option key={channel.id} value={channel.channel_count}>
+                        {channel.channel_count} Channel
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Channels are managed in Quotation Management
+                  </p>
                 </div>
 
                 {/* Camera Type */}
@@ -397,7 +416,7 @@ export default function HDComboAdmin() {
                   </select>
                 </div>
 
-                {/* Resolution */}
+                {/* Resolution - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Resolution *
@@ -408,15 +427,18 @@ export default function HDComboAdmin() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="2MP">2MP</option>
-                    <option value="3MP">3MP</option>
-                    <option value="4MP">4MP</option>
-                    <option value="5MP">5MP</option>
-                    <option value="8MP">8MP</option>
+                    {globalData?.pixels?.map((pixel) => (
+                      <option key={pixel.id} value={pixel.name}>
+                        {pixel.name}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Resolutions are managed in Quotation Management
+                  </p>
                 </div>
 
-                {/* Hard Disk */}
+                {/* Hard Disk - Dynamic from Admin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Hard Disk *
@@ -427,11 +449,15 @@ export default function HDComboAdmin() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="500GB">500GB</option>
-                    <option value="1TB">1TB</option>
-                    <option value="2TB">2TB</option>
-                    <option value="4TB">4TB</option>
+                    {globalData?.storage?.map((storage) => (
+                      <option key={storage.id} value={storage.capacity}>
+                        {storage.capacity}
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Storage options are managed in Quotation Management
+                  </p>
                 </div>
 
                 {/* Cable Length */}
