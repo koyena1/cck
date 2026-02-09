@@ -66,24 +66,27 @@ export default function PricingManagementPage() {
       if (response.ok) {
         const data = await response.json();
         setQuotationSettings(data);
-        setGlobalSettings(data.settings || { gst_rate: 18, default_discount: 0, installation_charges_base: 5000, cod_advance_amount: 200 });
+        setGlobalSettings(data.settings || { gst_rate: 18, default_discount: 0, installation_charges_base: 5000, cod_advance_amount: 200, cod_percentage: 10 });
       }
       
-      // Fetch COD advance amount and AMC options from installation settings
+      // Fetch COD settings and AMC options from installation settings
       try {
         const installationResponse = await fetch('/api/installation-settings');
         if (installationResponse.ok) {
           const installationData = await installationResponse.json();
           console.log('🔍 Installation settings loaded:', installationData);
           console.log('🔍 COD Advance from API:', installationData.settings?.codAdvanceAmount);
+          console.log('🔍 COD Percentage from API:', installationData.settings?.codPercentage);
           
           if (installationData.success && installationData.settings) {
             const codAmount = installationData.settings.codAdvanceAmount ?? 200;
-            console.log('💰 Setting COD Advance to:', codAmount);
+            const codPercent = installationData.settings.codPercentage ?? 10;
+            console.log('💰 Setting COD values to:', { codAmount, codPercent });
             
             setGlobalSettings(prev => ({
               ...prev,
-              cod_advance_amount: codAmount
+              cod_advance_amount: codAmount,
+              cod_percentage: codPercent
             }));
             setAmcOptions(installationData.settings.amcOptions || {
               with_1year: 400,
@@ -95,13 +98,12 @@ export default function PricingManagementPage() {
         }
       } catch (installError) {
         console.warn('Installation settings table not found - using defaults:', installError);
-        // Don't override if value already exists from previous fetch
-        if (globalSettings.cod_advance_amount === undefined) {
-          setGlobalSettings(prev => ({
-            ...prev,
-            cod_advance_amount: 200
-          }));
-        }
+        // Don't override if values already exist from previous fetch
+        setGlobalSettings(prev => ({
+          ...prev,
+          cod_advance_amount: prev.cod_advance_amount ?? 200,
+          cod_percentage: prev.cod_percentage ?? 10
+        }));
       }
     } catch (error) {
       console.error('Failed to fetch quotation settings:', error);
@@ -130,14 +132,15 @@ export default function PricingManagementPage() {
       
       quotationSuccess = response.ok;
       
-      // Try to save COD advance amount to installation settings
+      // Try to save COD settings to installation settings
       try {
-        console.log('🔍 Saving COD Advance - globalSettings:', globalSettings);
+        console.log('🔍 Saving COD Settings - globalSettings:', globalSettings);
         console.log('🔍 cod_advance_amount value:', globalSettings.cod_advance_amount);
-        console.log('🔍 cod_advance_amount type:', typeof globalSettings.cod_advance_amount);
+        console.log('🔍 cod_percentage value:', globalSettings.cod_percentage);
         
         const codAdvanceValue = globalSettings.cod_advance_amount ?? 200;
-        console.log('💾 Final COD Advance value being sent:', codAdvanceValue);
+        const codPercentageValue = globalSettings.cod_percentage ?? 10;
+        console.log('💾 Final COD values being sent:', { codAdvanceValue, codPercentageValue });
         
         const installationResponse = await fetch('/api/installation-settings', {
           method: 'POST',
@@ -145,6 +148,7 @@ export default function PricingManagementPage() {
           body: JSON.stringify({
             installationCost: globalSettings.installation_charges_base ?? 5000,
             codAdvanceAmount: codAdvanceValue,
+            codPercentage: codPercentageValue,
             amcOptions: amcOptions
           })
         });
@@ -154,16 +158,16 @@ export default function PricingManagementPage() {
         if (!installationSuccess) {
           const errorData = await installationResponse.json().catch(() => ({}));
           console.warn('Installation settings save failed:', errorData);
-          installationMessage = '\n\nNote: COD Advance Amount could not be saved. Please run the database migration first:\n\nCREATE TABLE installation_settings...';
+          installationMessage = '\n\n⚠️ Note: COD settings could not be saved. Please run the database migration first.\n\nRun in PowerShell:\n.\\run-cod-percentage-migration.ps1';
         }
       } catch (installError) {
         console.warn('Installation settings error (table may not exist):', installError);
-        installationMessage = '\n\nNote: COD Advance Amount not saved. Run database migration in pgAdmin first.';
+        installationMessage = '\n\n⚠️ Note: COD settings not saved. Run database migration script first.';
       }
       
       if (quotationSuccess) {
         if (installationSuccess) {
-          alert('✅ All global settings saved successfully!');
+          alert('✅ All global settings (including COD settings) saved successfully!');
         } else {
           alert('✅ GST, Discount & Installation charges saved successfully!' + installationMessage);
         }
@@ -488,7 +492,24 @@ export default function PricingManagementPage() {
                 }}
                 disabled={isSavingSettings}
               />
-              <p className="text-xs text-slate-600">Amount customers pay in advance for COD orders</p>
+              <p className="text-xs text-slate-600">Extra COD charges added to order total</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="codPercentage" className="font-bold">COD Advance Percentage (%)</Label>
+              <Input 
+                id="codPercentage" 
+                type="number" 
+                step="0.01"
+                min="0"
+                max="100"
+                value={globalSettings?.cod_percentage ?? 10}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                  setGlobalSettings({...globalSettings, cod_percentage: isNaN(value) ? 0 : value});
+                }}
+                disabled={isSavingSettings}
+              />
+              <p className="text-xs text-slate-600">Percentage of (Product + COD charges) to pay upfront</p>
             </div>
           </div>
           <Button 
