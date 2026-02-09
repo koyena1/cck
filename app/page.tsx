@@ -790,7 +790,7 @@ export default function HomePage() {
               <div 
                 key={i} 
                 onClick={() => item.link && router.push(item.link)}
-                className="flex flex-col items-center min-w-[100px] p-3 rounded-lg hover:bg-slate-50 transition-all cursor-pointer group"
+                className="flex flex-col items-center min-w-25 p-3 rounded-lg hover:bg-slate-50 transition-all cursor-pointer group"
               >
                 <div className={`w-14 h-14 flex items-center justify-center mb-2 rounded-full ${item.highlight ? 'bg-red-50' : 'bg-slate-50'} group-hover:scale-110 transition-transform overflow-hidden`}>
                   {item.useIcon && item.icon ? (

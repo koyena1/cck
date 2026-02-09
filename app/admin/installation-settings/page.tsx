@@ -13,6 +13,8 @@ interface AmcOptions {
 
 export default function InstallationSettingsPage() {
   const [installationCost, setInstallationCost] = useState(5000);
+  const [codAdvanceAmount, setCodAdvanceAmount] = useState(200);
+  const [codPercentage, setCodPercentage] = useState(10);
   const [amcOptions, setAmcOptions] = useState<AmcOptions>({
     with_1year: 400,
     with_2year: 700,
@@ -34,6 +36,8 @@ export default function InstallationSettingsPage() {
       
       if (data.success && data.settings) {
         setInstallationCost(data.settings.installationCost);
+        setCodAdvanceAmount(data.settings.codAdvanceAmount || 200);
+        setCodPercentage(data.settings.codPercentage || 10);
         setAmcOptions(data.settings.amcOptions);
       }
     } catch (error) {
@@ -54,6 +58,8 @@ export default function InstallationSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           installationCost,
+          codPercentage,
+          codAdvanceAmount,
           amcOptions
         })
       });
@@ -87,8 +93,8 @@ export default function InstallationSettingsPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900">Installation & AMC Settings</h1>
-        <p className="text-slate-600 mt-2">Configure pricing for installation and AMC options</p>
+        <h1 className="text-3xl font-bold text-slate-900">Installation & COD Settings</h1>
+        <p className="text-slate-600 mt-2">Configure pricing for installation, COD payment system, and AMC options</p>
       </div>
 
       {message && (
@@ -113,6 +119,86 @@ export default function InstallationSettingsPage() {
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#e63946] focus:border-transparent"
             placeholder="5000"
           />
+        </div>
+
+        {/* COD Settings Section */}
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-6 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-lg font-bold text-slate-900">COD Payment Settings</h3>
+          </div>
+          
+          {/* COD Advance Amount */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-900 mb-2">
+              📦 Extra COD Amount (₹)
+            </label>
+            <p className="text-sm text-slate-600 mb-2">
+              Additional charges applied when customer selects Cash on Delivery payment method
+            </p>
+            <input
+              type="number"
+              value={codAdvanceAmount}
+              onChange={(e) => setCodAdvanceAmount(parseFloat(e.target.value))}
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-lg font-semibold"
+              placeholder="200"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              💡 This amount covers COD processing costs (recommended: ₹200)
+            </p>
+          </div>
+
+          {/* COD Percentage */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-900 mb-2">
+              💳 COD Advance Payment Percentage (%)
+            </label>
+            <p className="text-sm text-slate-600 mb-2">
+              Percentage of (Product Amount + Extra COD Amount) that customer must pay upfront via Razorpay
+            </p>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={codPercentage}
+              onChange={(e) => setCodPercentage(parseFloat(e.target.value))}
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-lg font-semibold"
+              placeholder="10"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              💡 Example: 10% means if order is ₹10,200, customer pays ₹1,020 advance
+            </p>
+          </div>
+
+          {/* Visual Example */}
+          <div className="bg-white border border-amber-300 rounded-lg p-4 mt-4">
+            <p className="text-xs font-semibold text-slate-700 mb-2">📊 CALCULATION EXAMPLE:</p>
+            <div className="space-y-1 text-xs text-slate-600">
+              <div className="flex justify-between">
+                <span>Product Price:</span>
+                <span className="font-medium">₹10,000</span>
+              </div>
+              <div className="flex justify-between">
+                <span>+ Extra COD Amount:</span>
+                <span className="font-medium text-amber-600">₹{codAdvanceAmount}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1">
+                <span>= Base Amount:</span>
+                <span className="font-semibold">₹{(10000 + codAdvanceAmount).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-orange-600 font-bold">
+                <span>Advance Payment ({codPercentage}%):</span>
+                <span>₹{((10000 + codAdvanceAmount) * codPercentage / 100).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-green-700 font-bold">
+                <span>Pay on Delivery:</span>
+                <span>₹{((10000 + codAdvanceAmount) - ((10000 + codAdvanceAmount) * codPercentage / 100)).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="border-t pt-6">

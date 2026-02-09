@@ -235,11 +235,23 @@ function FooterComponent() {
           viewport={{ once: true }}
           transition={{ delay: 0.5, duration: 0.5 }}
         >
-          <p className="text-gray-500 text-sm flex items-center gap-2">
-            Copyright © {new Date().getFullYear()} Ucam by Designesia
-            <span className="inline-block w-1 h-1 rounded-full bg-gray-600 mx-1"></span>
-            Made with <span className="text-red-500 animate-pulse">♥</span>
-          </p>
+          <div className="text-gray-500 text-sm flex flex-col items-center md:items-start gap-1">
+            <p className="flex items-center gap-2">
+              Copyright © 2026 Cygnatrix IT Solution
+            </p>
+            <p className="flex items-center gap-1">
+              Made with 
+              <a 
+                href="https://cygnatrix.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+              >
+                Cygnatrix
+              </a>
+            </p>
+          </div>
+
           <div className="flex space-x-6">
             {[
               { href: "/terms", label: "Terms & Conditions" },

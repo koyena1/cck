@@ -7,9 +7,12 @@ import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronRight, ShoppingCart, Package } from 'lucide-react';
+import { CODAdvanceDialog } from '@/components/CODAdvanceDialog';
 
 interface InstallationSettings {
   installationCost: number;
+  codAdvanceAmount: number;
+  codPercentage: number;
   amcOptions: {
     with_1year: number;
     with_2year: number;
@@ -43,6 +46,8 @@ function BuyNowContent() {
   const [settings, setSettings] = useState<InstallationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [showCODDialog, setShowCODDialog] = useState(false);
+  const [pendingOrderNumber, setPendingOrderNumber] = useState('');
 
   // Load Razorpay script
   useEffect(() => {
@@ -124,6 +129,8 @@ function BuyNowContent() {
       console.log('Quotation settings response:', quotationData);
       console.log('Installation charges value:', quotationData.settings?.installation_charges_base);
       console.log('AMC settings response:', amcData);
+      console.log('🔍 COD Advance Amount from API:', amcData.settings?.codAdvanceAmount);
+      console.log('🔍 COD Advance Amount type:', typeof amcData.settings?.codAdvanceAmount);
       
       const installationCost = quotationData.settings?.installation_charges_base 
         ? parseFloat(quotationData.settings.installation_charges_base)
@@ -132,18 +139,29 @@ function BuyNowContent() {
       console.log('Final installation cost:', installationCost);
       
       if (quotationData && amcData.success) {
+        const codAmount = amcData.settings?.codAdvanceAmount ?? 200;
+        const codPercent = amcData.settings?.codPercentage ?? 10;
+        console.log('💰 Using COD Advance Amount:', codAmount);
+        console.log('📊 Using COD Percentage:', codPercent);
+        
         setSettings({
           installationCost: installationCost,
+          codAdvanceAmount: codAmount,
+          codPercentage: codPercent,
           amcOptions: amcData.settings.amcOptions
         });
         console.log('Settings loaded:', {
           installationCost: installationCost,
+          codAdvanceAmount: codAmount,
+          codPercentage: codPercent,
           amcOptions: amcData.settings.amcOptions
         });
       } else {
         // Set default settings if API fails
         setSettings({
           installationCost: installationCost,
+          codAdvanceAmount: 200,
+          codPercentage: 10,
           amcOptions: {
             with_1year: 400,
             with_2year: 700,
@@ -157,6 +175,8 @@ function BuyNowContent() {
       // Set default settings on error
       setSettings({
         installationCost: 5000,
+        codAdvanceAmount: 200,
+        codPercentage: 10,
         amcOptions: {
           with_1year: 400,
           with_2year: 700,
@@ -191,6 +211,14 @@ function BuyNowContent() {
 
   const getTotalItems = () => {
     return cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  };
+
+  const calculateCODAdvancePayment = () => {
+    if (!settings) return 0;
+    const productsTotal = getProductsTotal();
+    const baseAmount = productsTotal + settings.codAdvanceAmount;
+    const advancePayment = (baseAmount * settings.codPercentage) / 100;
+    return advancePayment;
   };
 
   const handleConfirm = () => {
@@ -356,8 +384,53 @@ function BuyNowContent() {
       return;
     }
 
-    // Create order in database
-    await submitOrder('cod');
+    if (!settings) {
+      alert('Settings not loaded. Please try again.');
+      return;
+    }
+
+    // Calculate COD charges
+    const productsTotal = getProductsTotal();
+    const extraCODAmount = settings.codAdvanceAmount;
+    const baseAmount = productsTotal + extraCODAmount;
+    const advancePayment = calculateCODAdvancePayment();
+    const remainingAmount = calculateTotal() - advancePayment;
+
+    // Show detailed COD information message
+    const confirmMessage = 
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `   CASH ON DELIVERY (COD) DETAILS\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📦 Product Total: ₹${productsTotal.toLocaleString()}\n` +
+      `💰 Extra COD Charges: ₹${extraCODAmount.toLocaleString()}\n` +
+      `➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n` +
+      `📊 Base Amount: ₹${baseAmount.toLocaleString()}\n\n` +
+      `⚠️ ADVANCE PAYMENT REQUIRED:\n` +
+      `You must pay ${settings.codPercentage}% of base amount\n` +
+      `= ₹${advancePayment.toLocaleString()} via Razorpay NOW\n\n` +
+      `💵 Pay on Delivery: ₹${remainingAmount.toLocaleString()}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `Click OK to proceed with payment`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    // Create order in database first
+    const orderResult = await submitOrder('cod');
+    if (orderResult) {
+      // Show COD advance payment dialog
+      setPendingOrderNumber(orderResult.orderNumber);
+      setShowCODDialog(true);
+    }
+  };
+
+  const handleCODPaymentSuccess = () => {
+    setShowCODDialog(false);
+    alert('COD advance payment successful! Your order is confirmed. Pay the remaining amount on delivery.');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('cartCheckout');
+    router.push('/');
   };
 
   const submitOrder = async (paymentMethod: 'razorpay' | 'cod') => {
@@ -395,11 +468,11 @@ function BuyNowContent() {
         const result = await response.json();
         
         if (paymentMethod === 'cod') {
-          alert('Order placed successfully with COD!');
-          localStorage.removeItem('cart');
-          localStorage.removeItem('cartCheckout');
-          router.push('/');
-          return null;
+          // Return order details for COD advance payment
+          return {
+            orderNumber: result.order.order_number,
+            totalAmount: result.order.total_amount,
+          };
         }
         
         // For Razorpay, return order details
@@ -684,7 +757,7 @@ function BuyNowContent() {
           </div>
 
           {/* Total Summary */}
-          <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg shadow-lg p-6 mb-6">
+          <div className="bg-linear-to-r from-slate-800 to-slate-900 rounded-lg shadow-lg p-6 mb-6">
             <div className="space-y-3 text-white">
               <div className="flex justify-between text-sm">
                 <span>Products Total ({getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'})</span>
@@ -852,6 +925,18 @@ function BuyNowContent() {
           </div>
         </div>
       </main>
+      
+      {/* COD Advance Payment Dialog */}
+      <CODAdvanceDialog
+        isOpen={showCODDialog}
+        onClose={() => setShowCODDialog(false)}
+        advanceAmount={calculateCODAdvancePayment()}
+        orderNumber={pendingOrderNumber}
+        customerName={customerName}
+        phone={phone}
+        totalAmount={calculateTotal()}
+        onPaymentSuccess={handleCODPaymentSuccess}
+      />
       
       <Footer />
     </div>

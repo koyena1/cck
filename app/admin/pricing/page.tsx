@@ -30,6 +30,12 @@ export default function PricingManagementPage() {
   
   // Global settings
   const [globalSettings, setGlobalSettings] = useState<any>({});
+  const [amcOptions, setAmcOptions] = useState<any>({
+    with_1year: 400,
+    with_2year: 700,
+    without_1year: 250,
+    without_2year: 200
+  });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   
   // Base pricing edits (temporary state before saving)
@@ -60,7 +66,42 @@ export default function PricingManagementPage() {
       if (response.ok) {
         const data = await response.json();
         setQuotationSettings(data);
-        setGlobalSettings(data.settings || { gst_rate: 18, default_discount: 0, installation_charges_base: 5000 });
+        setGlobalSettings(data.settings || { gst_rate: 18, default_discount: 0, installation_charges_base: 5000, cod_advance_amount: 200 });
+      }
+      
+      // Fetch COD advance amount and AMC options from installation settings
+      try {
+        const installationResponse = await fetch('/api/installation-settings');
+        if (installationResponse.ok) {
+          const installationData = await installationResponse.json();
+          console.log('🔍 Installation settings loaded:', installationData);
+          console.log('🔍 COD Advance from API:', installationData.settings?.codAdvanceAmount);
+          
+          if (installationData.success && installationData.settings) {
+            const codAmount = installationData.settings.codAdvanceAmount ?? 200;
+            console.log('💰 Setting COD Advance to:', codAmount);
+            
+            setGlobalSettings(prev => ({
+              ...prev,
+              cod_advance_amount: codAmount
+            }));
+            setAmcOptions(installationData.settings.amcOptions || {
+              with_1year: 400,
+              with_2year: 700,
+              without_1year: 250,
+              without_2year: 200
+            });
+          }
+        }
+      } catch (installError) {
+        console.warn('Installation settings table not found - using defaults:', installError);
+        // Don't override if value already exists from previous fetch
+        if (globalSettings.cod_advance_amount === undefined) {
+          setGlobalSettings(prev => ({
+            ...prev,
+            cod_advance_amount: 200
+          }));
+        }
       }
     } catch (error) {
       console.error('Failed to fetch quotation settings:', error);
@@ -69,25 +110,72 @@ export default function PricingManagementPage() {
 
   const handleSaveGlobalSettings = async () => {
     setIsSavingSettings(true);
+    let quotationSuccess = false;
+    let installationSuccess = false;
+    let installationMessage = '';
+    
     try {
+      // Save quotation settings
       const response = await fetch('/api/quotation-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           table: 'settings',
           id: 1,
-          ...globalSettings
+          gst_rate: globalSettings.gst_rate,
+          default_discount: globalSettings.default_discount,
+          installation_charges_base: globalSettings.installation_charges_base
         })
       });
       
-      if (response.ok) {
-        alert('Global settings saved successfully!');
+      quotationSuccess = response.ok;
+      
+      // Try to save COD advance amount to installation settings
+      try {
+        console.log('🔍 Saving COD Advance - globalSettings:', globalSettings);
+        console.log('🔍 cod_advance_amount value:', globalSettings.cod_advance_amount);
+        console.log('🔍 cod_advance_amount type:', typeof globalSettings.cod_advance_amount);
+        
+        const codAdvanceValue = globalSettings.cod_advance_amount ?? 200;
+        console.log('💾 Final COD Advance value being sent:', codAdvanceValue);
+        
+        const installationResponse = await fetch('/api/installation-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            installationCost: globalSettings.installation_charges_base ?? 5000,
+            codAdvanceAmount: codAdvanceValue,
+            amcOptions: amcOptions
+          })
+        });
+        
+        installationSuccess = installationResponse.ok;
+        
+        if (!installationSuccess) {
+          const errorData = await installationResponse.json().catch(() => ({}));
+          console.warn('Installation settings save failed:', errorData);
+          installationMessage = '\n\nNote: COD Advance Amount could not be saved. Please run the database migration first:\n\nCREATE TABLE installation_settings...';
+        }
+      } catch (installError) {
+        console.warn('Installation settings error (table may not exist):', installError);
+        installationMessage = '\n\nNote: COD Advance Amount not saved. Run database migration in pgAdmin first.';
+      }
+      
+      if (quotationSuccess) {
+        if (installationSuccess) {
+          alert('✅ All global settings saved successfully!');
+        } else {
+          alert('✅ GST, Discount & Installation charges saved successfully!' + installationMessage);
+        }
+        fetchQuotationSettings(); // Refresh data
       } else {
-        alert('Failed to save global settings');
+        const responseData = await response.json().catch(() => ({}));
+        console.error('Quotation settings save failed:', responseData);
+        alert('❌ Failed to save quotation settings. Check console for details.');
       }
     } catch (error) {
       console.error('Save settings error:', error);
-      alert('Failed to save global settings');
+      alert('❌ Failed to save settings: ' + (error as Error).message);
     } finally {
       setIsSavingSettings(false);
     }
@@ -348,14 +436,17 @@ export default function PricingManagementPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="gst" className="font-bold">GST Rate (%)</Label>
               <Input 
                 id="gst" 
                 type="number" 
-                value={globalSettings?.gst_rate || 18}
-                onChange={(e) => setGlobalSettings({...globalSettings, gst_rate: parseFloat(e.target.value)})}
+                value={globalSettings?.gst_rate ?? 18}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                  setGlobalSettings({...globalSettings, gst_rate: isNaN(value) ? 0 : value});
+                }}
                 disabled={isSavingSettings}
               />
             </div>
@@ -364,8 +455,11 @@ export default function PricingManagementPage() {
               <Input 
                 id="discount" 
                 type="number" 
-                value={globalSettings?.default_discount || 0}
-                onChange={(e) => setGlobalSettings({...globalSettings, default_discount: parseFloat(e.target.value)})}
+                value={globalSettings?.default_discount ?? 0}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                  setGlobalSettings({...globalSettings, default_discount: isNaN(value) ? 0 : value});
+                }}
                 disabled={isSavingSettings}
               />
             </div>
@@ -374,10 +468,27 @@ export default function PricingManagementPage() {
               <Input 
                 id="installation" 
                 type="number" 
-                value={globalSettings?.installation_charges_base || 5000}
-                onChange={(e) => setGlobalSettings({...globalSettings, installation_charges_base: parseFloat(e.target.value)})}
+                value={globalSettings?.installation_charges_base ?? 5000}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                  setGlobalSettings({...globalSettings, installation_charges_base: isNaN(value) ? 0 : value});
+                }}
                 disabled={isSavingSettings}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="codAdvance" className="font-bold">COD Advance Amount (₹)</Label>
+              <Input 
+                id="codAdvance" 
+                type="number" 
+                value={globalSettings?.cod_advance_amount ?? 200}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                  setGlobalSettings({...globalSettings, cod_advance_amount: isNaN(value) ? 0 : value});
+                }}
+                disabled={isSavingSettings}
+              />
+              <p className="text-xs text-slate-600">Amount customers pay in advance for COD orders</p>
             </div>
           </div>
           <Button 
