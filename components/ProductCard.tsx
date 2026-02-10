@@ -7,7 +7,7 @@ import { ShoppingCart, Package } from "lucide-react"
 import { Product } from "./product"
 import { useCart } from "./cart-context"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface ProductCardProps {
   product: Product;
@@ -23,10 +23,26 @@ export function ProductCard({ product, userSession }: ProductCardProps) {
   const { addToCart, setIsCartOpen } = useCart();
   const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check if customer is logged in
+    const token = localStorage.getItem('customerToken');
+    setIsLoggedIn(!!token);
+  }, []);
 
   const price = showWholesale ? product.WholesalePrice : product.RetailPrice;
 
   const handleAddToCart = () => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      alert('Please login or register to add items to cart');
+      // Store current page for redirect after login
+      sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+      router.push('/?login=true');
+      return;
+    }
+
     setIsAdding(true);
     addToCart({
       id: product.ProductID.toString(),

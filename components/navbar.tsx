@@ -1,24 +1,51 @@
 "use client"
 
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Zap, UserCircle, Menu, X, ShoppingBag } from "lucide-react"
+import { usePathname, useSearchParams } from "next/navigation"
+import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCart } from "./cart-context"
+import { CustomerAuthModal } from "./customer-auth-modal"
 
 function NavbarComponent() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [customerName, setCustomerName] = useState<string | null>(null)
   const { cartCount, setIsCartOpen } = useCart()
+
+  // Check if customer is logged in
+  useEffect(() => {
+    const name = localStorage.getItem('customerName')
+    setCustomerName(name)
+  }, [])
+
+  // Auto-open auth modal if login query parameter is present
+  useEffect(() => {
+    const loginParam = searchParams.get('login')
+    if (loginParam === 'true' && !customerName) {
+      setIsAuthModalOpen(true)
+    }
+  }, [searchParams, customerName])
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('customerToken')
+    localStorage.removeItem('customerName')
+    localStorage.removeItem('customerEmail')
+    setCustomerName(null)
+    window.location.reload()
+  }
 
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Services" },
     { href: "/about", label: "About Us" },
     { href: "/quotation-management", label: "Quotation Management", highlighted: true },
-    { href: "/track-order", label: "Track Order" },
+    ...(customerName ? [{ href: "/track-order", label: "Track Order" }] : []),
   ]
 
   // Light theme active style: Light grey background with dark text
@@ -65,19 +92,21 @@ function NavbarComponent() {
             Contact Us
           </Link>
           
-          {/* Cart Icon */}
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="ml-2 relative p-2 hover:bg-slate-100 rounded-full transition-colors"
-            aria-label="Shopping cart"
-          >
-            <ShoppingBag className="w-6 h-6 text-slate-900 stroke-2" />
-            {cartCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg border-2 border-white">
-                {cartCount}
-              </span>
-            )}
-          </button>
+          {/* Cart Icon - Only show when logged in */}
+          {customerName && (
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="ml-2 relative p-2 hover:bg-slate-100 rounded-full transition-colors"
+              aria-label="Shopping cart"
+            >
+              <ShoppingBag className="w-6 h-6 text-slate-900 stroke-2" />
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg border-2 border-white">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Mobile Menu Toggle Button - Darker Icon */}
@@ -91,13 +120,29 @@ function NavbarComponent() {
 
         {/* Auth Section - Desktop */}
         <div className="pr-4 hidden md:block">
-          <Link 
-            href="/login" 
-            className="flex items-center gap-2 text-slate-600 hover:text-[#e63946] text-sm font-medium transition-colors"
-          >
-            <UserCircle size={18} />
-            Login / Register
-          </Link>
+          {customerName ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-slate-600 text-sm">
+                <UserCircle size={18} />
+                <span className="font-medium">{customerName}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1 text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
+                title="Logout"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-2 text-slate-600 hover:text-[#e63946] text-sm font-medium transition-colors"
+            >
+              <UserCircle size={18} />
+              Login / Register
+            </button>
+          )}
         </div>
       </div>
 
@@ -133,35 +178,64 @@ function NavbarComponent() {
               Get Instant Quote
             </Link>
             
-            {/* Cart Button for Mobile */}
-            <button
-              onClick={() => {
-                setIsCartOpen(true)
-                setIsMenuOpen(false)
-              }}
-              className="relative flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              Shopping Cart
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg">
-                  {cartCount}
-                </span>
-              )}
-            </button>
+            {/* Cart Button for Mobile - Only show when logged in */}
+            {customerName && (
+              <button
+                onClick={() => {
+                  setIsCartOpen(true)
+                  setIsMenuOpen(false)
+                }}
+                className="relative flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                Shopping Cart
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            )}
             
             {/* Login/Register for Mobile */}
-            <Link
-              href="/login"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
-            >
-              <UserCircle size={18} />
-              Login / Register
-            </Link>
+            {customerName ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 rounded-full text-sm font-bold">
+                  <UserCircle size={18} />
+                  {customerName}
+                </div>
+                <button
+                  onClick={() => {
+                    handleLogout()
+                    setIsMenuOpen(false)
+                  }}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-red-100 text-red-600 hover:bg-red-200 rounded-full text-sm font-bold transition-colors"
+                >
+                  <LogOut size={18} />
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsAuthModalOpen(true)
+                  setIsMenuOpen(false)
+                }}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+              >
+                <UserCircle size={18} />
+                Login / Register
+              </button>
+            )}
           </div>
         </div>
       )}
+
+      {/* Customer Auth Modal */}
+      <CustomerAuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+      />
     </nav>
   )
 }

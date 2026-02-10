@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 export default function QuotationManagementPage() {
   const [quotationSettings, setQuotationSettings] = useState<any>(null);
@@ -767,6 +767,7 @@ export default function QuotationManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Item</DialogTitle>
+            <DialogDescription className="sr-only">Edit the selected item details</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {editingItem?.table === 'channel_options' ? (
@@ -912,6 +913,7 @@ export default function QuotationManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Item</DialogTitle>
+            <DialogDescription className="sr-only">Add a new item to the database</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {showAddModal === 'camera_types' || showAddModal === 'brands' || showAddModal === 'pixel_options' ? (

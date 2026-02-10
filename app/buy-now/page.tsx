@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronRight, ShoppingCart, Package } from 'lucide-react';
 import { CODAdvanceDialog } from '@/components/CODAdvanceDialog';
+import { CustomerAuthModal } from '@/components/customer-auth-modal';
 
 interface InstallationSettings {
   installationCost: number;
@@ -48,6 +49,22 @@ function BuyNowContent() {
   const [quantity, setQuantity] = useState(1);
   const [showCODDialog, setShowCODDialog] = useState(false);
   const [pendingOrderNumber, setPendingOrderNumber] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Check if user is logged in
+  useEffect(() => {
+    const token = localStorage.getItem('customerToken');
+    setIsLoggedIn(!!token);
+    
+    // If logged in, prefill email and name
+    if (token) {
+      const name = localStorage.getItem('customerName');
+      const userEmail = localStorage.getItem('customerEmail');
+      if (name) setCustomerName(name);
+      if (userEmail) setEmail(userEmail);
+    }
+  }, []);
 
   // Load Razorpay script
   useEffect(() => {
@@ -260,6 +277,13 @@ function BuyNowContent() {
   };
 
   const handleRazorpay = async () => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      alert('Please login or register to place an order');
+      setShowAuthModal(true);
+      return;
+    }
+
     const validation = validateForm();
     if (!validation.valid) {
       alert(validation.message);
@@ -378,6 +402,13 @@ function BuyNowContent() {
   };
 
   const handleCOD = async () => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      alert('Please login or register to place an order');
+      setShowAuthModal(true);
+      return;
+    }
+
     const validation = validateForm();
     if (!validation.valid) {
       alert(validation.message);
@@ -936,6 +967,23 @@ function BuyNowContent() {
         phone={phone}
         totalAmount={calculateTotal()}
         onPaymentSuccess={handleCODPaymentSuccess}
+      />
+
+      {/* Customer Auth Modal */}
+      <CustomerAuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          // Refresh login state after modal closes
+          const token = localStorage.getItem('customerToken');
+          if (token) {
+            setIsLoggedIn(true);
+            const name = localStorage.getItem('customerName');
+            const userEmail = localStorage.getItem('customerEmail');
+            if (name) setCustomerName(name);
+            if (userEmail) setEmail(userEmail);
+          }
+        }}
       />
       
       <Footer />

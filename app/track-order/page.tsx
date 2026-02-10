@@ -1,105 +1,67 @@
 // app/track-order/page.tsx
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Package, 
-  Phone, 
   Shield, 
-  Truck, 
   CheckCircle2, 
-  Clock,
   MapPin,
   Calendar,
   User,
-  CreditCard
+  CreditCard,
+  Loader2
 } from "lucide-react";
 
 export default function TrackOrderPage() {
-  // Step 1: Enter Phone Number
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  
-  // Step 2: Verify OTP
-  const [otpCode, setOtpCode] = useState("");
-  const [verified, setVerified] = useState(false);
-  
-  // Step 3: Display Orders
+  const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
 
-  const handleSendOTP = async () => {
-    if (phoneNumber.length !== 10) {
-      setError("Please enter a valid 10-digit phone number");
+  useEffect(() => {
+    // Check if user is logged in
+    const email = localStorage.getItem('customerEmail');
+    const token = localStorage.getItem('customerToken');
+    
+    if (!email || !token) {
+      // Not logged in, redirect to home with login prompt
+      router.push('/?login=true');
       return;
     }
+    
+    setCustomerEmail(email);
+    fetchOrders(email);
+  }, [router]);
 
+  const fetchOrders = async (email: string) => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/track-order/send-otp", {
+      const response = await fetch("/api/track-order/by-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setOtpSent(true);
-        setError("");
-        // Show dev OTP in console for testing
-        if (data.devOtp) {
-          console.log("DEV OTP:", data.devOtp);
-          alert(`DEV MODE: OTP is ${data.devOtp}`);
-        }
+        setOrders(data.orders || []);
       } else {
-        setError(data.message || data.error || "No orders found for this phone number");
+        setError(data.message || "Failed to fetch orders");
       }
     } catch (err: any) {
-      console.error("Send OTP error:", err);
-      setError("Failed to send OTP. Please check console for details.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (otpCode.length !== 6) {
-      setError("Please enter a valid 6-digit OTP");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/track-order/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, otpCode }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setVerified(true);
-        setOrders(data.orders || []);
-        setError("");
-      } else {
-        setError(data.message || "Invalid OTP. Please try again.");
-      }
-    } catch (err) {
-      setError("Failed to verify OTP. Please try again.");
+      console.error("Fetch orders error:", err);
+      setError("Failed to load orders. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -118,27 +80,22 @@ export default function TrackOrderPage() {
     return colors[statusLower] || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
-  const StatusTimeline = ({ history }: { history: any[] }) => (
-    <div className="space-y-4">
-      {history.map((item, index) => (
-        <div key={index} className="flex items-start gap-4">
-          <div className="flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-[#e63946] flex items-center justify-center text-white">
-              <CheckCircle2 size={20} />
+  if (loading) {
+    return (
+      <div className="bg-slate-50 min-h-screen">
+        <Navbar />
+        <section className="pt-32 pb-20">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <div className="text-center py-20">
+              <Loader2 className="w-12 h-12 text-[#e63946] mx-auto mb-4 animate-spin" />
+              <p className="text-slate-600">Loading your orders...</p>
             </div>
-            {index < history.length - 1 && (
-              <div className="w-0.5 h-12 bg-slate-200 my-2"></div>
-            )}
           </div>
-          <div className="flex-1 pb-4">
-            <p className="font-bold text-sm text-slate-900">{item.status}</p>
-            <p className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</p>
-            {item.remarks && <p className="text-xs text-slate-600 mt-1">{item.remarks}</p>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+        </section>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -151,139 +108,39 @@ export default function TrackOrderPage() {
             <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tight mb-2">
               Track Your Orders
             </h1>
-            <p className="text-slate-600">Secure access with OTP verification</p>
+            <p className="text-slate-600">View all your order details and status</p>
           </div>
 
-          {!verified ? (
-            <Card className="bg-white shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Phone className="text-[#e63946]" size={24} />
-                  {!otpSent ? "Enter Your Phone Number" : "Verify OTP"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {!otpSent ? (
-                  <>
-                    <div>
-                      <label className="text-sm font-bold uppercase text-slate-700 mb-2 block">
-                        Registered Mobile Number
-                      </label>
-                      <Input
-                        type="tel"
-                        maxLength={10}
-                        placeholder="10-digit mobile number"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                        className="text-lg"
-                        onKeyPress={(e) => e.key === 'Enter' && handleSendOTP()}
-                      />
-                      <p className="text-xs text-slate-500 mt-2">
-                        Enter the phone number you used when placing your orders
-                      </p>
-                    </div>
-
-                    {error && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                        {error}
-                      </div>
-                    )}
-
-                    <Button
-                      onClick={handleSendOTP}
-                      disabled={loading}
-                      className="w-full bg-[#e63946] hover:bg-red-700 h-14 text-lg font-bold"
-                    >
-                      {loading ? "Sending OTP..." : "Send OTP"}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm font-bold text-green-800">
-                        ✓ OTP sent to +91 {phoneNumber}
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        Please check your SMS messages
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-bold uppercase text-slate-700 mb-2 block">
-                        Enter 6-Digit OTP
-                      </label>
-                      <Input
-                        type="text"
-                        maxLength={6}
-                        placeholder="000000"
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                        className="text-2xl font-mono text-center tracking-widest"
-                        onKeyPress={(e) => e.key === 'Enter' && handleVerifyOTP()}
-                      />
-                    </div>
-
-                    {error && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                        {error}
-                      </div>
-                    )}
-
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={() => {
-                          setOtpSent(false);
-                          setOtpCode("");
-                          setError("");
-                        }}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        Change Number
-                      </Button>
-                      <Button
-                        onClick={handleVerifyOTP}
-                        disabled={loading}
-                        className="flex-1 bg-[#e63946] hover:bg-red-700 font-bold"
-                      >
-                        {loading ? "Verifying..." : "Verify & View Orders"}
-                      </Button>
-                    </div>
-                  </>
-                )}
+          {error && (
+            <Card className="bg-red-50 border-red-200 mb-6">
+              <CardContent className="p-4">
+                <p className="text-red-700 text-sm">{error}</p>
               </CardContent>
             </Card>
-          ) : (
-            <div className="space-y-6">
-              {/* Orders List */}
-              <Card className="bg-white shadow-xl">
-                <CardHeader className="bg-slate-900 text-white">
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Your Orders ({orders.length})</span>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setVerified(false);
-                        setOtpSent(false);
-                        setOtpCode("");
-                        setPhoneNumber("");
-                        setOrders([]);
-                        setSelectedOrder(null);
-                      }}
-                      className="text-white border-white hover:bg-white hover:text-slate-900"
+          )}
+
+          <div className="space-y-6">
+            {/* Orders List */}
+            <Card className="bg-white shadow-xl">
+              <CardHeader className="bg-slate-900 text-white">
+                <CardTitle className="flex items-center justify-between">
+                  <span>Your Orders ({orders.length})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {orders.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                    <p className="font-semibold text-lg mb-2">No orders found</p>
+                    <p className="text-sm text-slate-500">You haven't placed any orders yet.</p>
+                    <Button
+                      onClick={() => router.push('/')}
+                      className="mt-6 bg-[#e63946] hover:bg-red-700"
                     >
-                      Logout
+                      Start Shopping
                     </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {orders.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400">
-                      <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                      <p className="font-semibold">No orders found</p>
-                    </div>
-                  ) : (
+                  </div>
+                ) : (
                     <div className="space-y-4">
                       {orders.map((order: any) => (
                         <div
@@ -400,16 +257,12 @@ export default function TrackOrderPage() {
                         <Badge className={`${getStatusColor(selectedOrder.status)} text-sm px-3 py-1`}>
                           {selectedOrder.status}
                         </Badge>
-                        <span className="text-xs text-slate-500">
-                          Last updated: {new Date(selectedOrder.updated_at).toLocaleString('en-IN')}
-                        </span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
-            </div>
-          )}
+          </div>
         </div>
       </section>
 

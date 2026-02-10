@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function PricingManagementPage() {
   const [loading, setLoading] = useState(true);
@@ -1180,6 +1180,9 @@ export default function PricingManagementPage() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingItem?.id ? 'Edit Camera' : 'Add New Camera'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingItem?.id ? 'Edit existing camera details' : 'Add a new camera to the database'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -1257,6 +1260,9 @@ export default function PricingManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem?.id ? 'Edit HD Accessory Package' : 'Add HD Accessory Package'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingItem?.id ? 'Edit existing HD accessory package' : 'Add a new HD accessory package'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -1296,6 +1302,9 @@ export default function PricingManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem?.id ? 'Edit IP Accessory Package' : 'Add IP Accessory Package'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingItem?.id ? 'Edit existing IP accessory package' : 'Add a new IP accessory package'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -1331,6 +1340,9 @@ export default function PricingManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem?.id ? 'Edit Cable' : 'Add New Cable'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingItem?.id ? 'Edit existing cable details' : 'Add a new cable to the database'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -1373,6 +1385,9 @@ export default function PricingManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem?.id ? 'Edit Installation Tier' : 'Add Installation Tier'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingItem?.id ? 'Edit existing installation tier' : 'Add a new installation tier'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -1404,6 +1419,9 @@ export default function PricingManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem?.id ? 'Edit AMC Plan' : 'Add AMC Plan'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingItem?.id ? 'Edit existing AMC plan' : 'Add a new AMC plan'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
