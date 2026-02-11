@@ -51,8 +51,20 @@ function BuyNowContent() {
   const [pendingOrderNumber, setPendingOrderNumber] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // Referral and rewards state
+  const [referralCode, setReferralCode] = useState('');
+  const [referralDiscount, setReferralDiscount] = useState(0);
+  const [referralValidated, setReferralValidated] = useState(false);
+  const [referralError, setReferralError] = useState('');
+  const [validatingReferral, setValidatingReferral] = useState(false);
+  
+  const [availablePoints, setAvailablePoints] = useState(0);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  const [pointsDiscount, setPointsDiscount] = useState(0);
+  const [loadingPoints, setLoadingPoints] = useState(false);
 
-  // Check if user is logged in
+  // Check if user is logged in and fetch rewards info
   useEffect(() => {
     const token = localStorage.getItem('customerToken');
     setIsLoggedIn(!!token);
@@ -63,8 +75,90 @@ function BuyNowContent() {
       const userEmail = localStorage.getItem('customerEmail');
       if (name) setCustomerName(name);
       if (userEmail) setEmail(userEmail);
+      
+      // Fetch available points
+      if (userEmail) fetchAvailablePoints(userEmail);
     }
   }, []);
+  
+  const fetchAvailablePoints = async (userEmail: string) => {
+    setLoadingPoints(true);
+    try {
+      const response = await fetch('/api/rewards/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerEmail: userEmail }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setAvailablePoints(data.customer.rewardPoints || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching points:', error);
+    } finally {
+      setLoadingPoints(false);
+    }
+  };
+  
+  const handleValidateReferral = async () => {
+    if (!referralCode.trim()) {
+      setReferralError('Please enter a referral code');
+      return;
+    }
+    
+    setValidatingReferral(true);
+    setReferralError('');
+    
+    try {
+      const response = await fetch('/api/referral/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          referralCode: referralCode.trim(), 
+          customerEmail: email 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setReferralValidated(true);
+        setReferralDiscount(data.discount || 50);
+        setReferralError('');
+      } else {
+        setReferralError(data.error || 'Invalid referral code');
+        setReferralValidated(false);
+        setReferralDiscount(0);
+      }
+    } catch (error) {
+      setReferralError('Failed to validate referral code');
+      setReferralValidated(false);
+      setReferralDiscount(0);
+    } finally {
+      setValidatingReferral(false);
+    }
+  };
+  
+  const handleApplyPoints = () => {
+    if (pointsToRedeem <= 0) {
+      alert('Please enter points to redeem');
+      return;
+    }
+    
+    if (pointsToRedeem > availablePoints) {
+      alert('Insufficient points available');
+      return;
+    }
+    
+    // 1 point = 1 currency unit
+    setPointsDiscount(pointsToRedeem);
+  };
+  
+  const handleRemovePoints = () => {
+    setPointsToRedeem(0);
+    setPointsDiscount(0);
+  };
 
   // Load Razorpay script
   useEffect(() => {
@@ -219,7 +313,18 @@ function BuyNowContent() {
       total += (settings.amcOptions[key] || 0);
     }
     
-    return total;
+    // Apply referral discount
+    if (referralValidated && referralDiscount > 0) {
+      total -= referralDiscount;
+    }
+    
+    // Apply points discount
+    if (pointsDiscount > 0) {
+      total -= pointsDiscount;
+    }
+    
+    // Ensure total doesn't go below 0
+    return Math.max(0, total);
   };
 
   const getProductsTotal = () => {
@@ -484,7 +589,10 @@ function BuyNowContent() {
         amcCost: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
         totalAmount: calculateTotal(),
         paymentMethod,
-        status: 'pending'
+        status: 'pending',
+        referralCode: referralValidated ? referralCode : null,
+        referralDiscount: referralValidated ? referralDiscount : 0,
+        pointsRedeemed: pointsDiscount
       };
 
       const response = await fetch('/api/orders', {
@@ -811,6 +919,20 @@ function BuyNowContent() {
                 </div>
               )}
               
+              {referralValidated && referralDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-400">
+                  <span>Referral Discount</span>
+                  <span>-₹{referralDiscount.toLocaleString()}</span>
+                </div>
+              )}
+              
+              {pointsDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-400">
+                  <span>Points Redeemed ({pointsToRedeem} points)</span>
+                  <span>-₹{pointsDiscount.toLocaleString()}</span>
+                </div>
+              )}
+              
               <div className="border-t border-white/20 pt-3 mt-3">
                 <div className="flex justify-between text-xl font-bold">
                   <span>Total Amount</span>
@@ -819,6 +941,123 @@ function BuyNowContent() {
               </div>
             </div>
           </div>
+
+          {/* Referral Code Section */}
+          {isLoggedIn && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm p-6 mb-6 border-2 border-purple-200">
+              <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center">
+                <span className="text-2xl mr-2">🎁</span>
+                Have a Referral Code?
+              </h2>
+              <p className="text-sm text-slate-600 mb-4">
+                Enter your friend's referral code to get ₹50 off on your first order!
+              </p>
+              
+              {!referralValidated ? (
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => {
+                      setReferralCode(e.target.value.toUpperCase());
+                      setReferralError('');
+                    }}
+                    placeholder="Enter referral code (e.g., REF-XXXXXXXX)"
+                    className="flex-1 px-4 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent uppercase"
+                    disabled={validatingReferral}
+                  />
+                  <Button
+                    onClick={handleValidateReferral}
+                    disabled={validatingReferral || !referralCode.trim()}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-6"
+                  >
+                    {validatingReferral ? 'Validating...' : 'Apply'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-green-100 border-2 border-green-400 rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">✅</span>
+                    <div>
+                      <p className="font-semibold text-green-800">Referral code applied!</p>
+                      <p className="text-sm text-green-600">You're saving ₹{referralDiscount}</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setReferralCode('');
+                      setReferralValidated(false);
+                      setReferralDiscount(0);
+                    }}
+                    variant="outline"
+                    className="border-green-600 text-green-600 hover:bg-green-50"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+              
+              {referralError && (
+                <p className="text-red-600 text-sm mt-2 flex items-center">
+                  <span className="mr-1">❌</span> {referralError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Points Redemption Section */}
+          {isLoggedIn && availablePoints > 0 && (
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg shadow-sm p-6 mb-6 border-2 border-yellow-300">
+              <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center">
+                <span className="text-2xl mr-2">💰</span>
+                Redeem Reward Points
+              </h2>
+              <p className="text-sm text-slate-600 mb-4">
+                You have <span className="font-bold text-orange-600">{availablePoints} points</span> available (1 point = ₹1 discount)
+              </p>
+              
+              {pointsDiscount === 0 ? (
+                <div className="flex gap-3">
+                  <input
+                    type="number"
+                    value={pointsToRedeem || ''}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      setPointsToRedeem(Math.min(value, availablePoints));
+                    }}
+                    placeholder="Enter points to redeem"
+                    min="0"
+                    max={availablePoints}
+                    className="flex-1 px-4 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  />
+                  <Button
+                    onClick={handleApplyPoints}
+                    disabled={!pointsToRedeem || pointsToRedeem <= 0}
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-6"
+                  >
+                    Redeem
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-green-100 border-2 border-green-400 rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">🎉</span>
+                    <div>
+                      <p className="font-semibold text-green-800">{pointsToRedeem} points redeemed!</p>
+                      <p className="text-sm text-green-600">You're saving ₹{pointsDiscount}</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleRemovePoints}
+                    variant="outline"
+                    className="border-green-600 text-green-600 hover:bg-green-50"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Customer Details Form */}
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">

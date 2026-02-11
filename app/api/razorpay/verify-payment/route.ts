@@ -3,6 +3,158 @@ import crypto from 'crypto';
 import { getPool } from '@/lib/db';
 
 const DEV_MODE = process.env.RAZORPAY_DEV_MODE === 'true';
+const REFERRER_REWARD_POINTS = 100;
+
+// Helper function to process rewards after successful payment
+async function processRewards(pool: any, orderId: number, orderEmail: string) {
+  try {
+    // Get order details
+    const orderResult = await pool.query(
+      `SELECT 
+        order_id, 
+        customer_email, 
+        referral_code_used,
+        is_first_order,
+        points_redeemed
+      FROM orders 
+      WHERE order_id = $1`,
+      [orderId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      console.log('Order not found for rewards processing');
+      return;
+    }
+
+    const order = orderResult.rows[0];
+
+    // Get customer info
+    const customerResult = await pool.query(
+      `SELECT customer_id, reward_points, first_order_completed 
+       FROM customers 
+       WHERE email = $1`,
+      [order.customer_email || orderEmail]
+    );
+
+    if (customerResult.rows.length === 0) {
+      console.log('Customer not found for rewards processing');
+      return;
+    }
+
+    const customer = customerResult.rows[0];
+
+    // Start transaction for rewards
+    await pool.query('BEGIN');
+
+    try {
+      // 1. Mark first order as completed if applicable
+      if (order.is_first_order && !customer.first_order_completed) {
+        await pool.query(
+          `UPDATE customers 
+           SET first_order_completed = true, 
+               updated_at = CURRENT_TIMESTAMP
+           WHERE customer_id = $1`,
+          [customer.customer_id]
+        );
+        console.log('✅ First order marked as completed for customer:', customer.customer_id);
+      }
+
+      // 2. Process referral rewards if referral code was used
+      if (order.referral_code_used) {
+        // Get referrer info
+        const referrerResult = await pool.query(
+          `SELECT customer_id, reward_points 
+           FROM customers 
+           WHERE referral_id = $1`,
+          [order.referral_code_used]
+        );
+
+        if (referrerResult.rows.length > 0) {
+          const referrer = referrerResult.rows[0];
+
+          // Add points to referrer
+          const newReferrerBalance = parseFloat(referrer.reward_points || 0) + REFERRER_REWARD_POINTS;
+          
+          await pool.query(
+            `UPDATE customers 
+             SET reward_points = $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE customer_id = $2`,
+            [newReferrerBalance, referrer.customer_id]
+          );
+
+          // Record reward transaction for referrer
+          await pool.query(
+            `INSERT INTO reward_transactions 
+            (customer_id, transaction_type, points, description, order_id, balance_after)
+            VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              referrer.customer_id,
+              'referral_reward',
+              REFERRER_REWARD_POINTS,
+              `Referral reward: ${order.customer_email} completed first order`,
+              order.order_id,
+              newReferrerBalance,
+            ]
+          );
+
+          // Update referral transaction status to completed
+          await pool.query(
+            `UPDATE referral_transactions 
+             SET status = 'completed',
+                 completed_at = CURRENT_TIMESTAMP,
+                 order_id = $1
+             WHERE referrer_customer_id = $2 
+               AND referred_customer_id = $3`,
+            [order.order_id, referrer.customer_id, customer.customer_id]
+          );
+
+          console.log(`✅ Referral reward processed: ${REFERRER_REWARD_POINTS} points to referrer`);
+        }
+      }
+
+      // 3. Deduct redeemed points from customer balance if applicable
+      if (order.points_redeemed && order.points_redeemed > 0) {
+        const newBalance = parseFloat(customer.reward_points || 0) - parseFloat(order.points_redeemed);
+        
+        if (newBalance >= 0) { // Prevent negative balance
+          await pool.query(
+            `UPDATE customers 
+             SET reward_points = $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE customer_id = $2`,
+            [newBalance, customer.customer_id]
+          );
+
+          // Record points redemption transaction
+          await pool.query(
+            `INSERT INTO reward_transactions 
+            (customer_id, transaction_type, points, description, order_id, balance_after)
+            VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              customer.customer_id,
+              'points_redeemed',
+              -order.points_redeemed,
+              `Points redeemed for discount on order`,
+              order.order_id,
+              newBalance,
+            ]
+          );
+
+          console.log(`✅ Points redeemed: ${order.points_redeemed} points deducted`);
+        }
+      }
+
+      await pool.query('COMMIT');
+      console.log('✅ All rewards processed successfully');
+    } catch (err) {
+      await pool.query('ROLLBACK');
+      console.error('Error processing rewards:', err);
+    }
+  } catch (error) {
+    console.error('Error in processRewards:', error);
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -13,21 +165,28 @@ export async function POST(request: Request) {
       order_number 
     } = await request.json();
 
+    const pool = getPool();
+
     // Development mode: Auto-approve payment
     if (DEV_MODE) {
       console.log(`✅ DEV MODE - Auto-verifying payment for order: ${order_number}`);
       
       if (order_number) {
-        const pool = getPool();
-        await pool.query(
+        const updateResult = await pool.query(
           `UPDATE orders 
            SET payment_status = $1, 
                payment_id = $2,
                razorpay_order_id = $3,
                updated_at = NOW()
-           WHERE order_number = $4`,
+           WHERE order_number = $4
+           RETURNING order_id, customer_email`,
           ['Paid', razorpay_payment_id || 'DEV_PAYMENT', razorpay_order_id, order_number]
         );
+
+        if (updateResult.rows.length > 0) {
+          // Process rewards after successful payment
+          await processRewards(pool, updateResult.rows[0].order_id, updateResult.rows[0].customer_email);
+        }
       }
 
       return NextResponse.json({
@@ -54,16 +213,21 @@ export async function POST(request: Request) {
     if (razorpay_signature === expectedSign) {
       // Update order payment status in database
       if (order_number) {
-        const pool = getPool();
-        await pool.query(
+        const updateResult = await pool.query(
           `UPDATE orders 
            SET payment_status = $1, 
                payment_id = $2,
                razorpay_order_id = $3,
                updated_at = NOW()
-           WHERE order_number = $4`,
+           WHERE order_number = $4
+           RETURNING order_id, customer_email`,
           ['Paid', razorpay_payment_id, razorpay_order_id, order_number]
         );
+
+        if (updateResult.rows.length > 0) {
+          // Process rewards after successful payment
+          await processRewards(pool, updateResult.rows[0].order_id, updateResult.rows[0].customer_email);
+        }
       }
 
       return NextResponse.json({

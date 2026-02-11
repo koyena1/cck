@@ -1,10 +1,10 @@
 "use client"
 
 import React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { usePathname, useSearchParams } from "next/navigation"
-import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut } from "lucide-react"
+import { usePathname, useSearchParams, useRouter } from "next/navigation"
+import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut, ChevronDown, Gift } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCart } from "./cart-context"
 import { CustomerAuthModal } from "./customer-auth-modal"
@@ -12,10 +12,13 @@ import { CustomerAuthModal } from "./customer-auth-modal"
 function NavbarComponent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const [customerName, setCustomerName] = useState<string | null>(null)
   const { cartCount, setIsCartOpen } = useCart()
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Check if customer is logged in
   useEffect(() => {
@@ -31,12 +34,30 @@ function NavbarComponent() {
     }
   }, [searchParams, customerName])
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsUserDropdownOpen(false)
+      }
+    }
+
+    if (isUserDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isUserDropdownOpen])
+
   // Handle logout
   const handleLogout = () => {
     localStorage.removeItem('customerToken')
     localStorage.removeItem('customerName')
     localStorage.removeItem('customerEmail')
     setCustomerName(null)
+    setIsUserDropdownOpen(false)
     window.location.reload()
   }
 
@@ -121,18 +142,42 @@ function NavbarComponent() {
         {/* Auth Section - Desktop */}
         <div className="pr-4 hidden md:block">
           {customerName ? (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-slate-600 text-sm">
-                <UserCircle size={18} />
-                <span className="font-medium">{customerName}</span>
-              </div>
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
-                title="Logout"
+                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 text-sm font-medium transition-colors px-3 py-2 rounded-full hover:bg-slate-100"
               >
-                <LogOut size={16} />
+                <UserCircle size={18} />
+                <span>{customerName}</span>
+                <ChevronDown size={16} className={cn(
+                  "transition-transform duration-200",
+                  isUserDropdownOpen && "rotate-180"
+                )} />
               </button>
+
+              {/* Dropdown Menu */}
+              {isUserDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50">
+                  <button
+                    onClick={() => {
+                      router.push('/customer/dashboard')
+                      setIsUserDropdownOpen(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 hover:text-purple-600 text-sm font-medium transition-all"
+                  >
+                    <Gift size={18} />
+                    <span>Rewards</span>
+                  </button>
+                  <div className="border-t border-slate-200"></div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors"
+                  >
+                    <LogOut size={18} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button 
@@ -204,6 +249,16 @@ function NavbarComponent() {
                   <UserCircle size={18} />
                   {customerName}
                 </div>
+                <button
+                  onClick={() => {
+                    router.push('/customer/dashboard')
+                    setIsMenuOpen(false)
+                  }}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-600 hover:from-purple-200 hover:to-blue-200 rounded-full text-sm font-bold transition-colors"
+                >
+                  <Gift size={18} />
+                  Rewards
+                </button>
                 <button
                   onClick={() => {
                     handleLogout()
