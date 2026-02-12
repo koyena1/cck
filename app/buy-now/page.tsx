@@ -6,7 +6,7 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronRight, ShoppingCart, Package } from 'lucide-react';
+import { ChevronRight, ShoppingCart, Package, LogIn, UserCircle2 } from 'lucide-react';
 import { CODAdvanceDialog } from '@/components/CODAdvanceDialog';
 import { CustomerAuthModal } from '@/components/customer-auth-modal';
 
@@ -51,6 +51,8 @@ function BuyNowContent() {
   const [pendingOrderNumber, setPendingOrderNumber] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<'cod' | 'razorpay' | null>(null);
   
   // Referral and rewards state
   const [referralCode, setReferralCode] = useState('');
@@ -382,13 +384,7 @@ function BuyNowContent() {
   };
 
   const handleRazorpay = async () => {
-    // Check if user is logged in
-    if (!isLoggedIn) {
-      alert('Please login or register to place an order');
-      setShowAuthModal(true);
-      return;
-    }
-
+    // Guest checkout enabled - no login required
     const validation = validateForm();
     if (!validation.valid) {
       alert(validation.message);
@@ -475,10 +471,19 @@ function BuyNowContent() {
           const verifyData = await verifyResponse.json();
 
           if (verifyData.success) {
-            alert('Payment successful! Order placed.');
+            // Show success message with tracking info for guest orders
+            const token = localStorage.getItem('lastGuestOrderToken');
+            if (!isLoggedIn && token) {
+              alert(`✅ Payment Successful! Order Placed.\n\n🔑 Your Tracking Token: ${token}\n\n📧 Check your email for order details and tracking link.\n\nYou can track your order at:\n/guest-track-order`);
+              // Redirect to tracking page
+              router.push(`/guest-track-order?token=${token}`);
+            } else {
+              alert('Payment successful! Order placed.');
+              router.push('/');
+            }
             localStorage.removeItem('cart');
             localStorage.removeItem('cartCheckout');
-            router.push('/');
+            localStorage.removeItem('lastGuestOrderToken');
           } else {
             alert('Payment verification failed');
           }
@@ -507,13 +512,7 @@ function BuyNowContent() {
   };
 
   const handleCOD = async () => {
-    // Check if user is logged in
-    if (!isLoggedIn) {
-      alert('Please login or register to place an order');
-      setShowAuthModal(true);
-      return;
-    }
-
+    // Guest checkout enabled - no login required
     const validation = validateForm();
     if (!validation.valid) {
       alert(validation.message);
@@ -563,39 +562,91 @@ function BuyNowContent() {
 
   const handleCODPaymentSuccess = () => {
     setShowCODDialog(false);
-    alert('COD advance payment successful! Your order is confirmed. Pay the remaining amount on delivery.');
-    localStorage.removeItem('cart');
-    localStorage.removeItem('cartCheckout');
-    router.push('/');
+    
+    // Show tracking info for guest orders
+    const token = localStorage.getItem('lastGuestOrderToken');
+    if (!isLoggedIn && token) {
+      alert(`✅ COD Advance Payment Successful!\n\nYour order is confirmed.\n\n🔑 Your Tracking Token: ${token}\n\n📧 Check your email for order details and tracking link.\n\n💵 Pay the remaining amount on delivery.\n\nTrack your order at:\n/guest-track-order`);
+      localStorage.removeItem('cart');
+      localStorage.removeItem('cartCheckout');
+      localStorage.removeItem('lastGuestOrderToken');
+      // Redirect to tracking page
+      router.push(`/guest-track-order?token=${token}`);
+    } else {
+      alert('COD advance payment successful! Your order is confirmed. Pay the remaining amount on delivery.');
+      localStorage.removeItem('cart');
+      localStorage.removeItem('cartCheckout');
+      router.push('/');
+    }
   };
 
   const submitOrder = async (paymentMethod: 'razorpay' | 'cod') => {
     try {
-      const orderData = {
-        customerName,
-        email,
-        phone,
-        address,
-        city,
-        state,
-        pinCode,
-        landmark,
-        products: cartItems,
-        productsTotal: getProductsTotal(),
-        withInstallation,
-        installationCost: withInstallation ? settings?.installationCost : 0,
-        withAmc,
-        amcDetails: withAmc && amcMaterial && amcDuration ? { material: amcMaterial, duration: amcDuration } : null,
-        amcCost: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
-        totalAmount: calculateTotal(),
-        paymentMethod,
-        status: 'pending',
-        referralCode: referralValidated ? referralCode : null,
-        referralDiscount: referralValidated ? referralDiscount : 0,
-        pointsRedeemed: pointsDiscount
-      };
+      // Use guest checkout API for non-logged-in users, regular orders API for logged-in users
+      const isGuest = !isLoggedIn;
+      const apiEndpoint = isGuest ? '/api/guest-checkout' : '/api/orders';
+      
+      console.log('🔍 Submitting order...');
+      console.log('   Is Guest:', isGuest);
+      console.log('   API Endpoint:', apiEndpoint);
+      console.log('   Payment Method:', paymentMethod);
+      
+      let orderData: any;
+      
+      if (isGuest) {
+        // Guest checkout data structure
+        orderData = {
+          customerName,
+          customerPhone: phone,
+          customerEmail: email,
+          installationAddress: address,
+          pincode: pinCode,
+          city,
+          state,
+          orderType: 'product',
+          productName: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} Products`,
+          productPrice: getProductsTotal() / (cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)),
+          quantity: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
+          subtotal: getProductsTotal(),
+          includesInstallation: withInstallation,
+          installationCharges: withInstallation ? settings?.installationCost : 0,
+          includesAmc: withAmc,
+          amcCharges: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
+          totalAmount: calculateTotal(),
+          paymentMethod,
+        };
+        console.log('📦 Guest order data:', orderData);
+      } else {
+        // Registered user data structure (with referrals/rewards)
+        orderData = {
+          customerName,
+          email,
+          phone,
+          address,
+          city,
+          state,
+          pinCode,
+          landmark,
+          products: cartItems,
+          productsTotal: getProductsTotal(),
+          withInstallation,
+          installationCost: withInstallation ? settings?.installationCost : 0,
+          withAmc,
+          amcDetails: withAmc && amcMaterial && amcDuration ? { material: amcMaterial, duration: amcDuration } : null,
+          amcCost: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
+          totalAmount: calculateTotal(),
+          paymentMethod,
+          status: 'pending',
+          referralCode: referralValidated ? referralCode : null,
+          referralDiscount: referralValidated ? referralDiscount : 0,
+          pointsRedeemed: pointsDiscount
+        };
+        console.log('📦 Registered user order data:', orderData);
+      }
 
-      const response = await fetch('/api/orders', {
+      console.log('🚀 Sending request to:', apiEndpoint);
+      
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -603,28 +654,48 @@ function BuyNowContent() {
         body: JSON.stringify(orderData),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (paymentMethod === 'cod') {
-          // Return order details for COD advance payment
+      console.log('📡 Response status:', response.status);
+      
+      const result = await response.json();
+      console.log('📥 Response data:', result);
+
+      if (response.ok && result.success) {
+        if (isGuest && result.order) {
+          // Guest checkout response structure
+          const orderNumber = result.order.orderNumber;
+          const totalAmount = result.order.totalAmount;
+          const orderToken = result.order.orderToken;
+          
+          // Store tracking token for easy access
+          if (orderToken) {
+            localStorage.setItem('lastGuestOrderToken', orderToken);
+          }
+          
+          // Show success message with tracking info for guests
+          if (paymentMethod === 'cod') {
+            console.log('✅ Guest Order Created:', orderNumber);
+            console.log('🔑 Tracking Token:', orderToken);
+          }
+          
+          return {
+            orderNumber,
+            totalAmount,
+            orderToken,
+          };
+        } else if (result.order) {
+          // Registered user response structure
           return {
             orderNumber: result.order.order_number,
             totalAmount: result.order.total_amount,
           };
         }
-        
-        // For Razorpay, return order details
-        return {
-          orderNumber: result.order.order_number,
-          totalAmount: result.order.total_amount,
-        };
       } else {
+        console.error('❌ Order failed:', result);
         alert('Failed to place order. Please try again.');
         return null;
       }
     } catch (error) {
-      console.error('Error submitting order:', error);
+      console.error('❌ Error submitting order:', error);
       alert('Error placing order. Please try again.');
       return null;
     }
@@ -1180,14 +1251,28 @@ function BuyNowContent() {
           {/* Action Buttons */}
           <div className="flex gap-4">
             <Button
-              onClick={handleCOD}
+              onClick={() => {
+                if (isLoggedIn) {
+                  handleCOD();
+                } else {
+                  setPendingPaymentMethod('cod');
+                  setShowGuestPrompt(true);
+                }
+              }}
               variant="outline"
               className="flex-1 border-2 border-slate-700 hover:border-slate-900 text-slate-700 hover:bg-slate-50 text-lg py-6"
             >
               COD (Cash on Delivery)
             </Button>
             <Button
-              onClick={handleRazorpay}
+              onClick={() => {
+                if (isLoggedIn) {
+                  handleRazorpay();
+                } else {
+                  setPendingPaymentMethod('razorpay');
+                  setShowGuestPrompt(true);
+                }
+              }}
               className="flex-1 bg-[#e63946] hover:bg-[#d62839] text-white text-lg py-6"
             >
               Pay with Razorpay
@@ -1207,6 +1292,75 @@ function BuyNowContent() {
         totalAmount={calculateTotal()}
         onPaymentSuccess={handleCODPaymentSuccess}
       />
+
+      {/* Guest Checkout Prompt */}
+      {showGuestPrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowGuestPrompt(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#e63946] to-[#d62839] p-6 text-white text-center">
+              <ShoppingCart className="w-10 h-10 mx-auto mb-2" />
+              <h3 className="text-xl font-bold">How would you like to proceed?</h3>
+              <p className="text-sm text-white/80 mt-1">Choose an option to continue with your order</p>
+            </div>
+            
+            {/* Options */}
+            <div className="p-6 space-y-4">
+              {/* Login/Register Option */}
+              <button
+                onClick={() => {
+                  setShowGuestPrompt(false);
+                  setPendingPaymentMethod(null);
+                  setShowAuthModal(true);
+                }}
+                className="w-full flex items-center gap-4 p-4 border-2 border-[#e63946] rounded-xl hover:bg-red-50 transition-colors group"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#e63946]/10 flex items-center justify-center flex-shrink-0 group-hover:bg-[#e63946]/20 transition-colors">
+                  <LogIn className="w-6 h-6 text-[#e63946]" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-slate-900">Login / Register</p>
+                  <p className="text-sm text-slate-500">Track orders, earn rewards & get exclusive offers</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#e63946] transition-colors" />
+              </button>
+
+              {/* Continue as Guest Option */}
+              <button
+                onClick={() => {
+                  setShowGuestPrompt(false);
+                  if (pendingPaymentMethod === 'cod') {
+                    handleCOD();
+                  } else if (pendingPaymentMethod === 'razorpay') {
+                    handleRazorpay();
+                  }
+                  setPendingPaymentMethod(null);
+                }}
+                className="w-full flex items-center gap-4 p-4 border-2 border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group"
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors">
+                  <UserCircle2 className="w-6 h-6 text-slate-600" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-slate-900">Continue as Guest</p>
+                  <p className="text-sm text-slate-500">Quick checkout without creating an account</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              </button>
+            </div>
+
+            {/* Cancel */}
+            <div className="px-6 pb-6">
+              <button
+                onClick={() => { setShowGuestPrompt(false); setPendingPaymentMethod(null); }}
+                className="w-full text-center text-sm text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Customer Auth Modal */}
       <CustomerAuthModal

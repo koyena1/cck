@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -202,7 +202,9 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0f172a]">
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
 
       <main className="container mx-auto px-4 py-24">
         {/* Header */}

@@ -45,6 +45,7 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState("all"); // all, pending, completed, today
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchOrders();
@@ -128,12 +129,24 @@ export default function OrdersPage() {
   };
 
   const filteredOrders = orders.filter((order: any) => {
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = 
+        (order.order_number || '').toLowerCase().includes(query) ||
+        (order.customer_name || '').toLowerCase().includes(query) ||
+        (order.customer_phone || '').toLowerCase().includes(query) ||
+        (order.order_token || '').toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+    }
+    
     if (filter === "all") return true;
     const statusLower = order.status?.toLowerCase() || '';
     if (filter === "pending") return statusLower === "pending";
     if (filter === "in-progress") return statusLower === "in-progress" || statusLower === "in progress";
     if (filter === "completed") return statusLower === "completed";
     if (filter === "cancelled") return statusLower === "cancelled";
+    if (filter === "guest") return order.is_guest_order === true;
     if (filter === "today") {
       const today = new Date().toDateString();
       return new Date(order.created_at).toDateString() === today;
@@ -178,6 +191,13 @@ export default function OrdersPage() {
             Today
           </Button>
           <Button 
+            variant={filter === "guest" ? "default" : "outline"}
+            onClick={() => setFilter("guest")}
+            className="font-bold bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+          >
+            👤 Guest Orders
+          </Button>
+          <Button 
             variant={filter === "pending" ? "default" : "outline"}
             onClick={() => setFilter("pending")}
             className="font-bold"
@@ -216,19 +236,31 @@ export default function OrdersPage() {
             <Input 
               placeholder="Search by order ID, customer name, phone..." 
               className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="border-2 border-blue-100">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold text-slate-600">Total Orders</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-blue-600">{orders.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-2 border-purple-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold text-slate-600">Guest Orders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-purple-600">
+              {orders.filter((o: any) => o.is_guest_order === true).length}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-2 border-orange-100">
@@ -292,12 +324,22 @@ export default function OrdersPage() {
                           <Badge className={`${getStatusBadge(order.status)} border font-bold text-xs`}>
                             {order.status}
                           </Badge>
+                          {order.is_guest_order && (
+                            <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs font-semibold">
+                              👤 Guest Order
+                            </Badge>
+                          )}
                           {order.order_type && (
                             <Badge variant="outline" className="text-xs font-semibold">
                               {order.order_type === 'product_cart' ? '🛒 Cart' : 
                                order.order_type === 'hd_combo' ? '📦 HD Combo' :
                                order.order_type === 'quotation' ? '📋 Quotation' : 
                                order.order_type}
+                            </Badge>
+                          )}
+                          {order.order_token && (
+                            <Badge variant="outline" className="text-xs font-mono">
+                              🔑 {order.order_token}
                             </Badge>
                           )}
                         </div>

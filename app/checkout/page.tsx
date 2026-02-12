@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
@@ -21,7 +21,9 @@ export default function CheckoutPage() {
   if (!orderDetails) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-50">
-        <Navbar />
+        <Suspense fallback={<div className="h-16" />}>
+          <Navbar />
+        </Suspense>
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-slate-600 mb-4">No order details found</p>
@@ -37,7 +39,9 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
       
       <main className="flex-1 pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-2xl">

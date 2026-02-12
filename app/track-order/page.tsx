@@ -1,6 +1,6 @@
 // app/track-order/page.tsx
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -83,7 +83,9 @@ export default function TrackOrderPage() {
   if (loading) {
     return (
       <div className="bg-slate-50 min-h-screen">
-        <Navbar />
+        <Suspense fallback={<div className="h-16" />}>
+          <Navbar />
+        </Suspense>
         <section className="pt-32 pb-20">
           <div className="container mx-auto px-4 max-w-4xl">
             <div className="text-center py-20">
@@ -99,7 +101,9 @@ export default function TrackOrderPage() {
 
   return (
     <div className="bg-slate-50 min-h-screen">
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
       
       <section className="pt-32 pb-20">
         <div className="container mx-auto px-4 max-w-4xl">

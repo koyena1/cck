@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
@@ -109,7 +109,9 @@ export default function AboutPage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
 
       {/* Hero Section - Light Mode */}
       <section className="relative min-h-[90vh] flex items-center justify-center pt-16 md:pt-24 lg:pt-32 pb-12 md:pb-16 lg:pb-20 overflow-hidden bg-slate-50">
@@ -179,7 +181,7 @@ export default function AboutPage() {
                 Cygnatrix was born from a simple yet powerful vision — to deliver reliable, innovative, and affordable IT solutions that truly make a difference.
               </p>
               <p className="font-bold text-[#e63946] text-lg sm:text-xl md:text-2xl mt-6 md:mt-8">
-                This is just the beginning of our story. 🚀
+                This is just the beginning of our story.
               </p>
             </div>
           </div>

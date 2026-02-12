@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import { getPool } from '@/lib/db';
 
 // GET - Fetch installation and AMC settings
 export async function GET() {
   try {
+    const pool = getPool();
     const result = await pool.query(
       'SELECT * FROM installation_settings ORDER BY id DESC LIMIT 1'
     );
@@ -53,6 +50,7 @@ export async function GET() {
 // POST/PUT - Update installation and AMC settings
 export async function POST(request: NextRequest) {
   try {
+    const pool = getPool();
     const body = await request.json();
     const { installationCost, amcOptions, codAdvanceAmount, codPercentage } = body;
 

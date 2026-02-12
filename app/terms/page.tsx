@@ -1,31 +1,15 @@
+"use client"
+import { Suspense } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import type { Metadata } from "next"
-
-export const metadata: Metadata = {
-  title: "Terms of Service - Legal Agreement",
-  description: "Read Cygnatrix IT Solutions terms of service. Understand the legal terms and conditions for using our IT services and solutions.",
-  keywords: ["terms of service", "legal terms", "service agreement", "terms and conditions"],
-  openGraph: {
-    title: "Terms of Service - Cygnatrix IT Solutions",
-    description: "Legal terms and conditions for using our services.",
-    url: "https://yourdomain.com/terms",
-    type: "website",
-  },
-  alternates: {
-    canonical: "https://yourdomain.com/terms",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-}
 
 export default function TermsPage() {
   return (
     <>
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
 
       <section className="pt-32 pb-20 bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <div className="container mx-auto px-4">

@@ -1,31 +1,15 @@
+"use client"
+import { Suspense } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
-import type { Metadata } from "next"
-
-export const metadata: Metadata = {
-  title: "Privacy Policy - Data Protection & Security",
-  description: "Cygnatrix IT Solutions privacy policy. Learn how we collect, use, and protect your personal information in compliance with data protection regulations.",
-  keywords: ["privacy policy", "data protection", "GDPR compliance", "user privacy", "data security"],
-  openGraph: {
-    title: "Privacy Policy - Cygnatrix IT Solutions",
-    description: "Our commitment to protecting your privacy and personal data.",
-    url: "https://yourdomain.com/privacy",
-    type: "website",
-  },
-  alternates: {
-    canonical: "https://yourdomain.com/privacy",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-}
 
 export default function PrivacyPage() {
   return (
     <>
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
 
       <section className="pt-32 pb-20 bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <div className="container mx-auto px-4">

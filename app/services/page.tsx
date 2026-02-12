@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from "react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -62,7 +63,9 @@ const BlinkingDot = () => (
 export default function ServicesPage() {
   return (
     <div className="bg-white min-h-screen">
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
 
       {/* Hero Section - Light Refactor */}
       <section className="relative min-h-[90vh] flex items-center justify-center pt-16 md:pt-24 lg:pt-32 pb-12 md:pb-16 lg:pb-20 overflow-hidden bg-slate-50">

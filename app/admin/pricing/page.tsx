@@ -83,7 +83,7 @@ export default function PricingManagementPage() {
             const codPercent = installationData.settings.codPercentage ?? 10;
             console.log('💰 Setting COD values to:', { codAmount, codPercent });
             
-            setGlobalSettings(prev => ({
+            setGlobalSettings((prev: any) => ({
               ...prev,
               cod_advance_amount: codAmount,
               cod_percentage: codPercent
@@ -99,7 +99,7 @@ export default function PricingManagementPage() {
       } catch (installError) {
         console.warn('Installation settings table not found - using defaults:', installError);
         // Don't override if values already exist from previous fetch
-        setGlobalSettings(prev => ({
+        setGlobalSettings((prev: any) => ({
           ...prev,
           cod_advance_amount: prev.cod_advance_amount ?? 200,
           cod_percentage: prev.cod_percentage ?? 10

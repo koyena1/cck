@@ -1,5 +1,5 @@
 'use client'
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,7 +68,9 @@ export default function UnifiedAuthPage() {
 
   return (
     <>
-      <Navbar />
+      <Suspense fallback={<div className="h-16" />}>
+        <Navbar />
+      </Suspense>
       <div className="min-h-screen bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 py-12 px-4 flex items-center justify-center">
         <div className="w-full max-w-4xl grid md:grid-cols-[1.5fr,3fr,1.5fr] gap-0 rounded-2xl overflow-hidden shadow-2xl">
           {/* Left gradient panel */}
