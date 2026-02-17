@@ -14,6 +14,8 @@ export async function GET() {
         business_name,
         business_address,
         gstin,
+        registration_number,
+        serviceable_pincodes,
         location,
         status,
         rating,

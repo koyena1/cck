@@ -48,13 +48,15 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
   // Send OTP
   const handleSendOTP = async () => {
-    if (!formData.phone) {
-      setError("Please enter phone number first")
+    if (!formData.email) {
+      setError("Please enter email address first")
       return
     }
 
-    if (!/^[0-9]{10}$/.test(formData.phone)) {
-      setError("Please enter a valid 10-digit phone number")
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address")
       return
     }
 
@@ -66,7 +68,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
       const response = await fetch('/api/otp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formData.phone })
+        body: JSON.stringify({ email: formData.email })
       })
 
       const result = await response.json()
@@ -79,7 +81,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
         if (result.devMode && result.devOtp) {
           setMessage(`🧪 DEV MODE: Your OTP is ${result.devOtp}`)
         } else {
-          setMessage(`OTP sent to +91${formData.phone}. Check your SMS.`)
+          setMessage(`OTP sent to ${formData.email}. Check your email inbox.`)
         }
       } else {
         setError(result.error || "Failed to send OTP")
@@ -112,14 +114,14 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
       const response = await fetch('/api/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formData.phone, otp })
+        body: JSON.stringify({ email: formData.email, otp })
       })
 
       const result = await response.json()
 
       if (response.ok) {
         setOtpVerified(true)
-        setMessage("✅ Phone verified! Complete your registration below.")
+        setMessage("✅ Email verified! Complete your registration below.")
         setError("")
       } else {
         setError(result.error || "Invalid OTP")
@@ -142,7 +144,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
     // For registration, check OTP verification first
     if (!isLogin && !otpVerified) {
-      setError("Please verify your phone number first")
+      setError("Please verify your email address first")
       setIsLoading(false)
       return
     }
@@ -316,110 +318,108 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@example.com"
-                  required
-                  value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
-                  className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
-                />
+              <Label htmlFor="email" className="text-gray-300">
+                Email Address {!isLogin && otpVerified && <span className="text-green-400">✓ Verified</span>}
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your.email@example.com"
+                    required
+                    value={formData.email}
+                    onChange={e => {
+                      setFormData({...formData, email: e.target.value})
+                      // Reset OTP state if email changes during registration
+                      if (!isLogin && otpSent && e.target.value !== formData.email) {
+                        setOtpSent(false)
+                        setOtpVerified(false)
+                        setOtp("")
+                      }
+                    }}
+                    disabled={!isLogin && otpVerified}
+                    className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                  />
+                </div>
+                {!isLogin && !otpVerified && (
+                  <Button
+                    type="button"
+                    onClick={handleSendOTP}
+                    disabled={sendingOTP || countdown > 0 || !formData.email}
+                    className="bg-[#e63946] hover:bg-red-700 text-white whitespace-nowrap"
+                  >
+                    {sendingOTP ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : countdown > 0 ? (
+                      `Wait ${countdown}s`
+                    ) : otpSent ? (
+                      'Resend OTP'
+                    ) : (
+                      'Send OTP'
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* Phone - Register Only */}
-            {!isLogin && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-gray-300">
-                    Phone Number {otpVerified && <span className="text-green-400">✓ Verified</span>}
-                  </Label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="Enter 10-digit phone"
-                        required
-                        value={formData.phone}
-                        onChange={e => {
-                          setFormData({...formData, phone: e.target.value})
-                          // Reset OTP state if phone changes
-                          if (otpSent && e.target.value !== formData.phone) {
-                            setOtpSent(false)
-                            setOtpVerified(false)
-                            setOtp("")
-                          }
-                        }}
-                        disabled={otpVerified}
-                        className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
-                      />
-                    </div>
-                    {!otpVerified && (
-                      <Button
-                        type="button"
-                        onClick={handleSendOTP}
-                        disabled={sendingOTP || countdown > 0 || !formData.phone || formData.phone.length !== 10}
-                        className="bg-[#e63946] hover:bg-red-700 text-white whitespace-nowrap"
-                      >
-                        {sendingOTP ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Sending...
-                          </>
-                        ) : countdown > 0 ? (
-                          `Wait ${countdown}s`
-                        ) : otpSent ? (
-                          'Resend OTP'
-                        ) : (
-                          'Send OTP'
-                        )}
-                      </Button>
+            {/* OTP Input for Email Verification - Register Only */}
+            {!isLogin && otpSent && !otpVerified && (
+              <div className="space-y-2">
+                <Label htmlFor="otp" className="text-gray-300">Enter Verification Code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="otp"
+                    type="text"
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    value={otp}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 focus:border-[#e63946] text-center text-lg tracking-widest"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleVerifyOTP}
+                    disabled={verifyingOTP || otp.length !== 6}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {verifyingOTP ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      'Verify'
                     )}
-                  </div>
+                  </Button>
                 </div>
+                <p className="text-xs text-gray-400">
+                  Check your email inbox for the verification code
+                </p>
+              </div>
+            )}
 
-                {/* OTP Input - Show after OTP is sent */}
-                {otpSent && !otpVerified && (
-                  <div className="space-y-2">
-                    <Label htmlFor="otp" className="text-gray-300">Enter OTP</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="otp"
-                        type="text"
-                        placeholder="Enter 6-digit OTP"
-                        maxLength={6}
-                        value={otp}
-                        onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                        className="bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 focus:border-[#e63946] text-center text-lg tracking-widest"
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleVerifyOTP}
-                        disabled={verifyingOTP || otp.length !== 6}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        {verifyingOTP ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Verifying...
-                          </>
-                        ) : (
-                          'Verify'
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      Check your phone for the OTP code
-                    </p>
-                  </div>
-                )}
-              </>
+            {/* Phone - Register Only (optional contact info) */}
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-gray-300">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter 10-digit phone"
+                    required
+                    value={formData.phone}
+                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                  />
+                </div>
+              </div>
             )}
 
             {/* Password */}

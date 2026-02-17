@@ -1,5 +1,5 @@
 'use client'
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,15 +20,110 @@ export default function UnifiedAuthPage() {
   const [message, setMessage] = useState("")
   const [role, setRole] = useState<Role>('dealer')
 
+  // OTP states
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpVerified, setOtpVerified] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [sendingOTP, setSendingOTP] = useState(false)
+  const [verifyingOTP, setVerifyingOTP] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", businessName: "",
     businessLocation: "", gstNumber: "", registrationNumber: "",
+    serviceablePincodes: "",
     password: "", confirmPassword: ""
   })
+
+  // Countdown timer for resend OTP
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
+
+  const handleSendOTP = async () => {
+    if (!formData.email) {
+      setError('Please enter your email address')
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    setSendingOTP(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setOtpSent(true)
+        setCountdown(60)
+        setMessage(`OTP sent to ${formData.email}. Check your email inbox.`)
+        setTimeout(() => setMessage(''), 5000)
+      } else {
+        setError(result.error || 'Failed to send OTP')
+      }
+    } catch (error) {
+      setError('Failed to send OTP. Please try again.')
+    } finally {
+      setSendingOTP(false)
+    }
+  }
+
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      setError('Please enter a valid 6-digit OTP')
+      return
+    }
+
+    setVerifyingOTP(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setOtpVerified(true)
+        setMessage('✅ Email verified successfully!')
+        setTimeout(() => setMessage(''), 5000)
+      } else {
+        setError(result.error || 'Invalid OTP. Please try again.')
+      }
+    } catch (error) {
+      setError('Failed to verify OTP. Please try again.')
+    } finally {
+      setVerifyingOTP(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(""); setMessage(""); setIsLoading(true)
+
+    // Check OTP verification for registration
+    if (!isLogin && !otpVerified) {
+      setError('Please verify your email address first')
+      setIsLoading(false)
+      return
+    }
 
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
     
@@ -105,14 +200,82 @@ export default function UnifiedAuthPage() {
               )}
               
               <div className="space-y-2">
-                <Input 
-                  type="email" 
-                  placeholder={isLogin ? "Username" : "Email Address"}
-                  required 
-                  value={formData.email} 
-                  onChange={e => setFormData({...formData, email: e.target.value})} 
-                  className="bg-transparent border-2 border-blue-400/50 rounded-full px-5 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
-                />
+                <Label className="text-gray-300 text-xs mb-1 block">
+                  Email Address {!isLogin && otpVerified && <span className="text-green-400">✓ Verified</span>}
+                </Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="email" 
+                    placeholder={isLogin ? "Username" : "Email Address"}
+                    required 
+                    value={formData.email} 
+                    onChange={e => {
+                      setFormData({...formData, email: e.target.value})
+                      if (!isLogin && otpSent && e.target.value !== formData.email) {
+                        setOtpSent(false)
+                        setOtpVerified(false)
+                        setOtp('')
+                      }
+                    }} 
+                    disabled={!isLogin && otpVerified}
+                    className="flex-1 bg-transparent border-2 border-blue-400/50 rounded-full px-5 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
+                  />
+                  {!isLogin && !otpVerified && (
+                    <Button
+                      type="button"
+                      onClick={handleSendOTP}
+                      disabled={sendingOTP || countdown > 0 || !formData.email}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 whitespace-nowrap rounded-full"
+                    >
+                      {sendingOTP ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : countdown > 0 ? (
+                        `Wait ${countdown}s`
+                      ) : otpSent ? (
+                        'Resend'
+                      ) : (
+                        'Send OTP'
+                      )}
+                    </Button>
+                  )}
+                </div>
+                
+                {/* OTP Input */}
+                {!isLogin && otpSent && !otpVerified && (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Enter 6-digit OTP"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        className="flex-1 bg-transparent border-2 border-green-400/50 rounded-full px-5 py-3 text-white placeholder:text-gray-500 text-center text-lg tracking-widest focus:border-green-400 focus:ring-0"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleVerifyOTP}
+                        disabled={verifyingOTP || otp.length !== 6}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 rounded-full"
+                      >
+                        {verifyingOTP ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          'Verify'
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-400 px-2">
+                      Check your email inbox for the verification code
+                    </p>
+                  </div>
+                )}
               </div>
 
               {!isLogin && (
@@ -177,6 +340,16 @@ export default function UnifiedAuthPage() {
                           onChange={e => setFormData({...formData, registrationNumber: e.target.value})} 
                           className="bg-transparent border-2 border-blue-400/50 rounded-full px-6 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Input 
+                          placeholder="Serviceable Locations (Pincode) - e.g., 110001, 110002, 110003"
+                          required 
+                          value={formData.serviceablePincodes} 
+                          onChange={e => setFormData({...formData, serviceablePincodes: e.target.value})} 
+                          className="bg-transparent border-2 border-blue-400/50 rounded-full px-5 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
+                        />
+                        <p className="text-xs text-gray-400 px-2">Enter pincodes separated by commas</p>
                       </div>
                     </>
                   )}

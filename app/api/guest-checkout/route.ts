@@ -212,8 +212,10 @@ export async function POST(request: Request) {
       await pool.query('COMMIT');
 
       // Send order confirmation email (if email provided)
+      // For COD orders, email will be sent AFTER advance payment is verified
+      // For other payment methods, send email immediately
       let emailSent = false;
-      if (customerEmail) {
+      if (customerEmail && paymentMethod !== 'cod') {
         try {
           const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order_token}`;
           

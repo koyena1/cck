@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getPool } from '@/lib/db';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 const DEV_MODE = process.env.RAZORPAY_DEV_MODE === 'true';
 const REFERRER_REWARD_POINTS = 100;
@@ -179,13 +180,88 @@ export async function POST(request: Request) {
                razorpay_order_id = $3,
                updated_at = NOW()
            WHERE order_number = $4
-           RETURNING order_id, customer_email`,
+           RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, created_at`,
           ['Paid', razorpay_payment_id || 'DEV_PAYMENT', razorpay_order_id, order_number]
         );
 
         if (updateResult.rows.length > 0) {
+          const order = updateResult.rows[0];
+          
           // Process rewards after successful payment
-          await processRewards(pool, updateResult.rows[0].order_id, updateResult.rows[0].customer_email);
+          await processRewards(pool, order.order_id, order.customer_email);
+          
+          // If this is a COD advance payment, send order confirmation email now
+          if (order.payment_method === 'cod' && order.customer_email) {
+            try {
+              const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order.order_token}`;
+              
+              // Calculate COD payment breakdown
+              const totalAmount = parseFloat(order.total_amount);
+              const subtotalAmount = parseFloat(order.subtotal || 0); // Products only
+              const installationCharges = parseFloat(order.installation_charges || 0);
+              const advanceAmount = parseFloat(order.advance_amount || 0);
+              
+              // Fetch AMC charges from order_items if exists
+              const amcResult = await pool.query(
+                `SELECT COALESCE(SUM(total_price), 0) as amc_total 
+                 FROM order_items 
+                 WHERE order_id = $1 AND item_type = 'Service' AND item_name LIKE '%AMC%'`,
+                [order.order_id]
+              );
+              const amcCharges = parseFloat(amcResult.rows[0]?.amc_total || 0);
+              
+              // Calculate breakdown correctly
+              const productTotal = subtotalAmount; // subtotal is ALREADY just products
+              const baseAmount = subtotalAmount + installationCharges + amcCharges; // Product + Installation + AMC
+              const codExtraCharges = totalAmount - baseAmount; // COD extra charges
+              const codAdvancePaid = advanceAmount;
+              const codPendingAmount = totalAmount - codAdvancePaid;
+              
+              const emailSent = await sendOrderConfirmationEmail({
+                orderNumber: order_number,
+                orderToken: order.order_token,
+                customerName: order.customer_name,
+                customerEmail: order.customer_email,
+                totalAmount: totalAmount,
+                paymentMethod: 'cod',
+                paymentStatus: 'Advance Paid',
+                orderDate: order.created_at || new Date().toISOString(),
+                trackingUrl,
+                // COD Payment Breakdown (matching checkout page format)
+                productTotal: productTotal,
+                installationCharges: installationCharges,
+                codExtraCharges: codExtraCharges,
+                baseAmount: baseAmount,
+                codAdvancePaid: codAdvancePaid,
+                codPendingAmount: codPendingAmount,
+              });
+              
+              // Log email attempt
+              if (emailSent) {
+                await pool.query(
+                  `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
+                   VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [
+                    order.order_id,
+                    order.customer_email,
+                    'order_confirmation',
+                    `Order Confirmation - ${order_number}`,
+                    'sent',
+                    new Date()
+                  ]
+                );
+                
+                // Update tracking_link_sent flag
+                await pool.query(
+                  'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
+                  [order.order_id]
+                );
+              }
+            } catch (emailError) {
+              console.error('Error sending COD confirmation email (DEV MODE):', emailError);
+              // Don't fail the payment verification if email fails
+            }
+          }
         }
       }
 
@@ -220,13 +296,88 @@ export async function POST(request: Request) {
                razorpay_order_id = $3,
                updated_at = NOW()
            WHERE order_number = $4
-           RETURNING order_id, customer_email`,
+           RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, created_at`,
           ['Paid', razorpay_payment_id, razorpay_order_id, order_number]
         );
 
         if (updateResult.rows.length > 0) {
+          const order = updateResult.rows[0];
+          
           // Process rewards after successful payment
-          await processRewards(pool, updateResult.rows[0].order_id, updateResult.rows[0].customer_email);
+          await processRewards(pool, order.order_id, order.customer_email);
+          
+          // If this is a COD advance payment, send order confirmation email now
+          if (order.payment_method === 'cod' && order.customer_email) {
+            try {
+              const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order.order_token}`;
+              
+              // Calculate COD payment breakdown
+              const totalAmount = parseFloat(order.total_amount);
+              const subtotalAmount = parseFloat(order.subtotal || 0); // Products only
+              const installationCharges = parseFloat(order.installation_charges || 0);
+              const advanceAmount = parseFloat(order.advance_amount || 0);
+              
+              // Fetch AMC charges from order_items if exists
+              const amcResult = await pool.query(
+                `SELECT COALESCE(SUM(total_price), 0) as amc_total 
+                 FROM order_items 
+                 WHERE order_id = $1 AND item_type = 'Service' AND item_name LIKE '%AMC%'`,
+                [order.order_id]
+              );
+              const amcCharges = parseFloat(amcResult.rows[0]?.amc_total || 0);
+              
+              // Calculate breakdown correctly
+              const productTotal = subtotalAmount; // subtotal is ALREADY just products
+              const baseAmount = subtotalAmount + installationCharges + amcCharges; // Product + Installation + AMC
+              const codExtraCharges = totalAmount - baseAmount; // COD extra charges
+              const codAdvancePaid = advanceAmount;
+              const codPendingAmount = totalAmount - codAdvancePaid;
+              
+              const emailSent = await sendOrderConfirmationEmail({
+                orderNumber: order_number,
+                orderToken: order.order_token,
+                customerName: order.customer_name,
+                customerEmail: order.customer_email,
+                totalAmount: totalAmount,
+                paymentMethod: 'cod',
+                paymentStatus: 'Advance Paid',
+                orderDate: order.created_at || new Date().toISOString(),
+                trackingUrl,
+                // COD Payment Breakdown (matching checkout page format)
+                productTotal: productTotal,
+                installationCharges: installationCharges,
+                codExtraCharges: codExtraCharges,
+                baseAmount: baseAmount,
+                codAdvancePaid: codAdvancePaid,
+                codPendingAmount: codPendingAmount,
+              });
+              
+              // Log email attempt
+              if (emailSent) {
+                await pool.query(
+                  `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
+                   VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [
+                    order.order_id,
+                    order.customer_email,
+                    'order_confirmation',
+                    `Order Confirmation - ${order_number}`,
+                    'sent',
+                    new Date()
+                  ]
+                );
+                
+                // Update tracking_link_sent flag
+                await pool.query(
+                  'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
+                  [order.order_id]
+                );
+              }
+            } catch (emailError) {
+              console.error('Error sending COD confirmation email:', emailError);
+              // Don't fail the payment verification if email fails
+            }
+          }
         }
       }
 

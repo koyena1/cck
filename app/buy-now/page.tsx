@@ -34,10 +34,10 @@ interface CartItem {
 function BuyNowContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const productId = searchParams.get('productId');
-  const productName = searchParams.get('productName');
-  const productPrice = searchParams.get('price');
-  const itemsParam = searchParams.get('items');
+  const productId = searchParams?.get('productId');
+  const productName = searchParams?.get('productName');
+  const productPrice = searchParams?.get('price');
+  const itemsParam = searchParams?.get('items');
   
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [withInstallation, setWithInstallation] = useState(false);
@@ -339,8 +339,25 @@ function BuyNowContent() {
 
   const calculateCODAdvancePayment = () => {
     if (!settings) return 0;
-    const productsTotal = getProductsTotal();
-    const baseAmount = productsTotal + settings.codAdvanceAmount;
+    
+    // Start with products total
+    let baseAmount = getProductsTotal();
+    
+    // Add installation charges if selected
+    if (withInstallation && settings.installationCost) {
+      baseAmount += settings.installationCost;
+    }
+    
+    // Add AMC charges if selected
+    if (withAmc && amcMaterial && amcDuration) {
+      const amcKey = `${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions;
+      baseAmount += (settings.amcOptions[amcKey] || 0);
+    }
+    
+    // Add extra COD charges
+    baseAmount += settings.codAdvanceAmount;
+    
+    // Calculate percentage advance payment
     const advancePayment = (baseAmount * settings.codPercentage) / 100;
     return advancePayment;
   };
@@ -524,19 +541,35 @@ function BuyNowContent() {
       return;
     }
 
-    // Calculate COD charges
+    // Calculate COD charges with all components
     const productsTotal = getProductsTotal();
+    const installationCost = withInstallation ? settings.installationCost : 0;
+    const amcCost = (withAmc && amcMaterial && amcDuration) 
+      ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) 
+      : 0;
     const extraCODAmount = settings.codAdvanceAmount;
-    const baseAmount = productsTotal + extraCODAmount;
+    
+    // Base amount includes: Products + Installation + AMC + Extra COD charges
+    const baseAmount = productsTotal + installationCost + amcCost + extraCODAmount;
     const advancePayment = calculateCODAdvancePayment();
     const remainingAmount = calculateTotal() - advancePayment;
 
-    // Show detailed COD information message
-    const confirmMessage = 
+    // Build detailed breakdown message
+    let confirmMessage = 
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `   CASH ON DELIVERY (COD) DETAILS\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `📦 Product Total: ₹${productsTotal.toLocaleString()}\n` +
+      `📦 Product Total: ₹${productsTotal.toLocaleString()}\n`;
+    
+    if (installationCost > 0) {
+      confirmMessage += `🔧 Installation Charges: ₹${installationCost.toLocaleString()}\n`;
+    }
+    
+    if (amcCost > 0) {
+      confirmMessage += `📅 AMC Charges: ₹${amcCost.toLocaleString()}\n`;
+    }
+    
+    confirmMessage +=
       `💰 Extra COD Charges: ₹${extraCODAmount.toLocaleString()}\n` +
       `➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n` +
       `📊 Base Amount: ₹${baseAmount.toLocaleString()}\n\n` +

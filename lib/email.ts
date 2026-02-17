@@ -48,6 +48,13 @@ interface OrderEmailData {
   orderDate: string;
   trackingUrl: string;
   orderDetails?: any;
+  // COD Payment Breakdown (optional)
+  productTotal?: number;
+  installationCharges?: number;
+  codExtraCharges?: number;
+  baseAmount?: number;
+  codAdvancePaid?: number;
+  codPendingAmount?: number;
 }
 
 /**
@@ -66,7 +73,16 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
       orderDate,
       trackingUrl,
       orderDetails,
+      productTotal,
+      installationCharges,
+      codExtraCharges,
+      baseAmount,
+      codAdvancePaid,
+      codPendingAmount,
     } = data;
+
+    const isCOD = paymentMethod === 'cod';
+    const hasCODBreakdown = isCOD && productTotal !== undefined && baseAmount !== undefined && codAdvancePaid !== undefined;
 
     const subject = `Order Confirmation - ${orderNumber} | ${COMPANY_NAME}`;
     
@@ -95,6 +111,18 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
     .order-info-row:last-child { border-bottom: none; }
     .label { font-weight: 600; color: #666; }
     .value { color: #333; text-align: right; }
+    .payment-breakdown { background: #f0f9ff; border: 2px solid #0ea5e9; padding: 20px; margin: 20px 0; border-radius: 8px; }
+    .payment-breakdown h3 { margin: 0 0 15px; font-size: 16px; color: #0369a1; display: flex; align-items: center; gap: 8px; }
+    .breakdown-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #bae6fd; }
+    .breakdown-row:last-child { border-bottom: none; }
+    .breakdown-label { font-weight: 500; color: #0c4a6e; }
+    .breakdown-value { font-weight: 600; color: #0c4a6e; }
+    .breakdown-highlight { background: #dcfce7; padding: 12px; border-radius: 6px; margin-top: 10px; border: 2px solid #22c55e; }
+    .breakdown-highlight .breakdown-label { color: #15803d; font-weight: 700; font-size: 15px; }
+    .breakdown-highlight .breakdown-value { color: #15803d; font-weight: 700; font-size: 15px; }
+    .breakdown-pending { background: #fef3c7; padding: 12px; border-radius: 6px; margin-top: 10px; border: 2px solid #f59e0b; }
+    .breakdown-pending .breakdown-label { color: #92400e; font-weight: 700; font-size: 15px; }
+    .breakdown-pending .breakdown-value { color: #92400e; font-weight: 700; font-size: 15px; }
     .total-row { background: #fff3cd; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 16px; font-weight: bold; }
     .tracking-box { background: #e7f5ff; border: 2px dashed #1971c2; padding: 20px; margin: 25px 0; border-radius: 8px; text-align: center; }
     .tracking-box h3 { margin: 0 0 10px; color: #1971c2; font-size: 16px; }
@@ -158,6 +186,80 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         </div>
       </div>
 
+      ${hasCODBreakdown ? `
+      <div class="payment-breakdown">
+        <h3>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+            <line x1="1" y1="10" x2="23" y2="10"></line>
+          </svg>
+          � Order Breakdown
+        </h3>
+        
+        <p style="margin: 10px 0; font-size: 13px; color: #64748b;">
+          Your order includes the following:
+        </p>
+        
+        <div class="breakdown-row">
+          <span class="breakdown-label">📦 Products:</span>
+          <span class="breakdown-value">₹${(productTotal || 0).toLocaleString('en-IN')}</span>
+        </div>
+        
+        ${(installationCharges || 0) > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">🏠 Installation Service:</span>
+          <span class="breakdown-value">₹${(installationCharges || 0).toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        
+        ${(codExtraCharges || 0) > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">🔥 COD Service Charges:</span>
+          <span class="breakdown-value">₹${(codExtraCharges || 0).toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        
+        <div style="border-bottom: 2px solid #0ea5e9; margin: 15px 0;"></div>
+        
+        <div class="breakdown-row" style="background: linear-gradient(to right, #eff6ff, #dbeafe); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #0ea5e9;">
+          <span class="breakdown-label" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">📋 Total Amount:</span>
+          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">₹${totalAmount.toLocaleString('en-IN')}</span>
+        </div>
+        
+        <h3 style="margin: 20px 0 10px; font-size: 16px; color: #1e293b;">
+          💳 Payment Status
+        </h3>
+        
+        <p style="margin: 10px 0 15px; font-size: 13px; color: #64748b;">
+          From the total amount of <strong>₹${totalAmount.toLocaleString('en-IN')}</strong>:
+        </p>
+        
+        <div class="breakdown-highlight">
+          <div class="breakdown-row" style="border: none; padding: 0;">
+            <span class="breakdown-label">✅ Already Paid (Advance):</span>
+            <span class="breakdown-value">₹${codAdvancePaid.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+        
+        <div class="breakdown-pending">
+          <div class="breakdown-row" style="border: none; padding: 0;">
+            <span class="breakdown-label">⏳ Pending (Pay on Delivery):</span>
+            <span class="breakdown-value">₹${(codPendingAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+        
+        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 8px; margin-top: 15px;">
+          <p style="margin: 0 0 5px; font-size: 14px; font-weight: 600; color: #92400e;">
+            ⚠️ Important: Payment Pending
+          </p>
+          <p style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5;">
+            You have already paid <strong>₹${codAdvancePaid.toLocaleString('en-IN')}</strong> as advance. <br>
+            The remaining <strong>₹${(codPendingAmount || 0).toLocaleString('en-IN')}</strong> must be paid in cash at the time of delivery.
+          </p>
+        </div>
+      </div>
+      ` : ''}
+
       <div class="tracking-box">
         <h3>🔍 Track Your Order</h3>
         <p style="margin: 10px 0; font-size: 14px; color: #555;">
@@ -219,6 +321,36 @@ Order Details:
 - Total Amount: ₹${totalAmount.toLocaleString('en-IN')}
 - Payment Method: ${paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
 - Payment Status: ${paymentStatus}
+
+${hasCODBreakdown ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 ORDER BREAKDOWN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your order includes:
+📦 Products: ₹${(productTotal || 0).toLocaleString('en-IN')}
+${(installationCharges || 0) > 0 ? `🏠 Installation Service: ₹${(installationCharges || 0).toLocaleString('en-IN')}
+` : ''}${(codExtraCharges || 0) > 0 ? `🔥 COD Service Charges: ₹${(codExtraCharges || 0).toLocaleString('en-IN')}
+` : ''}
+-----------------------------------
+📋 TOTAL AMOUNT: ₹${totalAmount.toLocaleString('en-IN')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💳 PAYMENT STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+From the total amount of ₹${totalAmount.toLocaleString('en-IN')}:
+
+✅ Already Paid (Advance): ₹${codAdvancePaid.toLocaleString('en-IN')}
+⏳ Pending (Pay on Delivery): ₹${(codPendingAmount || 0).toLocaleString('en-IN')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ Important: Payment Pending
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You have already paid ₹${codAdvancePaid.toLocaleString('en-IN')} as advance.
+The remaining ₹${(codPendingAmount || 0).toLocaleString('en-IN')} must be paid in cash at the time of delivery.
+` : ''}
 
 Track Your Order:
 Use this tracking token: ${orderToken}
@@ -344,7 +476,137 @@ export async function sendOrderStatusUpdateEmail(
   }
 }
 
+/**
+ * Send OTP verification email for customer registration
+ */
+export async function sendOTPEmail(
+  customerEmail: string,
+  otpCode: string,
+  customerName?: string
+): Promise<boolean> {
+  try {
+    const subject = `Your Verification Code - ${COMPANY_NAME}`;
+    const displayName = customerName || 'Valued Customer';
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Verification</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #e63946 0%, #c62936 100%); color: #ffffff; padding: 30px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+    .content { padding: 40px 30px; }
+    .otp-box { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #0ea5e9; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
+    .otp-code { font-size: 42px; font-weight: bold; color: #0c4a6e; letter-spacing: 8px; font-family: 'Courier New', monospace; margin: 10px 0; }
+    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0; color: #78350f; }
+    .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+    .icon { font-size: 48px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🔐</div>
+      <h1>Email Verification</h1>
+      <p style="margin: 10px 0 0; font-size: 14px; opacity: 0.9;">Secure your account</p>
+    </div>
+    
+    <div class="content">
+      <p style="font-size: 16px; margin-bottom: 10px;">Hello <strong>${displayName}</strong>,</p>
+      <p style="color: #555;">Thank you for registering with ${COMPANY_NAME}! To complete your registration, please verify your email address.</p>
+      
+      <div class="otp-box">
+        <p style="margin: 0 0 10px; font-size: 14px; color: #475569;">Your Verification Code:</p>
+        <div class="otp-code">${otpCode}</div>
+        <p style="margin: 15px 0 0; font-size: 13px; color: #64748b;">Valid for 10 minutes</p>
+      </div>
+      
+      <p style="color: #555; margin: 20px 0;">Enter this code in the registration form to verify your email address and complete your account setup.</p>
+      
+      <div class="warning">
+        <p style="margin: 0; font-size: 13px; font-weight: 600;">⚠️ Security Notice:</p>
+        <ul style="margin: 10px 0 0; padding-left: 20px; font-size: 13px;">
+          <li>Never share this code with anyone</li>
+          <li>Our team will never ask for your OTP</li>
+          <li>This code expires in 10 minutes</li>
+        </ul>
+      </div>
+      
+      <p style="margin-top: 30px; font-size: 13px; color: #666;">
+        If you didn't request this verification code, please ignore this email or contact our support team.
+      </p>
+    </div>
+    
+    <div class="footer">
+      <p style="margin: 0;">© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.</p>
+      <p style="margin: 5px 0 0;">This is an automated email. Please do not reply.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const textContent = `
+Email Verification - ${COMPANY_NAME}
+
+Hello ${displayName},
+
+Thank you for registering with ${COMPANY_NAME}! To complete your registration, please verify your email address.
+
+Your Verification Code: ${otpCode}
+
+This code is valid for 10 minutes.
+
+Enter this code in the registration form to verify your email address and complete your account setup.
+
+⚠️ SECURITY NOTICE:
+- Never share this code with anyone
+- Our team will never ask for your OTP
+- This code expires in 10 minutes
+
+If you didn't request this verification code, please ignore this email or contact our support team.
+
+© ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.
+    `;
+
+    if (DEV_MODE) {
+      console.log(`\n📧 OTP Email (DEV MODE)`);
+      console.log(`   To: ${customerEmail}`);
+      console.log(`   OTP Code: ${otpCode}`);
+      console.log(`   Expires: 10 minutes\n`);
+      return true;
+    }
+
+    const transport = getTransporter();
+    if (!transport) {
+      console.error('❌ Email transporter not available');
+      return false;
+    }
+
+    await transport.sendMail({
+      from: `"${COMPANY_NAME}" <${FROM_EMAIL}>`,
+      to: customerEmail,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    });
+
+    console.log(`✅ OTP email sent to ${customerEmail}`);
+    return true;
+
+  } catch (error) {
+    console.error('❌ Failed to send OTP email:', error);
+    return false;
+  }
+}
+
 export default {
   sendOrderConfirmationEmail,
   sendOrderStatusUpdateEmail,
+  sendOTPEmail,
 };

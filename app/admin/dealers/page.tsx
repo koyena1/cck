@@ -31,6 +31,8 @@ interface Dealer {
   business_name: string;
   business_address: string;
   gstin: string;
+  registration_number: string;
+  serviceable_pincodes: string;
   location: string;
   status: string;
   rating: number;
@@ -273,6 +275,25 @@ export default function DealersPage() {
                           <span>GSTIN: {dealer.gstin || "N/A"}</span>
                         </div>
                       </div>
+
+                      {/* Serviceable Pincodes */}
+                      {dealer.serviceable_pincodes && (
+                        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs font-semibold text-blue-900 mb-1">Serviceable Locations (Pincodes)</p>
+                              <div className="flex flex-wrap gap-1">
+                                {dealer.serviceable_pincodes.split(',').map((pincode, idx) => (
+                                  <span key={idx} className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium border border-blue-300">
+                                    {pincode.trim()}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-1">

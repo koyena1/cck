@@ -1,18 +1,26 @@
 import { NextResponse } from 'next/server';
-import twilio from 'twilio';
+import { getPool } from '@/lib/db';
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const DEV_MODE = process.env.OTP_DEV_MODE === 'true';
 const DEV_OTP = '123456'; // Fixed OTP for testing
 
 export async function POST(request: Request) {
   try {
-    const { phone, otp } = await request.json();
+    const { email, otp } = await request.json();
 
-    if (!phone || !otp) {
+    if (!email || !otp) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Phone number and OTP are required' 
+        error: 'Email address and OTP are required' 
+      }, { status: 400 });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Invalid email address format' 
       }, { status: 400 });
     }
 
@@ -20,17 +28,28 @@ export async function POST(request: Request) {
     if (!/^[0-9]{6}$/.test(otp)) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Invalid OTP format' 
+        error: 'Invalid OTP format. Must be 6 digits.' 
       }, { status: 400 });
     }
 
-    // Developer Mode: Accept fixed OTP without Twilio
+    const pool = getPool();
+
+    // Developer Mode: Accept fixed OTP without database check
     if (DEV_MODE) {
       if (otp === DEV_OTP) {
-        console.log(`🧪 DEV MODE: OTP verified successfully for ${phone}`);
+        console.log(`🧪 DEV MODE: OTP verified successfully for ${email}`);
+        
+        // Mark as verified in database (if exists)
+        await pool.query(
+          `UPDATE customer_otp_verification 
+           SET is_verified = true, verified_at = NOW()
+           WHERE email = $1 AND otp_code = $2`,
+          [email, otp]
+        );
+
         return NextResponse.json({ 
           success: true, 
-          message: 'Phone number verified successfully (DEV MODE)',
+          message: 'Email verified successfully (DEV MODE)',
           devMode: true
         });
       } else {
@@ -41,48 +60,72 @@ export async function POST(request: Request) {
       }
     }
 
-    try {
-      // Format phone with country code
-      const formattedPhone = `+91${phone}`;
+    // Production Mode: Verify OTP from database
+    // Check if OTP exists, is not expired, and matches
+    const result = await pool.query(
+      `SELECT id, email, otp_code, expires_at, is_verified, attempts
+       FROM customer_otp_verification
+       WHERE email = $1 AND otp_code = $2
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [email, otp]
+    );
 
-      // Verify OTP with Twilio Verify
-      const verificationCheck = await client.verify.v2
-        .services(process.env.TWILIO_VERIFY_SERVICE_SID!)
-        .verificationChecks.create({ 
-          to: formattedPhone, 
-          code: otp 
-        });
+    if (result.rows.length === 0) {
+      // Increment failed attempts
+      await pool.query(
+        `UPDATE customer_otp_verification 
+         SET attempts = attempts + 1
+         WHERE email = $1 AND expires_at > NOW()`,
+        [email]
+      );
 
-      if (verificationCheck.status === 'approved') {
-        console.log(`✅ OTP verified successfully for ${phone}`);
-
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Phone number verified successfully'
-        });
-      } else {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Invalid OTP. Please try again.' 
-        }, { status: 401 });
-      }
-
-    } catch (twilioError: any) {
-      console.error('Twilio verification error:', twilioError);
-      
-      // Handle specific Twilio errors
-      if (twilioError.code === 20404) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'OTP has expired or not found. Please request a new one.' 
-        }, { status: 404 });
-      }
-      
       return NextResponse.json({ 
         success: false, 
-        error: 'Invalid OTP. Please try again.' 
+        error: 'Invalid OTP. Please check and try again.' 
       }, { status: 401 });
     }
+
+    const otpRecord = result.rows[0];
+
+    // Check if already verified
+    if (otpRecord.is_verified) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'OTP has already been used. Please request a new one.' 
+      }, { status: 400 });
+    }
+
+    // Check if expired
+    if (new Date(otpRecord.expires_at) < new Date()) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'OTP has expired. Please request a new one.' 
+      }, { status: 400 });
+    }
+
+    // Check attempts limit (max 5 attempts)
+    if (otpRecord.attempts >= 5) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Too many failed attempts. Please request a new OTP.' 
+      }, { status: 429 });
+    }
+
+    // OTP is valid - mark as verified
+    await pool.query(
+      `UPDATE customer_otp_verification 
+       SET is_verified = true, verified_at = NOW()
+       WHERE id = $1`,
+      [otpRecord.id]
+    );
+
+    console.log(`✅ OTP verified successfully for ${email}`);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Email verified successfully! You can now complete your registration.'
+    });
 
   } catch (err: any) {
     console.error('Verify OTP error:', err);
