@@ -29,7 +29,7 @@ import {
 function GuestTrackOrderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tokenParam = searchParams.get('token');
+  const tokenParam = searchParams?.get('token');
 
   const [orderToken, setOrderToken] = useState(tokenParam || '');
   const [order, setOrder] = useState<any>(null);

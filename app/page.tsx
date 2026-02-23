@@ -777,48 +777,80 @@ export default function HomePage() {
       {/* Category Section - Exact replica of screenshot */}
       <section className="bg-white py-6 border-b border-slate-200 print:hidden mt-24">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between gap-6 overflow-x-auto scrollbar-hide">
-            {[
-              { icon: Zap, label: "24 hrs", sublabel: "Delivery", highlight: true, useIcon: true },
-              { image: "/ct.png", label: "CCTV", link: "/categories" },
-              { image: "/biometric.png", label: "BIOMETRIC ACCESS" },
-              { image: "/gps.png", label: "GPS SYSTEM"},
-              { image: "/system.png", label: "SYSTEM" },
-              { image: "/fire.jpg", label: "FIRE ALARM" },
-              { image: "/intercom.png", label: "INTERCOM SYSTEM"},
-              { image: "/motion.png", label: "MOTION DETECTION", },
-              { image: "/pasys.png", label: "PA SYSTEM" }
-            ].map((item, i) => (
-              <div 
-                key={i} 
-                onClick={() => item.link && router.push(item.link)}
-                className="flex flex-col items-center min-w-25 p-3 rounded-lg hover:bg-slate-50 transition-all cursor-pointer group"
-              >
-                <div className={`w-14 h-14 flex items-center justify-center mb-2 rounded-full ${item.highlight ? 'bg-red-50' : 'bg-slate-50'} group-hover:scale-110 transition-transform overflow-hidden`}>
-                  {item.useIcon && item.icon ? (
-                    <item.icon className={`w-7 h-7 ${item.highlight ? 'text-[#e63946]' : 'text-slate-600'}`} />
-                  ) : (
-                    <div className="relative w-10 h-10">
-                      <Image 
-                        src={item.image || '/placeholder.png'} 
-                        alt={item.label}
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                  )}
+          <div className="relative">
+            <div id="categoryScroll" className="flex items-center justify-between gap-6 overflow-x-auto scrollbar-hide scroll-smooth px-16 md:px-0">
+              {[
+                { icon: Zap, label: "24 hrs", sublabel: "Delivery", highlight: true, useIcon: true },
+                { image: "/ct.png", label: "CCTV", link: "/categories" },
+                { image: "/biometric.png", label: "BIOMETRIC ACCESS" },
+                { image: "/gps.png", label: "GPS SYSTEM"},
+                { image: "/system.png", label: "SYSTEM" },
+                { image: "/fire.jpg", label: "FIRE ALARM" },
+                { image: "/intercom.png", label: "INTERCOM SYSTEM"},
+                { image: "/motion.png", label: "MOTION DETECTION", },
+                { image: "/pasys.png", label: "PA SYSTEM" }
+              ].map((item, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => item.link && router.push(item.link)}
+                  className="flex flex-col items-center min-w-25 p-3 rounded-lg hover:bg-slate-50 transition-all cursor-pointer group"
+                >
+                  <div className={`w-14 h-14 flex items-center justify-center mb-2 rounded-full ${item.highlight ? 'bg-red-50' : 'bg-slate-50'} group-hover:scale-110 transition-transform overflow-hidden`}>
+                    {item.useIcon && item.icon ? (
+                      <item.icon className={`w-7 h-7 ${item.highlight ? 'text-[#e63946]' : 'text-slate-600'}`} />
+                    ) : (
+                      <div className="relative w-10 h-10">
+                        <Image 
+                          src={item.image || '/placeholder.png'} 
+                          alt={item.label}
+                          fill
+                          className="object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-semibold text-[#e63946] leading-tight">{item.label}</p>
+                    {item.sublabel && <p className="text-xs font-semibold text-[#e63946] leading-tight">{item.sublabel}</p>}
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs font-semibold text-[#e63946] leading-tight">{item.label}</p>
-                  {item.sublabel && <p className="text-xs font-semibold text-[#e63946] leading-tight">{item.sublabel}</p>}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            {/* Left Scroll Arrow Button for Mobile */}
+            <button 
+              onClick={() => {
+                const container = document.getElementById('categoryScroll');
+                if (container) {
+                  container.scrollBy({ left: -200, behavior: 'smooth' });
+                }
+              }}
+              className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg flex items-center justify-center text-[#e63946] hover:bg-[#e63946] hover:text-white transition-all active:scale-95 z-10 border border-slate-200"
+              aria-label="Scroll left"
+            >
+              <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            {/* Right Scroll Arrow Button for Mobile */}
+            <button 
+              onClick={() => {
+                const container = document.getElementById('categoryScroll');
+                if (container) {
+                  container.scrollBy({ left: 200, behavior: 'smooth' });
+                }
+              }}
+              className="md:hidden absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg flex items-center justify-center text-[#e63946] hover:bg-[#e63946] hover:text-white transition-all active:scale-95 z-10 border border-slate-200"
+              aria-label="Scroll right"
+            >
+              <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </div>
       </section>
 
-      <section className="relative pt-16 pb-12 bg-white print:hidden overflow-hidden">
+      <section className="relative pt-74 pb-70 bg-white print:hidden overflow-hidden">
         {/* Background Video */}
         <video
           autoPlay
@@ -827,17 +859,14 @@ export default function HomePage() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="/vid.mp4" type="video/mp4" />
+          <source src="/vid1.mp4" type="video/mp4" />
         </video>
         
-        {/* Overlay for better text visibility */}
-        <div className="absolute inset-0 bg-black/40"></div>
-        
-        <motion.div initial="hidden" animate="visible" variants={heroVariants} className="container mx-auto px-4 text-center relative z-10">
+        {/* <motion.div initial="hidden" animate="visible" variants={heroVariants} className="container mx-auto px-4 text-center relative z-10">
           <div className="flex items-center justify-center mb-6"><BlinkingDot /><span className="text-white text-sm font-bold uppercase tracking-[0.2em] drop-shadow-lg">Officially Certified</span></div>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-wider text-white mb-6 leading-tight drop-shadow-2xl">Professional CCTV & <br /><span className="text-[#e63946]">Security Services</span></h1>
           <p className="text-white text-base md:text-lg max-w-3xl mx-auto mb-8 drop-shadow-lg">Verified hardware installed by certified experts across India.</p>
-        </motion.div>
+        </motion.div> */}
       </section>
 
       {/* Service Categories Section */}

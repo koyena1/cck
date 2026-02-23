@@ -15,27 +15,33 @@ import {
   Package,
   Menu,
   X,
-  Users
+  Users,
+  Moon,
+  Sun
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { AdminAuthGuard } from "./AdminAuthGuard"
 import { useState } from "react"
+import { ThemeProvider, useTheme } from "./ThemeProvider"
 
-export default function AdminLayout({
+function AdminLayoutContent({
   children,
 }: {
   children: React.ReactNode
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { theme, toggleTheme } = useTheme()
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [dealersOpen, setDealersOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken')
     localStorage.removeItem('userRole')
     localStorage.removeItem('userName')
-    router.push('/admin/login')
+    // Redirect to main login page instead
+    router.push('/login')
   }
   const navItems = [
     { 
@@ -57,12 +63,6 @@ export default function AdminLayout({
       description: "Summary, Sales, Purchase, Payments"
     },
     { 
-      label: "D. DEALERS", 
-      href: "/admin/dealers", 
-      icon: Users,
-      description: "Approve, Manage & Monitor Dealers"
-    },
-    { 
       label: "E. SERVICE SUPPORT", 
       href: "/admin/service", 
       icon: Headphones,
@@ -73,6 +73,24 @@ export default function AdminLayout({
       href: "/admin/access", 
       icon: LogIn,
       description: "Tele, Field, Marchent, Online Sales"
+    },
+  ];
+
+  const dealerItems = [
+    {
+      label: "Dealer Management",
+      href: "/admin/dealers",
+      description: "Approve & manage dealers"
+    },
+    {
+      label: "Product Pricing",
+      href: "/admin/dealers/product-pricing",
+      description: "Manage dealer product pricing"
+    },
+    {
+      label: "Dealer Invoices",
+      href: "/admin/dealers/invoices",
+      description: "View all dealer invoices"
     },
   ];
 
@@ -134,14 +152,8 @@ export default function AdminLayout({
     },
   ]
 
-  // If on login or register page, show minimal layout
-  if (pathname === '/admin/login' || pathname === '/admin/register') {
-    return <AdminAuthGuard>{children}</AdminAuthGuard>
-  }
-
   return (
-    <AdminAuthGuard>
-      <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 transition-colors">  
       {/* Overlay */}
       {sidebarOpen && (
         <div 
@@ -153,31 +165,31 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50
-        w-72 border-r bg-white shadow-lg
+        w-72 border-r bg-white dark:bg-slate-800 dark:border-slate-700 shadow-lg
         transform transition-all duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         flex flex-col
         overflow-hidden
       `}>
-        <div className="p-6 border-b bg-gradient-to-br from-purple-50 to-white flex-shrink-0">
+        <div className="p-6 border-b bg-gradient-to-br from-purple-50 to-white dark:from-slate-800 dark:to-slate-700 dark:border-slate-700 flex-shrink-0 transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                 <span className="text-white font-black text-sm">◉</span>
               </div>
-              <h2 className="text-xl font-black tracking-tight text-purple-600">
+              <h2 className="text-xl font-black tracking-tight text-purple-600 dark:text-purple-400">
                 Protechtur
               </h2>
             </div>
             {/* Close button */}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 hover:bg-purple-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-purple-100 dark:hover:bg-slate-600 rounded-lg transition-colors"
             >
-              <X className="w-5 h-5 text-slate-600" />
+              <X className="w-5 h-5 text-slate-600 dark:text-slate-300" />
             </button>
           </div>
-          <p className="text-xs text-slate-500 font-semibold mt-2">Admin Panel</p>
+          <p className="text-xs text-slate-500 dark:text-slate-300 font-semibold mt-2">Admin Panel</p>
         </div>
         
         <div className="flex-1 overflow-y-auto">
@@ -186,28 +198,63 @@ export default function AdminLayout({
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 hover:text-purple-600 group"
+              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-purple-400 group"
             >
-              <item.icon className="w-5 h-5 mt-0.5 text-slate-400 group-hover:text-purple-600" />
+              <item.icon className="w-5 h-5 mt-0.5 text-slate-400 dark:text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" />
               <div className="flex-1">
-                <div className="font-bold text-slate-700 group-hover:text-purple-600">{item.label}</div>
-                <div className="text-[10px] text-slate-400 font-normal">{item.description}</div>
+                <div className="font-bold text-slate-700 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400">{item.label}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-400 font-normal">{item.description}</div>
               </div>
             </Link>
           ))}
+          
+          {/* Dealers Section */}
+          <div className="pt-2">
+            <button
+              onClick={() => setDealersOpen(!dealersOpen)}
+              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-purple-400 group w-full text-left"
+            >
+              <Users className="w-5 h-5 mt-0.5 text-slate-400 dark:text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" />
+              <div className="flex-1 text-left">
+                <div className="font-bold text-slate-700 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400">D. DEALERS</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-400 font-normal">Approve, Manage & Monitor Dealers</div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-700 dark:text-slate-100 transition-transform ${dealersOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {dealersOpen && (
+              <div className="ml-8 mt-1 space-y-1">
+                {dealerItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-start gap-3 px-4 py-2 rounded-lg text-sm transition-all hover:bg-purple-50 dark:hover:bg-slate-700 ${
+                      pathname === item.href ? 'bg-purple-50 dark:bg-slate-700 text-purple-600 dark:text-purple-400' : 'text-slate-600 dark:text-slate-200'
+                    }`}
+                  >
+                    <Package className="w-4 h-4 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-semibold">{item.label}</div>
+                      <div className="text-[9px] text-slate-400 dark:text-slate-400 font-normal">{item.description}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
           
           {/* Categories Section */}
           <div className="pt-2">
             <button
               onClick={() => setCategoriesOpen(!categoriesOpen)}
-              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 hover:text-purple-600 group w-full text-left"
+              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-purple-400 group w-full text-left"
             >
-              <Grid3x3 className="w-5 h-5 mt-0.5 text-slate-400 group-hover:text-purple-600" />
+              <Grid3x3 className="w-5 h-5 mt-0.5 text-slate-400 dark:text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" />
               <div className="flex-1 text-left">
-                <div className="font-bold text-slate-700 group-hover:text-purple-600">F. CATEGORIES</div>
-                <div className="text-[10px] text-slate-400 font-normal">Product Management</div>
+                <div className="font-bold text-slate-700 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400">F. CATEGORIES</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-400 font-normal">Product Management</div>
               </div>
-              <ChevronDown className={`w-4 h-4 transition-transform ${categoriesOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-700 dark:text-slate-100 transition-transform ${categoriesOpen ? 'rotate-180' : ''}`} />
             </button>
             
             {categoriesOpen && (
@@ -216,14 +263,14 @@ export default function AdminLayout({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-start gap-3 px-4 py-2 rounded-lg text-sm transition-all hover:bg-purple-50 ${
-                      pathname === item.href ? 'bg-purple-50 text-purple-600' : 'text-slate-600'
+                    className={`flex items-start gap-3 px-4 py-2 rounded-lg text-sm transition-all hover:bg-purple-50 dark:hover:bg-slate-700 ${
+                      pathname === item.href ? 'bg-purple-50 dark:bg-slate-700 text-purple-600 dark:text-purple-400' : 'text-slate-600 dark:text-slate-200'
                     }`}
                   >
                     <Package className="w-4 h-4 mt-0.5" />
                     <div className="flex-1">
                       <div className="font-semibold">{item.label}</div>
-                      <div className="text-[9px] text-slate-400 font-normal">{item.description}</div>
+                      <div className="text-[9px] text-slate-400 dark:text-slate-400 font-normal">{item.description}</div>
                     </div>
                   </Link>
                 ))}
@@ -232,33 +279,33 @@ export default function AdminLayout({
           </div>
         </nav>
         
-        <Separator />
+        <Separator className="dark:bg-slate-700" />
         
         <div className="p-4 space-y-1">
-          <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
+          <p className="px-4 text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-wider mb-2">
             Settings
           </p>
           {settingsItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 hover:text-purple-600 group"
+              className="flex items-start gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-purple-400 group"
             >
-              <item.icon className="w-5 h-5 mt-0.5 text-slate-400 group-hover:text-purple-600" />
+              <item.icon className="w-5 h-5 mt-0.5 text-slate-400 dark:text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" />
               <div className="flex-1">
-                <div className="font-bold text-slate-700 group-hover:text-purple-600">{item.label}</div>
-                <div className="text-[10px] text-slate-400 font-normal">{item.description}</div>
+                <div className="font-bold text-slate-700 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400">{item.label}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-400 font-normal">{item.description}</div>
               </div>
             </Link>
           ))}
         </div>
         
-        <Separator />
+        <Separator className="dark:bg-slate-700" />
         
         <div className="p-4 pb-6">
           <Link 
             href="/login"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-all w-full"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all w-full"
           >
             <LogOut className="w-5 h-5" />
             Logout
@@ -275,42 +322,67 @@ export default function AdminLayout({
         h-screen overflow-hidden
       `}>
         {/* Top Header */}
-        <header className="h-16 border-b bg-white flex items-center justify-between px-4 md:px-8 shadow-sm flex-shrink-0">
+        <header className="h-16 border-b bg-white dark:bg-slate-800 dark:border-slate-700 flex items-center justify-between px-4 md:px-8 shadow-sm flex-shrink-0 transition-colors">
           {/* Hamburger Menu Button */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
-            <Menu className="w-6 h-6 text-slate-600" />
+            <Menu className="w-6 h-6 text-slate-600 dark:text-slate-300" />
           </button>
           
-          <div className="text-sm font-medium text-slate-600 hidden sm:block">
-            Welcome back, <span className="font-bold text-slate-900">Administrator</span>
+          <div className="text-sm font-medium text-slate-600 dark:text-slate-300 hidden sm:block">
+            Welcome back, <span className="font-bold text-slate-900 dark:text-white">Administrator</span>
           </div>
           
           <div className="flex items-center gap-2 md:gap-3 ml-auto">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {theme === 'light' ? (
+                <Moon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              ) : (
+                <Sun className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              )}
+            </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 md:px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 md:px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Logout</span>
             </button>
-            <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 rounded-lg hover:bg-slate-50 transition-all">
+            <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
               <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-black text-white shadow-md">
                 AD
               </div>
-              <span className="text-sm font-semibold text-slate-700 hidden sm:inline">Admin User</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-100 hidden sm:inline">Admin User</span>
             </div>
           </div>
         </header>
 
         {/* Dynamic Content */}
-        <section className="flex-1 overflow-y-auto p-4 md:p-8">
+        <section className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 dark:bg-slate-900 transition-colors">
           {children}
         </section>
       </main>
     </div>
+  )
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <AdminAuthGuard>
+      <ThemeProvider>
+        <AdminLayoutContent>{children}</AdminLayoutContent>
+      </ThemeProvider>
     </AdminAuthGuard>
   )
 }

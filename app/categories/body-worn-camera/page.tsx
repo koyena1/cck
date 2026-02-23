@@ -37,7 +37,7 @@ const featuresOptions = ["Night Vision", "GPS", "WiFi", "Live Streaming"];
 function BodyWornCameraContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedBrand = searchParams.get('brand') || '';
+  const selectedBrand = searchParams?.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels, storage from admin panel)

@@ -35,7 +35,7 @@ function IpComboContent() {
   const router = useRouter();
   const { addToCart, setIsCartOpen } = useCart();
   const searchParams = useSearchParams();
-  const selectedBrand = searchParams.get('brand') || '';
+  const selectedBrand = searchParams?.get('brand') || '';
   
   // Get global quotation data (including channels from admin panel)
   const { data: quotationSettings, loading: loadingSettings } = useGlobalQuotationData();

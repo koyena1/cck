@@ -62,11 +62,11 @@ function FooterComponent() {
                 transition={{ type: "spring", stiffness: 300 }}
               >
                 <Image 
-                  src="/logo.png" 
-                  alt="UCAM Logo" 
+                  src="/onlylogo2.jpg" 
+                  alt="Protechtur Logo" 
                   width={150} 
                   height={50} 
-                  className="h-10 w-auto object-contain brightness-0 invert group-hover:brightness-100 group-hover:invert-0 transition-all duration-300"
+                  className="h-10 w-auto object-contain transition-all duration-300"
                 />
               </motion.div>
             </Link>
@@ -237,7 +237,7 @@ function FooterComponent() {
         >
           <div className="text-gray-500 text-sm flex flex-col items-center md:items-start gap-1">
             <p className="flex items-center gap-2">
-              Copyright © 2026 Cygnatrix IT Solution
+              Copyright © 2026 Protechtur
             </p>
             <p className="flex items-center gap-1">
               Made with 

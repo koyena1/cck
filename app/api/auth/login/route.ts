@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         success: true, 
         role: 'dealer',
+        token: `dealer_${dealer.dealer_id}_${Date.now()}`,
         user: {
           id: dealer.dealer_id,
           name: dealer.full_name,

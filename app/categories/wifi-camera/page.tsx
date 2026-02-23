@@ -38,7 +38,7 @@ const nightVisionOptions = ["10M", "20M", "30M", "40M"];
 function WifiCameraContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedBrand = searchParams.get('brand') || '';
+  const selectedBrand = searchParams?.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels from admin panel)

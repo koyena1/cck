@@ -62,11 +62,10 @@ export default function TestAuthPage() {
         <div className="bg-slate-800 p-6 rounded-lg">
           <h2 className="text-xl font-bold mb-4">Instructions:</h2>
           <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Click the "Clear Auth & Test Redirect" button above</li>
-            <li>You will be redirected to /admin/dashboard</li>
-            <li>Since you have no authentication, you should be redirected to /admin/login</li>
-            <li>Login with your admin credentials</li>
-            <li>After login, you'll be able to access the dashboard</li>
+            <li>Admin pages no longer require authentication</li>
+            <li>You can access any admin page directly</li>
+            <li>Navigate to /admin/dashboard or any other admin section</li>
+            <li>No login required - direct access enabled</li>
           </ol>
         </div>
       </div>

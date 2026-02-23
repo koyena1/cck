@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, X, UserCircle, Mail, Lock, Phone, User, MapPin } from "lucide-react"
+import { Loader2, X, UserCircle, Mail, Lock, Phone, User, MapPin, Eye, EyeOff } from "lucide-react"
 
 interface CustomerAuthModalProps {
   isOpen: boolean
@@ -19,6 +19,10 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
+  
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   // OTP state
   const [otpSent, setOtpSent] = useState(false)
@@ -429,13 +433,20 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   required
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
-                  className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                  className="bg-slate-700/50 border-slate-600 pl-10 pr-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -447,13 +458,20 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <Input
                     id="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
                     required
                     value={formData.confirmPassword}
                     onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                    className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                    className="bg-slate-700/50 border-slate-600 pl-10 pr-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
             )}

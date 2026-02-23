@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
@@ -11,8 +11,23 @@ import {
   ShieldCheck,
   LogOut,
   Menu,
-  X
+  X,
+  DollarSign,
+  History,
+  FileText
 } from "lucide-react";
+
+interface DealerInfo {
+  dealer_id: number;
+  full_name: string;
+  business_name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  location?: string;
+  gst_number?: string;
+  status: string;
+}
 
 export default function DealerLayout({
   children,
@@ -22,19 +37,60 @@ export default function DealerLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [dealerInfo, setDealerInfo] = useState<DealerInfo | null>(null);
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dealer/dashboard" },
     { icon: ClipboardList, label: "Assigned Jobs", href: "/dealer/assigned-jobs" },
     { icon: MapPin, label: "Service Areas", href: "/dealer/service-areas" },
+    { icon: DollarSign, label: "Pricing", href: "/dealer/pricing" },
     { icon: UserCircle, label: "Dealer Profile", href: "/dealer/profile" },
   ];
+
+  useEffect(() => {
+    const fetchDealerInfo = async () => {
+      try {
+        const dealerId = localStorage.getItem('dealerId');
+        
+        // If no dealer ID, don't redirect immediately - just log warning
+        if (!dealerId) {
+          console.warn('No dealer ID found in localStorage');
+          return;
+        }
+        
+        const response = await fetch(`/api/dealer/me?dealerId=${dealerId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setDealerInfo(data.dealer);
+        } else {
+          console.error('Failed to fetch dealer info:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dealer info:', error);
+      }
+    };
+
+    fetchDealerInfo();
+  }, []);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   const handleLogout = () => {
     // Clear any stored auth data and redirect to login page
     localStorage.removeItem('authToken');
+    localStorage.removeItem('dealerId');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
     sessionStorage.clear();
-    window.location.href = "/auth";
+    window.location.href = "/login";
   };
 
   return (
@@ -100,11 +156,21 @@ export default function DealerLayout({
         <div className="p-4 border-t border-slate-700 bg-[#0a1120]">
           <div className="mb-4 px-3 flex items-center gap-3 py-2 bg-slate-900/50 rounded-lg border border-slate-800">
              <div className="w-8 h-8 rounded-full bg-[#facc15] flex items-center justify-center text-[#0f172a] font-bold text-xs shrink-0 shadow-inner">
-                N
+                {dealerInfo ? getInitials(dealerInfo.full_name) : 'D'}
              </div>
-             <div className="overflow-hidden">
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter truncate">Northern Dealer</p>
-                <p className="text-xs text-white truncate font-poppins font-medium">Dealer Center</p>
+             <div className="overflow-hidden flex-1">
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter truncate">
+                  {dealerInfo?.full_name || 'Loading...'}
+                </p>
+                <p className="text-xs text-white truncate font-poppins font-medium">
+                  {dealerInfo?.business_name || 'Dealer Center'}
+                </p>
+                {(dealerInfo?.location || dealerInfo?.address) && (
+                  <p className="text-[9px] text-slate-400 truncate mt-0.5 flex items-center gap-1">
+                    <MapPin className="inline w-2.5 h-2.5" />
+                    {dealerInfo?.location || dealerInfo?.address}
+                  </p>
+                )}
              </div>
           </div>
           

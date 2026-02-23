@@ -62,7 +62,7 @@ const SelectContent = ({ children, onSelect, onClose }: any) => (
     <div className="absolute top-11 z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-80 w-full">
       <div className="p-1">
         {React.Children.map(children, (child) => 
-          React.cloneElement(child, { onSelect })
+          React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<any>, { onSelect }) : null
         )}
       </div>
     </div>

@@ -3,6 +3,7 @@
 import React from "react"
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useSearchParams, useRouter } from "next/navigation"
 import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut, ChevronDown, Gift } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -28,7 +29,7 @@ function NavbarComponent() {
 
   // Auto-open auth modal if login query parameter is present
   useEffect(() => {
-    const loginParam = searchParams.get('login')
+    const loginParam = searchParams?.get('login')
     if (loginParam === 'true' && !customerName) {
       setIsAuthModalOpen(true)
     }
@@ -78,9 +79,15 @@ function NavbarComponent() {
       {/* Container: White background with subtle shadow */}
       <div className="w-full max-w-7xl bg-white/90 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center justify-between shadow-md">
         
-        {/* Logo - Dark Text */}
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-2 pl-4">
-          <span className="text-slate-900 text-xl font-bold tracking-tight">Citive</span>
+          <Image 
+            src="/logo2.png" 
+            alt="Protechtur Logo" 
+            width={150} 
+            height={50} 
+            className="h-12 w-auto object-contain"
+          />
         </Link>
 
         {/* Navigation Menu - Desktop */}

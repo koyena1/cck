@@ -36,7 +36,7 @@ const simSupportOptions = ["Single SIM", "Dual SIM"];
 
 function FourGSimCameraContent() {
   const router = useRouter();  const searchParams = useSearchParams();
-  const selectedBrand = searchParams.get('brand') || '';  const { addToCart, setIsCartOpen } = useCart();
+  const selectedBrand = searchParams?.get('brand') || '';  const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels, storage from admin panel)
   const { data: quotationSettings, loading: loadingSettings } = useGlobalQuotationData();

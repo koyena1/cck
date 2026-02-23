@@ -38,7 +38,7 @@ const lensSizeOptions = ["2.8mm", "3.6mm", "6mm", "8mm", "12mm"];
 function IpCameraContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedBrand = searchParams.get('brand') || '';
+  const selectedBrand = searchParams?.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels from admin panel)

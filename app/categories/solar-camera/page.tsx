@@ -38,7 +38,7 @@ const batteryOptions = ["5000mAh", "10000mAh", "15000mAh", "20000mAh"];
 function SolarCameraContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedBrand = searchParams.get('brand') || '';
+  const selectedBrand = searchParams?.get('brand') || '';
   const { addToCart, setIsCartOpen } = useCart();
   
   // Get global quotation data (including pixels from admin panel)

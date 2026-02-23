@@ -112,8 +112,8 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       {/* Header Section */}
       <div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Executive Overview</h1>
-        <p className="text-slate-600 mt-1">Real-time status of your service aggregation platform.</p>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Executive Overview</h1>
+        <p className="text-slate-600 dark:text-slate-300 mt-1">Real-time status of your service aggregation platform.</p>
       </div>
 
       {/* Stats Grid */}
@@ -173,12 +173,12 @@ export default function AdminDashboard() {
 
       <div className="grid gap-6 lg:grid-cols-7">
         {/* Recent Orders Table */}
-        <Card className="lg:col-span-4 border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 border-b">
+        <Card className="lg:col-span-4 border-0 shadow-lg dark:bg-slate-800">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 border-b dark:border-slate-700">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="font-black text-slate-900">Recent Orders</CardTitle>
-                <CardDescription>Latest customer orders needing action</CardDescription>
+                <CardTitle className="font-black text-slate-900 dark:text-white">Recent Orders</CardTitle>
+                <CardDescription className="dark:text-slate-300">Latest customer orders needing action</CardDescription>
               </div>
               <Link href="/admin/orders">
                 <Button variant="outline" size="sm" className="font-bold border-purple-200 hover:bg-purple-50 hover:text-purple-600">View All</Button>
@@ -189,22 +189,22 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               {recentOrders.length > 0 ? (
                 recentOrders.map((order: any) => (
-                  <div key={order.order_id} className="flex items-center justify-between p-4 hover:bg-purple-50/50 rounded-lg transition-all group border border-transparent hover:border-purple-200">
+                  <div key={order.order_id} className="flex items-center justify-between p-4 hover:bg-purple-50/50 dark:hover:bg-slate-700/50 rounded-lg transition-all group border border-transparent hover:border-purple-200 dark:hover:border-purple-500">
                     <div className="flex items-center gap-4 flex-1">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                        <MapPin className="w-6 h-6 text-purple-600" />
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/50 dark:to-pink-900/50 flex items-center justify-center">
+                        <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-900">{order.customer_name}</p>
-                        <p className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{order.customer_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
                           <Phone size={12} /> {order.customer_phone} • {order.pincode}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="text-xs font-mono font-bold text-slate-400">{order.order_number}</p>
-                        <p className="text-sm font-black text-purple-600">₹{order.total_amount}</p>
+                        <p className="text-xs font-mono font-bold text-slate-400 dark:text-slate-400">{order.order_number}</p>
+                        <p className="text-sm font-black text-purple-600 dark:text-purple-400">₹{order.total_amount}</p>
                       </div>
                       <Badge className={`${getStatusBadge(order.status)} border font-bold`}>
                         {order.status}
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12 text-slate-400">
+                <div className="text-center py-12 text-slate-400 dark:text-slate-500">
                   <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
                   <p className="font-semibold">No orders yet</p>
                 </div>
@@ -226,10 +226,10 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <Card className="lg:col-span-3 border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 border-b">
-            <CardTitle className="font-black text-slate-900">Quick Actions</CardTitle>
-            <CardDescription>Frequently used management tools</CardDescription>
+        <Card className="lg:col-span-3 border-0 shadow-lg dark:bg-slate-800">
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 border-b dark:border-slate-700">
+            <CardTitle className="font-black text-slate-900 dark:text-white">Quick Actions</CardTitle>
+            <CardDescription className="dark:text-slate-300">Frequently used management tools</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-3">
             <Link href="/admin/orders">

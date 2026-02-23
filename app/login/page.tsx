@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox" // Ensure you have this shadcn component
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
-import { Loader2, Facebook, Twitter } from "lucide-react"
+import { Loader2, Facebook, Twitter, Eye, EyeOff } from "lucide-react"
 
 type Role = 'dealer' | 'admin'
 
@@ -19,6 +19,10 @@ export default function UnifiedAuthPage() {
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const [role, setRole] = useState<Role>('dealer')
+
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // OTP states
   const [otpSent, setOtpSent] = useState(false)
@@ -141,18 +145,36 @@ export default function UnifiedAuthPage() {
 
       if (response.ok) {
         if (isLogin) {
-          if (result.role === 'admin') router.push('/admin/dashboard')
-          else if (result.role === 'customer') router.push('/customer/dashboard')
-          else router.push('/dealer/dashboard')
+          // Store authentication data in localStorage
+          if (result.role === 'admin') {
+            localStorage.setItem('userRole', 'admin');
+            localStorage.setItem('userName', result.name || result.user?.name || 'Admin');
+            localStorage.setItem('authToken', result.token || `admin_${Date.now()}`);
+            router.push('/admin/dashboard');
+          } else if (result.role === 'customer') {
+            localStorage.setItem('userRole', 'customer');
+            localStorage.setItem('userName', result.name || result.user?.name || 'Customer');
+            localStorage.setItem('authToken', result.token || `customer_${Date.now()}`);
+            router.push('/customer/dashboard');
+          } else if (result.role === 'dealer') {
+            // Store dealer-specific data
+            localStorage.setItem('userRole', 'dealer');
+            localStorage.setItem('userName', result.user?.name || 'Dealer');
+            localStorage.setItem('dealerId', result.user?.id?.toString() || '');
+            localStorage.setItem('authToken', result.token || `dealer_${result.user?.id}_${Date.now()}`);
+            router.push('/dealer/dashboard');
+          } else {
+            router.push('/dealer/dashboard');
+          }
         } else {
           if (role === 'dealer') {
-            setMessage("Your account will be activated after admin approval.")
+            setMessage("Your account will be activated after admin approval.");
           } else {
-            router.push(role === 'admin' ? '/admin/dashboard' : '/customer/dashboard')
+            router.push(role === 'admin' ? '/admin/dashboard' : '/customer/dashboard');
           }
         }
       } else {
-        setError(result.message || "Action failed")
+        setError(result.message || "Action failed");
       }
     } catch (err) {
       setError("Connection error")
@@ -357,26 +379,44 @@ export default function UnifiedAuthPage() {
               )}
 
               <div className="space-y-2">
-                <Input 
-                  type="password" 
-                  placeholder="Password"
-                  required 
-                  value={formData.password} 
-                  onChange={e => setFormData({...formData, password: e.target.value})} 
-                  className="bg-transparent border-2 border-blue-400/50 rounded-full px-5 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
-                />
+                <div className="relative">
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Password"
+                    required 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})} 
+                    className="bg-transparent border-2 border-blue-400/50 rounded-full px-5 pr-12 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
               {!isLogin && (
                 <div className="space-y-2">
-                  <Input 
-                    type="password" 
-                    placeholder="Confirm Password"
-                    required 
-                    value={formData.confirmPassword} 
-                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
-                    className="bg-transparent border-2 border-blue-400/50 rounded-full px-5 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
-                  />
+                  <div className="relative">
+                    <Input 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      placeholder="Confirm Password"
+                      required 
+                      value={formData.confirmPassword} 
+                      onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
+                      className="bg-transparent border-2 border-blue-400/50 rounded-full px-5 pr-12 py-3 text-white placeholder:text-gray-500 focus:border-blue-400 focus:ring-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                 </div>
               )}
 
