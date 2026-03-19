@@ -9,7 +9,8 @@ import {
   ArrowUpRight,
   MapPin,
   Package,
-  Phone
+  Phone,
+  Truck
 } from "lucide-react"
 import { 
   Card, 
@@ -26,7 +27,8 @@ export default function AdminDashboard() {
     todayOrders: 0,
     pendingOrders: 0,
     completedOrders: 0,
-    activeDealers: 0
+    activeDealers: 0,
+    ordersInTransit: 0
   });
   
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
@@ -70,11 +72,16 @@ export default function AdminDashboard() {
           order.status === 'Completed'
         ).length;
         
+        const ordersInTransit = ordersData.filter(order => 
+          order.status === 'In_Transit' || order.status === 'Delivered' || order.status === 'Installation_Pending'
+        ).length;
+        
         setStats({
           todayOrders,
           pendingOrders,
           completedOrders,
-          activeDealers: 42 // Can fetch from dealers table later
+          activeDealers: 42, // Can fetch from dealers table later
+          ordersInTransit
         });
         
         // Set recent orders (top 5)
@@ -103,7 +110,7 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-slate-500">Loading dashboard...</div>
+        <div className="text-slate-500 dark:text-slate-400">Loading dashboard...</div>
       </div>
     );
   }
@@ -117,7 +124,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card className="border-0 bg-gradient-to-br from-pink-400 via-pink-500 to-rose-500 text-white shadow-lg hover:shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-white/90">
@@ -143,6 +150,21 @@ export default function AdminDashboard() {
             <p className="text-xs text-white/80 mt-2 font-medium">Requires action</p>
           </CardContent>
         </Card>
+
+        <Link href="/admin/order-status" className="block">
+          <Card className="border-0 bg-gradient-to-br from-orange-400 via-orange-500 to-amber-500 text-white shadow-lg hover:shadow-xl transition-all cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-white/90">
+                Order Status
+              </CardTitle>
+              <Truck className="w-5 h-5 text-white/80" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-4xl font-black text-white">{stats.ordersInTransit}</div>
+              <p className="text-xs text-white/80 mt-2 font-medium">In Transit & Delivery</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card className="border-0 bg-gradient-to-br from-teal-400 via-emerald-500 to-green-500 text-white shadow-lg hover:shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -204,7 +226,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="text-xs font-mono font-bold text-slate-400 dark:text-slate-400">{order.order_number}</p>
-                        <p className="text-sm font-black text-purple-600 dark:text-purple-400">₹{order.total_amount}</p>
+                        <p className="text-sm font-black text-purple-600 dark:text-purple-400">RS {order.total_amount}</p>
                       </div>
                       <Badge className={`${getStatusBadge(order.status)} border font-bold`}>
                         {order.status}

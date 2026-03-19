@@ -190,7 +190,7 @@ export default function CustomerDashboardSimple() {
             <br />• Get a unique referral code
             <br />• Earn 50 points Mystery Box after your first order
             <br />• Earn 100 points when friends use your referral code
-            <br />• Redeem points for discounts (1 point = ₹1)
+            <br />• Redeem points for discounts (1 point = RS 1)
           </p>
         </div>
 
@@ -257,7 +257,7 @@ export default function CustomerDashboardSimple() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-[#facc15] mb-2">
-                        ₹{parseFloat(order.total_amount?.toString() || '0').toLocaleString()}
+                        RS {parseFloat(order.total_amount?.toString() || '0').toLocaleString()}
                       </div>
                       <Button
                         onClick={() => router.push(`/track-order`)}

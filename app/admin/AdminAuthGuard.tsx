@@ -9,10 +9,25 @@ export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Admin login removed - allow access to all admin pages without authentication
-    console.log('✓ Admin access allowed (no authentication required):', pathname)
-    setIsAuthenticated(true)
-    setIsLoading(false)
+    const checkAuth = () => {
+      const authToken = localStorage.getItem('authToken')
+      const userRole = localStorage.getItem('userRole')
+      
+      // Check if user is authenticated and has admin role
+      if (!authToken || userRole !== 'admin') {
+        console.warn('⚠ Unauthorized access attempt to admin portal:', pathname)
+        // Redirect to login with return URL
+        const returnUrl = encodeURIComponent(pathname || '/admin/dashboard')
+        router.push(`/login?returnTo=${returnUrl}&required=admin`)
+        return
+      }
+      
+      console.log('✓ Admin authenticated:', pathname)
+      setIsAuthenticated(true)
+      setIsLoading(false)
+    }
+
+    checkAuth()
   }, [pathname, router])
 
   // Show loading spinner while checking authentication

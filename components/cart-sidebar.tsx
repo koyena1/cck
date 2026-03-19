@@ -76,7 +76,7 @@ export function CartSidebar() {
                       <p className="text-xs text-slate-500 mt-1">{item.category}</p>
                     )}
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-[#e63946] font-bold">₹{item.price.toLocaleString()}</p>
+                      <p className="text-[#e63946] font-bold">RS {item.price.toLocaleString()}</p>
                       {item.quantity && item.quantity > 1 && (
                         <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">x{item.quantity}</span>
                       )}
@@ -99,7 +99,7 @@ export function CartSidebar() {
           <div className="border-t p-4 space-y-3">
             <div className="flex justify-between items-center text-lg font-bold">
               <span className="text-slate-900">Total:</span>
-              <span className="text-[#e63946]">₹{cartTotal.toLocaleString()}</span>
+              <span className="text-[#e63946]">RS {cartTotal.toLocaleString()}</span>
             </div>
             
             <Button

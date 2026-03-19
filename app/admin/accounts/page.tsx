@@ -137,8 +137,8 @@ export default function AccountsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Accounts & Finance</h1>
-          <p className="text-slate-600 mt-1">Financial overview, transactions, and payment tracking (Real-time)</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Accounts & Finance</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Financial overview, transactions, and payment tracking (Real-time)</p>
         </div>
         <Button onClick={fetchOrders} variant="outline" size="sm">
           <Clock className="w-4 h-4 mr-2" />
@@ -148,65 +148,65 @@ export default function AccountsPage() {
 
       {/* Summary Cards */}
       <div className="grid gap-6 md:grid-cols-4">
-        <Card className="border-2 border-green-100 bg-gradient-to-br from-green-50 to-white">
+        <Card className="border-2 border-green-100 dark:border-green-900 bg-gradient-to-br from-green-50 to-white dark:from-green-950 dark:to-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-slate-600">
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-300">
               Total Revenue
             </CardTitle>
-            <TrendingUp className="w-5 h-5 text-green-600" />
+            <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-green-600">
+            <div className="text-4xl font-black text-green-600 dark:text-green-500">
               {loading ? '...' : formatCurrency(metrics.totalRevenue)}
             </div>
-            <p className="text-xs text-slate-500 mt-2 font-semibold">Paid orders this month</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-semibold">Paid orders this month</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-white">
+        <Card className="border-2 border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950 dark:to-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-slate-600">
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-300">
               Razorpay Revenue
             </CardTitle>
-            <Wallet className="w-5 h-5 text-indigo-600" />
+            <Wallet className="w-5 h-5 text-indigo-600 dark:text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-indigo-600">
+            <div className="text-4xl font-black text-indigo-600 dark:text-indigo-500">
               {loading ? '...' : formatCurrency(metrics.razorpayRevenue)}
             </div>
-            <p className="text-xs text-slate-500 mt-2 font-semibold">Online payments received</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-semibold">Online payments received</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+        <Card className="border-2 border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950 dark:to-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-slate-600">
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-300">
               Pending Payments
             </CardTitle>
-            <CreditCard className="w-5 h-5 text-blue-600" />
+            <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-blue-600">
+            <div className="text-4xl font-black text-blue-600 dark:text-blue-500">
               {loading ? '...' : formatCurrency(metrics.pendingPayments)}
             </div>
-            <p className="text-xs text-slate-500 mt-2 font-semibold">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-semibold">
               COD: {formatCurrency(metrics.codPending)} | Online: {formatCurrency(metrics.razorpayPending)}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-white">
+        <Card className="border-2 border-purple-100 dark:border-purple-900 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950 dark:to-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-slate-600">
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-300">
               Net Profit
             </CardTitle>
-            <DollarSign className="w-5 h-5 text-purple-600" />
+            <DollarSign className="w-5 h-5 text-purple-600 dark:text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-black text-purple-600">
+            <div className="text-4xl font-black text-purple-600 dark:text-purple-500">
               {loading ? '...' : formatCurrency(metrics.netProfit)}
             </div>
-            <p className="text-xs text-slate-500 mt-2 font-semibold">Estimated (20% margin)</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-semibold">Estimated (20% margin)</p>
           </CardContent>
         </Card>
       </div>
@@ -214,50 +214,50 @@ export default function AccountsPage() {
       {/* Recent Transactions */}
       <div className="grid gap-6">
         <Card className="border-2 shadow-lg">
-          <CardHeader className="bg-slate-50 border-b">
-            <CardTitle className="font-black text-slate-900">Recent Sales</CardTitle>
-            <CardDescription>Latest customer orders with payment details</CardDescription>
+          <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b">
+            <CardTitle className="font-black text-slate-900 dark:text-slate-100">Recent Sales</CardTitle>
+            <CardDescription className="dark:text-slate-400">Latest customer orders with payment details</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-slate-400 dark:text-slate-500">
                 <FileText className="w-16 h-16 mx-auto mb-4 opacity-20 animate-pulse" />
                 <p className="font-semibold">Loading transactions...</p>
               </div>
             ) : recentSales.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-slate-400 dark:text-slate-500">
                 <FileText className="w-16 h-16 mx-auto mb-4 opacity-20" />
                 <p className="font-semibold">No sales transactions yet</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-50 border-b-2">
+                  <thead className="bg-slate-50 dark:bg-slate-900 border-b-2 dark:border-slate-700">
                     <tr>
-                      <th className="text-left p-4 text-xs font-bold text-slate-600 uppercase">Order #</th>
-                      <th className="text-left p-4 text-xs font-bold text-slate-600 uppercase">Customer</th>
-                      <th className="text-left p-4 text-xs font-bold text-slate-600 uppercase">Amount</th>
-                      <th className="text-left p-4 text-xs font-bold text-slate-600 uppercase">Payment Method</th>
-                      <th className="text-left p-4 text-xs font-bold text-slate-600 uppercase">Status</th>
-                      <th className="text-left p-4 text-xs font-bold text-slate-600 uppercase">Date</th>
+                      <th className="text-left p-4 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Order #</th>
+                      <th className="text-left p-4 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Customer</th>
+                      <th className="text-left p-4 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Amount</th>
+                      <th className="text-left p-4 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Payment Method</th>
+                      <th className="text-left p-4 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                      <th className="text-left p-4 text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentSales.map((order) => (
-                      <tr key={order.order_id} className="border-b hover:bg-slate-50 transition-colors">
+                      <tr key={order.order_id} className="border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         <td className="p-4">
-                          <span className="font-mono font-bold text-sm text-slate-900">
+                          <span className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">
                             {order.order_number}
                           </span>
                         </td>
                         <td className="p-4">
                           <div>
-                            <p className="font-semibold text-sm text-slate-900">{order.customer_name}</p>
-                            <p className="text-xs text-slate-500">{order.customer_phone}</p>
+                            <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">{order.customer_name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{order.customer_phone}</p>
                           </div>
                         </td>
                         <td className="p-4">
-                          <span className="font-bold text-lg text-slate-900">
+                          <span className="font-bold text-lg text-slate-900 dark:text-slate-100">
                             {formatCurrency(Number(order.total_amount))}
                           </span>
                         </td>
@@ -285,7 +285,7 @@ export default function AccountsPage() {
                             {order.payment_status}
                           </Badge>
                         </td>
-                        <td className="p-4 text-sm text-slate-600">
+                        <td className="p-4 text-sm text-slate-600 dark:text-slate-400">
                           {formatDate(order.created_at)}
                         </td>
                       </tr>
@@ -300,8 +300,8 @@ export default function AccountsPage() {
 
       {/* Quick Actions */}
       <Card className="border-2">
-        <CardHeader className="bg-slate-50 border-b">
-          <CardTitle className="font-black text-slate-900">Quick Actions</CardTitle>
+        <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b">
+          <CardTitle className="font-black text-slate-900 dark:text-slate-100">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid gap-3 md:grid-cols-3">

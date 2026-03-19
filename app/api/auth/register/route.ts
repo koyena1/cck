@@ -39,20 +39,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, requiresApproval: true, message: 'Dealer registration submitted. Waiting for admin approval.' });
 
     } else if (role === 'admin') {
-      // Use username from body for admin registration
+      // Admin registration requires main admin approval first
+      // Insert into pending_admins table instead of admins directly
       const adminUsername = username || name;
+
+      // Check if already pending or already an admin
+      const existingPending = await pool.query(
+        `SELECT id FROM pending_admins WHERE email = $1 AND status = 'Pending'`,
+        [email]
+      );
+      if (existingPending.rows.length > 0) {
+        return NextResponse.json({ success: false, message: 'A registration request for this email is already pending approval.' }, { status: 409 });
+      }
+
+      const existingAdmin = await pool.query(
+        `SELECT admin_id FROM admins WHERE email = $1`,
+        [email]
+      );
+      if (existingAdmin.rows.length > 0) {
+        return NextResponse.json({ success: false, message: 'An admin account with this email already exists.' }, { status: 409 });
+      }
+
       await pool.query(
-        'INSERT INTO admins (username, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+        `INSERT INTO pending_admins (username, email, password_hash, role) VALUES ($1, $2, $3, $4)`,
         [adminUsername, email, password, body.adminRole || 'admin']
       );
-      
+
       // Clean up OTP record after successful registration
       await pool.query(
         `DELETE FROM customer_otp_verification WHERE email = $1`,
         [email]
       );
-      
-      return NextResponse.json({ success: true, message: 'Admin account created successfully' });
+
+      return NextResponse.json({
+        success: true,
+        requiresApproval: true,
+        message: 'Admin registration submitted. The main admin must approve your request before you can log in.'
+      });
     }
 
     return NextResponse.json({ success: false, message: 'Invalid role. Only dealer and admin registration allowed.' }, { status: 400 });

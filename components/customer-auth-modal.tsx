@@ -183,6 +183,15 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
         body: JSON.stringify(formData),
       })
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Expected JSON response but got:', contentType)
+        const text = await response.text()
+        console.error('Response text (first 500 chars):', text.substring(0, 500))
+        throw new Error('Server returned an invalid response. Please check if the server is running correctly.')
+      }
+
       const result = await response.json()
       
       console.log('Registration response:', {
@@ -538,16 +547,6 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                 <>Already have an account? <span className="font-semibold">Login</span></>
               )}
             </button>
-          </div>
-
-          {/* Divider */}
-          <div className="mt-6 pt-4 border-t border-slate-700">
-            <p className="text-xs text-center text-gray-500">
-              Are you a dealer or admin?{" "}
-              <a href="/login" className="text-[#e63946] hover:underline">
-                Click here to login
-              </a>
-            </p>
           </div>
         </div>
       </DialogContent>

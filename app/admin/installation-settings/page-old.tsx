@@ -145,7 +145,7 @@ export default function InstallationSettingsPage() {
         <h2 className="text-xl font-bold text-gray-900 mb-4">Installation Service</h2>
         <div className="max-w-md">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Installation Cost (₹)
+            Installation Cost (RS)
           </label>
           <Input
             type="number"
@@ -191,7 +191,7 @@ export default function InstallationSettingsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price Per Camera (₹)
+                    Price Per Camera (RS)
                   </label>
                   <Input
                     type="number"

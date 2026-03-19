@@ -1,30 +1,68 @@
 import { NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
+import { getPool, resetPool } from '@/lib/db';
+
+const RECOVERABLE_DB_ERROR_CODES = new Set([
+  '57P01', // admin_shutdown
+  '57P02', // crash_shutdown
+  '57P03', // cannot_connect_now
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EPIPE'
+]);
+
+async function queryWithReconnect(sql: string, params: any[]) {
+  const pool = getPool();
+
+  try {
+    return await pool.query(sql, params);
+  } catch (err: any) {
+    if (!RECOVERABLE_DB_ERROR_CODES.has(err?.code)) {
+      throw err;
+    }
+
+    console.warn('Transient DB error during login. Recreating pool and retrying once.', {
+      code: err?.code,
+      message: err?.message
+    });
+
+    await resetPool();
+    return getPool().query(sql, params);
+  }
+}
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
+    const loginId = String(email || '').trim();
     
-    if (!email || !password) {
+    if (!loginId || !password) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Email and password are required' 
+        message: 'Email/ID and password are required' 
       }, { status: 400 });
     }
 
-    console.log('Login attempt for:', email);
+    console.log('Login attempt for:', loginId);
     
-    const pool = getPool();
-
-    // 1. Check Admin (with role)
-    let res = await pool.query('SELECT * FROM admins WHERE email = $1 AND is_active = true', [email]);
+    // 1. Check Admin (by email or username)
+    let res = await queryWithReconnect(
+      `SELECT * FROM admins
+       WHERE is_active = true
+         AND (
+           LOWER(TRIM(email)) = LOWER(TRIM($1))
+           OR LOWER(TRIM(username)) = LOWER(TRIM($1))
+         )
+       LIMIT 1`,
+      [loginId]
+    );
     console.log('Admin query result:', res.rows.length, 'records found');
     if (res.rows[0] && res.rows[0].password_hash === password) {
       const admin = res.rows[0];
       return NextResponse.json({ 
         success: true, 
         role: 'admin',
-        token: `admin_${admin.admin_id}_${Date.now()}`, // Simple token for demo
+        token: `admin_${admin.admin_id}_${Date.now()}`,
         name: admin.username,
         user: {
           id: admin.admin_id,
@@ -35,8 +73,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Check Dealer
-    res = await pool.query('SELECT * FROM dealers WHERE email = $1', [email]);
+    // 2. Check Dealer by email OR unique_dealer_id
+    res = await queryWithReconnect(
+      `SELECT * FROM dealers
+       WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))
+          OR TRIM(COALESCE(unique_dealer_id, '')) = TRIM($1)
+       LIMIT 1`,
+      [loginId]
+    );
     const dealer = res.rows[0];
     if (dealer && dealer.password_hash === password) {
       if (dealer.status !== 'Active' && dealer.status !== 'Approved') {
@@ -59,7 +103,7 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: 'Invalid email or password' }, { status: 401 });
+    return NextResponse.json({ success: false, message: 'Invalid email/ID or password' }, { status: 401 });
   } catch (err: any) {
     console.error('Login error details:', {
       message: err.message,

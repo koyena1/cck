@@ -49,11 +49,13 @@ interface Transaction {
 
 interface TransactionItem {
   id: number;
+  product_code?: string;
   product_name: string;
   model_number: string;
   quantity: number;
   unit_price: number;
   total_price: number;
+  purchase_source?: string;
 }
 
 export default function DealerInvoicesPage() {
@@ -113,89 +115,143 @@ export default function DealerInvoicesPage() {
   };
 
   const downloadInvoice = (transaction: Transaction, items: TransactionItem[]) => {
-    // Generate PDF invoice
     const doc = new jsPDF();
     
-    // Set font styles
-    doc.setFont("helvetica", "bold");
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
-    doc.text("DEALER INVOICE", 105, 20, { align: "center" });
+    doc.text('DEALER INVOICE', 105, 20, { align: 'center' });
     
-    // Invoice details
     doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    doc.setFont('helvetica', 'normal');
     doc.text(`Invoice Number: ${transaction.invoice_number}`, 20, 35);
     doc.text(`Transaction Type: ${transaction.transaction_type.toUpperCase()}`, 20, 42);
-    doc.text(`Date: ${new Date(transaction.transaction_date).toLocaleDateString()}`, 20, 49);
+    doc.text(`Date: ${new Date(transaction.transaction_date).toLocaleDateString('en-IN')}`, 20, 49);
     
-    // Draw line
     doc.setLineWidth(0.5);
     doc.line(20, 56, 190, 56);
     
-    // Dealer information
-    doc.setFont("helvetica", "bold");
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text("DEALER INFORMATION:", 20, 65);
-    doc.setFont("helvetica", "normal");
+    doc.text('DEALER INFORMATION:', 20, 65);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text(`Name: ${transaction.dealer_name}`, 20, 72);
     doc.text(`Business: ${transaction.business_name}`, 20, 79);
     
-    // Draw line
     doc.line(20, 85, 190, 85);
     
-    // Items header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("ITEMS:", 20, 95);
+    let yPos = 95;
     
-    // Items list
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    let yPos = 105;
-    items.forEach((item, idx) => {
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
+    if (transaction.transaction_type === 'purchase') {
+      const protechturItems = items.filter(i => (i.purchase_source || 'protechtur') === 'protechtur');
+      const externalItems = items.filter(i => i.purchase_source === 'external');
+      
+      if (protechturItems.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('THROUGH PROTECHTUR', 20, yPos); yPos += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        let ptSubtotal = 0;
+        protechturItems.forEach((item, idx) => {
+          if (yPos > 260) { doc.addPage(); yPos = 20; }
+          const itemLabel = item.product_code ? `${item.product_name} (${item.product_code})` : item.product_name;
+          doc.text(`${idx + 1}. ${itemLabel} (Protechtur)`, 25, yPos); yPos += 6;
+          doc.text(`   Model: ${item.model_number}`, 25, yPos); yPos += 6;
+          doc.text(`   Qty: ${item.quantity} x Rs. ${Number(item.unit_price).toLocaleString('en-IN')} = Rs. ${Number(item.total_price).toLocaleString('en-IN')}`, 25, yPos); yPos += 8;
+          ptSubtotal += Number(item.total_price);
+        });
+        const ptGst = ptSubtotal * 0.18;
+        const ptTotal = ptSubtotal + ptGst;
+        doc.setLineWidth(0.3);
+        doc.line(120, yPos, 190, yPos); yPos += 5;
+        doc.text('Subtotal:', 120, yPos);
+        doc.text(`Rs. ${ptSubtotal.toLocaleString('en-IN')}`, 190, yPos, { align: 'right' }); yPos += 6;
+        doc.text('GST (18%):', 120, yPos);
+        doc.text(`Rs. ${ptGst.toFixed(2)}`, 190, yPos, { align: 'right' }); yPos += 6;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Total:', 120, yPos);
+        doc.text(`Rs. ${ptTotal.toFixed(2)}`, 190, yPos, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        yPos += 12;
       }
-      doc.text(`${idx + 1}. ${item.product_name}`, 25, yPos);
-      yPos += 7;
-      doc.text(`   Model: ${item.model_number}`, 25, yPos);
-      yPos += 7;
-      doc.text(`   Qty: ${item.quantity} x Rs. ${item.unit_price.toLocaleString('en-IN')} = Rs. ${item.total_price.toLocaleString('en-IN')}`, 25, yPos);
-      yPos += 10;
-    });
+      
+      if (externalItems.length > 0) {
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setLineWidth(0.5);
+        doc.line(20, yPos, 190, yPos); yPos += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('EXTERNAL', 20, yPos); yPos += 8;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        let extSubtotal = 0;
+        externalItems.forEach((item, idx) => {
+          if (yPos > 260) { doc.addPage(); yPos = 20; }
+          const itemLabel = item.product_code ? `${item.product_name} (${item.product_code})` : item.product_name;
+          doc.text(`${idx + 1}. ${itemLabel} (External)`, 25, yPos); yPos += 6;
+          doc.text(`   Model: ${item.model_number}`, 25, yPos); yPos += 6;
+          doc.text(`   Qty: ${item.quantity} x Rs. ${Number(item.unit_price).toLocaleString('en-IN')} = Rs. ${Number(item.total_price).toLocaleString('en-IN')}`, 25, yPos); yPos += 8;
+          extSubtotal += Number(item.total_price);
+        });
+        const extGst = extSubtotal * 0.18;
+        const extTotal = extSubtotal + extGst;
+        doc.setLineWidth(0.3);
+        doc.line(120, yPos, 190, yPos); yPos += 5;
+        doc.text('Subtotal:', 120, yPos);
+        doc.text(`Rs. ${extSubtotal.toLocaleString('en-IN')}`, 190, yPos, { align: 'right' }); yPos += 6;
+        doc.text('GST (18%):', 120, yPos);
+        doc.text(`Rs. ${extGst.toFixed(2)}`, 190, yPos, { align: 'right' }); yPos += 6;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Total:', 120, yPos);
+        doc.text(`Rs. ${extTotal.toFixed(2)}`, 190, yPos, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        yPos += 10;
+      }
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('ITEMS:', 20, yPos); yPos += 8;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      items.forEach((item, idx) => {
+        if (yPos > 250) { doc.addPage(); yPos = 20; }
+        const itemLabel = item.product_code ? `${item.product_name} (${item.product_code})` : item.product_name;
+        doc.text(`${idx + 1}. ${itemLabel}`, 25, yPos); yPos += 7;
+        doc.text(`   Model: ${item.model_number}`, 25, yPos); yPos += 7;
+        doc.text(`   Qty: ${item.quantity} x Rs. ${Number(item.unit_price).toLocaleString('en-IN')} = Rs. ${Number(item.total_price).toLocaleString('en-IN')}`, 25, yPos); yPos += 10;
+      });
+    }
     
-    // Draw line before totals
+    if (yPos > 250) { doc.addPage(); yPos = 20; }
     doc.setLineWidth(0.5);
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
+    doc.line(20, yPos, 190, yPos); yPos += 8;
     
-    // Totals with better formatting
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text("Subtotal:", 20, yPos);
-    doc.text(`Rs. ${transaction.total_amount.toLocaleString('en-IN')}`, 190, yPos, { align: "right" });
-    yPos += 7;
+    if (transaction.transaction_type !== 'purchase') {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text('Subtotal:', 20, yPos);
+      doc.text(`Rs. ${Number(transaction.total_amount).toLocaleString('en-IN')}`, 190, yPos, { align: 'right' }); yPos += 7;
+      doc.text('GST (18%):', 20, yPos);
+      doc.text(`Rs. ${Number(transaction.gst_amount).toLocaleString('en-IN')}`, 190, yPos, { align: 'right' }); yPos += 10;
+      doc.setLineWidth(0.8);
+      doc.line(20, yPos, 190, yPos); yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('TOTAL:', 20, yPos);
+      doc.text(`Rs. ${Number(transaction.final_amount).toLocaleString('en-IN')}`, 190, yPos, { align: 'right' });
+      yPos += 10;
+    } else {
+      doc.setLineWidth(0.8);
+      doc.line(20, yPos, 190, yPos); yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('TOTAL:', 20, yPos);
+      doc.text(`Rs. ${Number(transaction.final_amount).toLocaleString('en-IN')}`, 190, yPos, { align: 'right' });
+      yPos += 10;
+    }
     
-    doc.text("GST (18%):", 20, yPos);
-    doc.text(`Rs. ${transaction.gst_amount.toLocaleString('en-IN')}`, 190, yPos, { align: "right" });
-    yPos += 10;
-    
-    // Draw line before total
-    doc.setLineWidth(0.8);
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
-    
-    // Final total
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("TOTAL:", 20, yPos);
-    doc.text(`Rs. ${transaction.final_amount.toLocaleString('en-IN')}`, 190, yPos, { align: "right" });
-    yPos += 10;
-    
-    // Payment information
-    doc.setFont("helvetica", "normal");
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     yPos += 5;
     doc.text(`Payment Status: ${transaction.payment_status.toUpperCase()}`, 20, yPos);
@@ -208,7 +264,6 @@ export default function DealerInvoicesPage() {
       doc.text(`Notes: ${transaction.notes}`, 20, yPos);
     }
     
-    // Download PDF automatically
     doc.save(`${transaction.invoice_number}.pdf`);
   };
 
@@ -242,15 +297,15 @@ export default function DealerInvoicesPage() {
   };
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return <div className="p-8 dark:text-slate-400">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black text-slate-900">Dealer Invoices</h1>
-        <p className="text-slate-600 mt-1">
+        <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">Dealer Invoices</h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">
           View and manage all dealer purchase and sale invoices
         </p>
       </div>
@@ -259,16 +314,16 @@ export default function DealerInvoicesPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Total Invoices</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Total Invoices</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-slate-900">{stats.total}</div>
+            <div className="text-3xl font-black text-slate-900 dark:text-slate-100">{stats.total}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Purchase Invoices</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Purchase Invoices</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-blue-600">{stats.purchases}</div>
@@ -277,7 +332,7 @@ export default function DealerInvoicesPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Sale Invoices</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Sale Invoices</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-purple-600">{stats.sales}</div>
@@ -286,11 +341,11 @@ export default function DealerInvoicesPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Total Amount</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Total Amount</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-black text-green-600">
-              ₹{stats.totalAmount.toLocaleString('en-IN')}
+              RS {stats.totalAmount.toLocaleString('en-IN')}
             </div>
           </CardContent>
         </Card>
@@ -300,7 +355,7 @@ export default function DealerInvoicesPage() {
       <Card className="border-2">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <Filter className="w-5 h-5 text-slate-600" />
+            <Filter className="w-5 h-5 text-slate-600 dark:text-slate-400" />
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-64">
                 <SelectValue />
@@ -326,29 +381,29 @@ export default function DealerInvoicesPage() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-100 border-b-2">
+              <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Dealer</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase">Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase">GST</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase">Total</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Dealer</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold uppercase dark:text-slate-300">Amount</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold uppercase dark:text-slate-300">GST</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold uppercase dark:text-slate-300">Total</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold uppercase dark:text-slate-300">Status</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold uppercase dark:text-slate-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y dark:divide-slate-700">
                 {transactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-slate-50">
+                  <tr key={transaction.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                     <td className="px-4 py-3 font-mono text-sm font-bold">
                       {transaction.invoice_number}
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-semibold text-sm">{transaction.dealer_name}</p>
-                        <p className="text-xs text-slate-500">{transaction.business_name}</p>
+                        <p className="font-semibold text-sm dark:text-slate-100">{transaction.dealer_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{transaction.business_name}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -362,13 +417,13 @@ export default function DealerInvoicesPage() {
                       })}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">
-                      ₹{parseFloat(transaction.total_amount.toString()).toLocaleString('en-IN')}
+                      RS {parseFloat(transaction.total_amount.toString()).toLocaleString('en-IN')}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-slate-600">
-                      ₹{parseFloat(transaction.gst_amount.toString()).toLocaleString('en-IN')}
+                    <td className="px-4 py-3 text-right text-sm text-slate-600 dark:text-slate-400">
+                      RS {parseFloat(transaction.gst_amount.toString()).toLocaleString('en-IN')}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-green-600">
-                      ₹{parseFloat(transaction.final_amount.toString()).toLocaleString('en-IN')}
+                      RS {parseFloat(transaction.final_amount.toString()).toLocaleString('en-IN')}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {getStatusBadge(transaction.payment_status)}
@@ -408,24 +463,24 @@ export default function DealerInvoicesPage() {
           {selectedTransaction && (
             <div className="space-y-6">
               {/* Invoice Header */}
-              <div className="grid md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg">
+              <div className="grid md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Invoice Number</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Invoice Number</p>
                   <p className="font-mono font-bold">{selectedTransaction.invoice_number}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Date</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Date</p>
                   <p className="font-semibold">
                     {new Date(selectedTransaction.transaction_date).toLocaleDateString('en-IN')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Dealer</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Dealer</p>
                   <p className="font-semibold">{selectedTransaction.dealer_name}</p>
-                  <p className="text-sm text-slate-600">{selectedTransaction.business_name}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{selectedTransaction.business_name}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Type</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Type</p>
                   {getTypeBadge(selectedTransaction.transaction_type)}
                 </div>
               </div>
@@ -436,57 +491,135 @@ export default function DealerInvoicesPage() {
                   <ShoppingBag className="w-4 h-4" />
                   Items ({transactionItems.length})
                 </h3>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-slate-100">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-bold">#</th>
-                        <th className="px-4 py-2 text-left text-xs font-bold">Product</th>
-                        <th className="px-4 py-2 text-center text-xs font-bold">Qty</th>
-                        <th className="px-4 py-2 text-right text-xs font-bold">Unit Price</th>
-                        <th className="px-4 py-2 text-right text-xs font-bold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {transactionItems.map((item, idx) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-3 text-sm">{idx + 1}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-semibold text-sm">{item.product_name}</p>
-                            <p className="text-xs text-slate-500 font-mono">{item.model_number}</p>
-                          </td>
-                          <td className="px-4 py-3 text-center font-semibold">{item.quantity}</td>
-                          <td className="px-4 py-3 text-right">
-                            ₹{parseFloat(item.unit_price.toString()).toLocaleString('en-IN')}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold">
-                            ₹{parseFloat(item.total_price.toString()).toLocaleString('en-IN')}
-                          </td>
+
+                {selectedTransaction.transaction_type === 'purchase' ? (
+                  <div className="space-y-4">
+                    {/* Protechtur items */}
+                    {transactionItems.filter(i => (i.purchase_source || 'protechtur') === 'protechtur').length > 0 && (
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2">Through Protechtur</p>
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-slate-100 dark:bg-slate-800">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-bold dark:text-slate-300">#</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold dark:text-slate-300">Product</th>
+                                <th className="px-4 py-2 text-center text-xs font-bold dark:text-slate-300">Qty</th>
+                                <th className="px-4 py-2 text-right text-xs font-bold dark:text-slate-300">Unit Price</th>
+                                <th className="px-4 py-2 text-right text-xs font-bold dark:text-slate-300">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y dark:divide-slate-700">
+                              {transactionItems.filter(i => (i.purchase_source || 'protechtur') === 'protechtur').map((item, idx) => (
+                                <tr key={item.id}>
+                                  <td className="px-4 py-3 text-sm dark:text-slate-100">{idx + 1}</td>
+                                  <td className="px-4 py-3">
+                                    <p className="font-semibold text-sm dark:text-slate-100">
+                                      {item.product_name}
+                                      <span className="ml-2 text-xs font-semibold text-blue-600 dark:text-blue-400">(Protechtur)</span>
+                                    </p>
+                                    {item.product_code && <p className="text-[11px] text-slate-500 dark:text-slate-400">{item.product_code}</p>}
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.model_number}</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-center font-semibold">{item.quantity}</td>
+                                  <td className="px-4 py-3 text-right">RS {parseFloat(item.unit_price.toString()).toLocaleString('en-IN')}</td>
+                                  <td className="px-4 py-3 text-right font-bold">RS {parseFloat(item.total_price.toString()).toLocaleString('en-IN')}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* External items */}
+                    {transactionItems.filter(i => i.purchase_source === 'external').length > 0 && (
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 mb-2">External</p>
+                        <div className="border border-orange-200 dark:border-orange-900/40 rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-orange-50 dark:bg-orange-900/20">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-bold dark:text-slate-300">#</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold dark:text-slate-300">Product</th>
+                                <th className="px-4 py-2 text-center text-xs font-bold dark:text-slate-300">Qty</th>
+                                <th className="px-4 py-2 text-right text-xs font-bold dark:text-slate-300">Unit Price</th>
+                                <th className="px-4 py-2 text-right text-xs font-bold dark:text-slate-300">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y dark:divide-slate-700">
+                              {transactionItems.filter(i => i.purchase_source === 'external').map((item, idx) => (
+                                <tr key={item.id}>
+                                  <td className="px-4 py-3 text-sm dark:text-slate-100">{idx + 1}</td>
+                                  <td className="px-4 py-3">
+                                    <p className="font-semibold text-sm dark:text-slate-100">
+                                      {item.product_name}
+                                      <span className="ml-2 text-xs font-semibold text-orange-600 dark:text-orange-400">(External)</span>
+                                    </p>
+                                    {item.product_code && <p className="text-[11px] text-slate-500 dark:text-slate-400">{item.product_code}</p>}
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.model_number}</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-center font-semibold">{item.quantity}</td>
+                                  <td className="px-4 py-3 text-right text-orange-600 dark:text-orange-400">RS {parseFloat(item.unit_price.toString()).toLocaleString('en-IN')}</td>
+                                  <td className="px-4 py-3 text-right font-bold text-orange-600 dark:text-orange-400">RS {parseFloat(item.total_price.toString()).toLocaleString('en-IN')}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-slate-100 dark:bg-slate-800">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-bold dark:text-slate-300">#</th>
+                          <th className="px-4 py-2 text-left text-xs font-bold dark:text-slate-300">Product</th>
+                          <th className="px-4 py-2 text-center text-xs font-bold dark:text-slate-300">Qty</th>
+                          <th className="px-4 py-2 text-right text-xs font-bold dark:text-slate-300">Unit Price</th>
+                          <th className="px-4 py-2 text-right text-xs font-bold dark:text-slate-300">Total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y dark:divide-slate-700">
+                        {transactionItems.map((item, idx) => (
+                          <tr key={item.id}>
+                            <td className="px-4 py-3 text-sm dark:text-slate-100">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-semibold text-sm dark:text-slate-100">{item.product_name}</p>
+                              {item.product_code && <p className="text-[11px] text-slate-500 dark:text-slate-400">{item.product_code}</p>}
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.model_number}</p>
+                            </td>
+                            <td className="px-4 py-3 text-center font-semibold">{item.quantity}</td>
+                            <td className="px-4 py-3 text-right">RS {parseFloat(item.unit_price.toString()).toLocaleString('en-IN')}</td>
+                            <td className="px-4 py-3 text-right font-bold">RS {parseFloat(item.total_price.toString()).toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* Totals */}
-              <div className="space-y-2 p-4 bg-slate-50 rounded-lg">
+              <div className="space-y-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Subtotal:</span>
+                  <span className="text-slate-600 dark:text-slate-400">Subtotal:</span>
                   <span className="font-bold">
-                    ₹{parseFloat(selectedTransaction.total_amount.toString()).toLocaleString('en-IN')}
+                    RS {parseFloat(selectedTransaction.total_amount.toString()).toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">GST (18%):</span>
+                  <span className="text-slate-600 dark:text-slate-400">GST (18%):</span>
                   <span className="font-bold">
-                    ₹{parseFloat(selectedTransaction.gst_amount.toString()).toLocaleString('en-IN')}
+                    RS {parseFloat(selectedTransaction.gst_amount.toString()).toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between text-lg border-t pt-2">
                   <span className="font-bold">Total Amount:</span>
                   <span className="font-black text-green-600">
-                    ₹{parseFloat(selectedTransaction.final_amount.toString()).toLocaleString('en-IN')}
+                    RS {parseFloat(selectedTransaction.final_amount.toString()).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>
@@ -494,12 +627,12 @@ export default function DealerInvoicesPage() {
               {/* Payment Info */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Payment Status</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Payment Status</p>
                   {getStatusBadge(selectedTransaction.payment_status)}
                 </div>
                 {selectedTransaction.payment_method && (
                   <div>
-                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">Payment Method</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Payment Method</p>
                     <p className="font-semibold">{selectedTransaction.payment_method}</p>
                   </div>
                 )}
@@ -507,7 +640,7 @@ export default function DealerInvoicesPage() {
 
               {selectedTransaction.notes && (
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Notes</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold mb-1">Notes</p>
                   <p className="text-sm">{selectedTransaction.notes}</p>
                 </div>
               )}
@@ -517,6 +650,7 @@ export default function DealerInvoicesPage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowDetailsDialog(false)}
+                  className="dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600"
                 >
                   Close
                 </Button>

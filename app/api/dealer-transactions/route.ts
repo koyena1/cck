@@ -39,9 +39,11 @@ export async function GET(request: Request) {
 
       // Get transaction items
       const itemsQuery = `
-        SELECT * FROM dealer_transaction_items
+        SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+        FROM dealer_transaction_items dti
+        LEFT JOIN dealer_products dp ON dp.id = dti.product_id
         WHERE transaction_id = $1
-        ORDER BY id
+        ORDER BY dti.id
       `;
       const itemsResult = await pool.query(itemsQuery, [transactionResult.rows[0].id]);
 
@@ -78,9 +80,11 @@ export async function GET(request: Request) {
 
       // Get transaction items
       const itemsQuery = `
-        SELECT * FROM dealer_transaction_items
+        SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+        FROM dealer_transaction_items dti
+        LEFT JOIN dealer_products dp ON dp.id = dti.product_id
         WHERE transaction_id = $1
-        ORDER BY id
+        ORDER BY dti.id
       `;
       const itemsResult = await pool.query(itemsQuery, [transactionId]);
 

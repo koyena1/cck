@@ -26,7 +26,7 @@ async function checkProducts() {
         console.log(`   Brand: ${product.brand}`);
         console.log(`   Channels: ${product.channels}`);
         console.log(`   Cable: ${product.cable}`);
-        console.log(`   Price: ₹${product.price}`);
+        console.log(`   Price: RS ${product.price}`);
         console.log(`   Active: ${product.is_active ? '✓ YES' : '✗ NO'}`);
         console.log(`   Image: ${product.image ? 'Present' : 'Missing'}`);
         console.log(`   Specs: ${product.specs ? product.specs.join(', ') : 'None'}`);

@@ -420,11 +420,11 @@ function IpComboContent() {
                         {/* Price */}
                         <div className="flex items-center gap-2 mb-4">
                           <span className="text-2xl font-bold text-slate-900">
-                            ₹{product.price.toLocaleString()}
+                            RS {product.price.toLocaleString()}
                           </span>
                           {product.originalPrice && (
                             <span className="text-sm text-slate-500 line-through">
-                              ₹{product.originalPrice.toLocaleString()}
+                              RS {product.originalPrice.toLocaleString()}
                             </span>
                           )}
                         </div>

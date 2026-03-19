@@ -225,7 +225,7 @@ export function CODAdvanceDialog({
             <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-sm text-blue-900">
               <p className="font-medium mb-1">Why do I need to pay in advance?</p>
-              <p>For Cash on Delivery orders, we require an advance payment of <span className="font-semibold">₹{advanceAmount.toFixed(2)}</span>. This is calculated as a percentage of your total order amount (including extra COD charges). This helps us prevent fraudulent orders and ensures serious buyers.</p>
+              <p>For Cash on Delivery orders, we require an advance payment of <span className="font-semibold">RS {advanceAmount.toFixed(2)}</span>. This is calculated as a percentage of your total order amount (including extra COD charges). This helps us prevent fraudulent orders and ensures serious buyers.</p>
             </div>
           </div>
         </div>
@@ -234,15 +234,15 @@ export function CODAdvanceDialog({
         <div className="bg-slate-50 rounded-lg p-4 mb-6 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Order Total:</span>
-            <span className="font-semibold text-slate-900">₹{totalAmount.toFixed(2)}</span>
+            <span className="font-semibold text-slate-900">RS {totalAmount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Advance Payment:</span>
-            <span className="font-semibold text-orange-600">₹{advanceAmount.toFixed(2)}</span>
+            <span className="font-semibold text-orange-600">RS {advanceAmount.toFixed(2)}</span>
           </div>
           <div className="border-t pt-2 flex justify-between">
             <span className="text-slate-600">Balance (Pay on Delivery):</span>
-            <span className="font-bold text-[#e63946] text-lg">₹{(totalAmount - advanceAmount).toFixed(2)}</span>
+            <span className="font-bold text-[#e63946] text-lg">RS {(totalAmount - advanceAmount).toFixed(2)}</span>
           </div>
         </div>
 
@@ -254,7 +254,7 @@ export function CODAdvanceDialog({
               disabled={processing}
               className="w-full bg-[#e63946] hover:bg-[#d62839] text-white py-6 text-lg"
             >
-              Pay ₹{advanceAmount.toFixed(2)} Now
+              Pay RS {advanceAmount.toFixed(2)} Now
             </Button>
           )}
           {processing && (

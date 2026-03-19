@@ -46,6 +46,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }), "btn-shine")}
         ref={ref}
+        suppressHydrationWarning
         {...props}
       />
     )

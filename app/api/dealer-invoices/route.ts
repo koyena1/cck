@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { syncDealerStockThresholdAlerts } from '@/lib/dealer-stock-alerts';
 
 // GET - Fetch dealer invoices
 export async function GET(request: Request) {
@@ -29,9 +30,11 @@ export async function GET(request: Request) {
 
       // Get invoice items
       const itemsQuery = `
-        SELECT * FROM dealer_transaction_items
-        WHERE transaction_id = $1
-        ORDER BY id
+        SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+        FROM dealer_transaction_items dti
+        LEFT JOIN dealer_products dp ON dp.id = dti.product_id
+        WHERE dti.transaction_id = $1
+        ORDER BY dti.id
       `;
       const itemsResult = await pool.query(itemsQuery, [invoiceId]);
 
@@ -59,9 +62,11 @@ export async function GET(request: Request) {
 
       // Get invoice items
       const itemsQuery = `
-        SELECT * FROM dealer_transaction_items
-        WHERE transaction_id = $1
-        ORDER BY id
+        SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+        FROM dealer_transaction_items dti
+        LEFT JOIN dealer_products dp ON dp.id = dti.product_id
+        WHERE dti.transaction_id = $1
+        ORDER BY dti.id
       `;
       const itemsResult = await pool.query(itemsQuery, [transactionResult.rows[0].id]);
 
@@ -111,6 +116,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { dealerId, transactionType, items } = body;
+    const sources = [...new Set((items || []).map((i: any) => i.source || 'protechtur'))];
+    const txPurchaseSource = sources.length === 1 ? sources[0] : 'mixed';
 
     if (!dealerId || !transactionType || !items || items.length === 0) {
       return NextResponse.json(
@@ -120,17 +127,25 @@ export async function POST(request: Request) {
     }
 
     const pool = getPool();
-
-    // Start transaction
-    await pool.query('BEGIN');
+    const client = await pool.connect();
 
     try {
-      // Generate invoice number
-      const invoicePrefix = transactionType === 'purchase' ? 'DP' : 'DS';
-      const timestamp = Date.now();
-      const invoiceNumber = `${invoicePrefix}-${dealerId}-${timestamp}`;
+      await client.query('BEGIN');
 
-      // Calculate totals
+      // Generate invoice number with dealer unique ID
+      const invoicePrefix = transactionType === 'purchase' ? 'P' : 'S';
+      const dealerResult = await client.query(`SELECT unique_dealer_id FROM dealers WHERE dealer_id = $1`, [dealerId]);
+      const uniqueDealerId = dealerResult.rows[0]?.unique_dealer_id || dealerId;
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const invoiceNumber = `${invoicePrefix}-${dd}${mm}${yyyy}-${hh}${min}${ss}-${uniqueDealerId}`;
+
+      // Calculate totals (Include all items - both Protechtur and External)
       let totalAmount = 0;
       for (const item of items) {
         totalAmount += parseFloat(item.totalPrice);
@@ -144,27 +159,28 @@ export async function POST(request: Request) {
       const transactionQuery = `
         INSERT INTO dealer_transactions (
           dealer_id, transaction_type, invoice_number, total_amount, gst_amount, 
-          final_amount, is_draft, is_finalized, payment_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, true, false, 'draft')
+          final_amount, is_draft, is_finalized, payment_status, purchase_source
+        ) VALUES ($1, $2, $3, $4, $5, $6, true, false, 'draft', $7)
         RETURNING *
       `;
-      const transactionResult = await pool.query(transactionQuery, [
+      const transactionResult = await client.query(transactionQuery, [
         dealerId,
         transactionType,
         invoiceNumber,
         totalAmount,
         gstAmount,
-        finalAmount
+        finalAmount,
+        txPurchaseSource
       ]);
 
       const transaction = transactionResult.rows[0];
 
       // Insert transaction items
       for (const item of items) {
-        await pool.query(`
+        await client.query(`
           INSERT INTO dealer_transaction_items (
-            transaction_id, product_id, product_name, model_number, quantity, unit_price, total_price
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            transaction_id, product_id, product_name, model_number, quantity, unit_price, total_price, purchase_source
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           transaction.id,
           item.productId,
@@ -172,11 +188,13 @@ export async function POST(request: Request) {
           item.modelNumber,
           item.quantity,
           item.unitPrice,
-          item.totalPrice
+          item.totalPrice,
+          item.source || 'protechtur'
         ]);
       }
 
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
+      client.release();
 
       return NextResponse.json({
         success: true,
@@ -184,7 +202,8 @@ export async function POST(request: Request) {
         invoiceNumber: invoiceNumber
       });
     } catch (error) {
-      await pool.query('ROLLBACK');
+      await client.query('ROLLBACK');
+      client.release();
       throw error;
     }
   } catch (error) {
@@ -210,37 +229,58 @@ export async function PATCH(request: Request) {
     }
 
     const pool = getPool();
-
-    // Start transaction
-    await pool.query('BEGIN');
+    // Use a dedicated client so BEGIN/UPDATE/COMMIT all run on the same connection
+    const client = await pool.connect();
 
     try {
-      // Check if invoice is already finalized
-      const checkQuery = `SELECT is_finalized FROM dealer_transactions WHERE id = $1`;
-      const checkResult = await pool.query(checkQuery, [invoiceId]);
+      await client.query('BEGIN');
+
+      // Check if invoice exists and get type info
+      const checkQuery = `SELECT is_finalized, transaction_type FROM dealer_transactions WHERE id = $1`;
+      const checkResult = await client.query(checkQuery, [invoiceId]);
 
       if (checkResult.rows.length === 0) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
+        client.release();
         return NextResponse.json(
           { success: false, error: 'Invoice not found' },
           { status: 404 }
         );
       }
 
-      if (checkResult.rows[0].is_finalized) {
-        await pool.query('ROLLBACK');
-        return NextResponse.json(
-          { success: false, error: 'Cannot edit finalized invoice' },
-          { status: 400 }
-        );
+      // Allow editing even finalized invoices (for record correction)
+      // Make finalize idempotent to avoid double inventory updates when already finalized.
+      if (finalize && checkResult.rows[0].is_finalized && (!items || items.length === 0)) {
+        await client.query('COMMIT');
+        client.release();
+
+        const invoiceQuery = `SELECT * FROM dealer_transactions WHERE id = $1`;
+        const invoiceResult = await pool.query(invoiceQuery, [invoiceId]);
+
+        const itemsQuery = `
+          SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+          FROM dealer_transaction_items dti
+          LEFT JOIN dealer_products dp ON dp.id = dti.product_id
+          WHERE dti.transaction_id = $1
+        `;
+        const itemsResult = await pool.query(itemsQuery, [invoiceId]);
+
+        return NextResponse.json({
+          success: true,
+          invoice: invoiceResult.rows[0],
+          items: itemsResult.rows,
+          alreadyFinalized: true,
+          message: 'Invoice is already finalized'
+        });
       }
 
       // If updating items
       if (items && items.length > 0) {
         // Delete existing items
-        await pool.query(`DELETE FROM dealer_transaction_items WHERE transaction_id = $1`, [invoiceId]);
+        await client.query(`DELETE FROM dealer_transaction_items WHERE transaction_id = $1`, [invoiceId]);
 
-        // Calculate new totals
+        // Calculate new totals (Include all items - both Protechtur and External)
+        const txType = checkResult.rows[0].transaction_type;
         let totalAmount = 0;
         for (const item of items) {
           totalAmount += parseFloat(item.totalPrice);
@@ -251,7 +291,7 @@ export async function PATCH(request: Request) {
         const finalAmount = totalAmount + gstAmount;
 
         // Update invoice totals
-        await pool.query(`
+        await client.query(`
           UPDATE dealer_transactions
           SET total_amount = $1, gst_amount = $2, final_amount = $3, updated_at = CURRENT_TIMESTAMP
           WHERE id = $4
@@ -259,10 +299,10 @@ export async function PATCH(request: Request) {
 
         // Insert updated items
         for (const item of items) {
-          await pool.query(`
+          await client.query(`
             INSERT INTO dealer_transaction_items (
-              transaction_id, product_id, product_name, model_number, quantity, unit_price, total_price
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+              transaction_id, product_id, product_name, model_number, quantity, unit_price, total_price, purchase_source
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           `, [
             invoiceId,
             item.productId,
@@ -270,7 +310,8 @@ export async function PATCH(request: Request) {
             item.modelNumber,
             item.quantity,
             item.unitPrice,
-            item.totalPrice
+            item.totalPrice,
+            item.source || 'protechtur'
           ]);
         }
       }
@@ -283,55 +324,135 @@ export async function PATCH(request: Request) {
           WHERE id = $1
           RETURNING *
         `;
-        const finalizeResult = await pool.query(finalizeQuery, [invoiceId]);
+        const finalizeResult = await client.query(finalizeQuery, [invoiceId]);
 
         // Get invoice details for inventory update
         const invoice = finalizeResult.rows[0];
-        const itemsQuery = `SELECT * FROM dealer_transaction_items WHERE transaction_id = $1`;
-        const itemsResult = await pool.query(itemsQuery, [invoiceId]);
+        const itemsQuery = `
+          SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+          FROM dealer_transaction_items dti
+          LEFT JOIN dealer_products dp ON dp.id = dti.product_id
+          WHERE dti.transaction_id = $1
+        `;
+        const itemsResult = await client.query(itemsQuery, [invoiceId]);
 
-        // Update dealer inventory based on transaction type
+        // Group items by product_id to handle multiple items of same product correctly
+        const productGroups = new Map();
+        
         for (const item of itemsResult.rows) {
+          const productId = item.product_id;
+          if (!productGroups.has(productId)) {
+            productGroups.set(productId, {
+              product_name: item.product_name,
+              total_quantity: 0,
+              sources: new Set(),
+              items: []
+            });
+          }
+          
+          const group = productGroups.get(productId);
+          group.total_quantity += item.quantity;
+          group.sources.add(item.purchase_source || 'protechtur');
+          group.items.push(item);
+        }
+        
+        // Update dealer inventory based on transaction type (one update per product)
+        // NOTE: A DB trigger calculates quantity_available = quantity_purchased - quantity_sold
+        // So we must update quantity_purchased/quantity_sold, NOT quantity_available directly
+        for (const [productId, group] of productGroups.entries()) {
+          console.log(`Processing product: ${group.product_name}, ID: ${productId}, Total Qty: ${group.total_quantity}`);
+          
           if (invoice.transaction_type === 'purchase') {
             // Add to inventory
-            const inventoryCheck = await pool.query(
-              `SELECT id FROM dealer_inventory WHERE dealer_id = $1 AND product_id = $2`,
-              [invoice.dealer_id, item.product_id]
+            const inventoryCheck = await client.query(
+              `SELECT id, quantity_available, quantity_purchased, purchase_source FROM dealer_inventory WHERE dealer_id = $1 AND product_id = $2`,
+              [invoice.dealer_id, productId]
             );
 
             if (inventoryCheck.rows.length > 0) {
-              await pool.query(`
+              const currentPurchased = inventoryCheck.rows[0].quantity_purchased || 0;
+              const currentAvailable = inventoryCheck.rows[0].quantity_available;
+              const newPurchased = currentPurchased + group.total_quantity;
+              console.log(`Updating inventory: purchased ${currentPurchased} + ${group.total_quantity} = ${newPurchased} (available will be recalculated by trigger)`);
+              
+              // Determine the purchase_source for the inventory record
+              const currentSource = inventoryCheck.rows[0].purchase_source;
+              let newSource;
+              
+              // If multiple sources in this purchase OR current source differs, mark as "mixed"
+              if (group.sources.size > 1 || (currentSource && !group.sources.has(currentSource) && currentSource !== 'mixed')) {
+                newSource = 'mixed';
+              } else if (group.sources.size === 1) {
+                newSource = Array.from(group.sources)[0];
+              } else {
+                newSource = currentSource || 'protechtur';
+              }
+              
+              const updateResult = await client.query(`
                 UPDATE dealer_inventory 
-                SET quantity_available = quantity_available + $1,
-                    updated_at = CURRENT_TIMESTAMP
+                SET quantity_purchased = quantity_purchased + $1,
+                    purchase_source = $4,
+                    last_purchase_date = CURRENT_TIMESTAMP
                 WHERE dealer_id = $2 AND product_id = $3
-              `, [item.quantity, invoice.dealer_id, item.product_id]);
+                RETURNING quantity_available, quantity_purchased
+              `, [group.total_quantity, invoice.dealer_id, productId, newSource]);
+              
+              console.log(`Updated inventory for product ${productId}: purchased=${updateResult.rows[0].quantity_purchased}, available=${updateResult.rows[0].quantity_available}`);
             } else {
-              await pool.query(`
-                INSERT INTO dealer_inventory (dealer_id, product_id, quantity_available)
-                VALUES ($1, $2, $3)
-              `, [invoice.dealer_id, item.product_id, item.quantity]);
+              const source = group.sources.size > 1 ? 'mixed' : Array.from(group.sources)[0];
+              console.log(`Creating new inventory record with quantity ${group.total_quantity}`);
+              await client.query(`
+                INSERT INTO dealer_inventory (dealer_id, product_id, quantity_purchased, quantity_sold, quantity_available, purchase_source, last_purchase_date)
+                VALUES ($1, $2, $3, 0, $3, $4, CURRENT_TIMESTAMP)
+              `, [invoice.dealer_id, productId, group.total_quantity, source]);
             }
           } else if (invoice.transaction_type === 'sale') {
-            // Deduct from inventory
-            await pool.query(`
+            // Deduct from inventory - check if sufficient quantity available
+            const inventoryCheck = await client.query(
+              `SELECT quantity_available, quantity_sold FROM dealer_inventory WHERE dealer_id = $1 AND product_id = $2`,
+              [invoice.dealer_id, productId]
+            );
+            
+            if (inventoryCheck.rows.length === 0) {
+              throw new Error(`Product ${group.product_name} not found in inventory`);
+            }
+            
+            const currentQty = inventoryCheck.rows[0].quantity_available;
+            if (currentQty < group.total_quantity) {
+              throw new Error(`Insufficient quantity for ${group.product_name}. Available: ${currentQty}, Requested: ${group.total_quantity}`);
+            }
+            
+            const saleResult = await client.query(`
               UPDATE dealer_inventory 
-              SET quantity_available = quantity_available - $1,
-                  updated_at = CURRENT_TIMESTAMP
+              SET quantity_sold = quantity_sold + $1,
+                  last_sale_date = CURRENT_TIMESTAMP
               WHERE dealer_id = $2 AND product_id = $3
-            `, [item.quantity, invoice.dealer_id, item.product_id]);
+              RETURNING quantity_available, quantity_sold
+            `, [group.total_quantity, invoice.dealer_id, productId]);
+            
+            console.log(`Sale: product ${productId} sold=${saleResult.rows[0].quantity_sold}, available=${saleResult.rows[0].quantity_available}`);
           }
         }
       }
 
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
+      client.release();
 
       // Fetch updated invoice with items
       const invoiceQuery = `SELECT * FROM dealer_transactions WHERE id = $1`;
       const invoiceResult = await pool.query(invoiceQuery, [invoiceId]);
       
-      const itemsQuery = `SELECT * FROM dealer_transaction_items WHERE transaction_id = $1`;
+      const itemsQuery = `
+        SELECT dti.*, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN dti.product_id IS NOT NULL THEN 'PIC' || LPAD(dti.product_id::text, 3, '0') END, 'PIC' || LPAD(dti.id::text, 3, '0')) AS product_code
+        FROM dealer_transaction_items dti
+        LEFT JOIN dealer_products dp ON dp.id = dti.product_id
+        WHERE dti.transaction_id = $1
+      `;
       const itemsResult = await pool.query(itemsQuery, [invoiceId]);
+
+      if (invoiceResult.rows[0]?.dealer_id) {
+        await syncDealerStockThresholdAlerts(parseInt(invoiceResult.rows[0].dealer_id));
+      }
 
       return NextResponse.json({
         success: true,
@@ -339,13 +460,17 @@ export async function PATCH(request: Request) {
         items: itemsResult.rows
       });
     } catch (error) {
-      await pool.query('ROLLBACK');
+      await client.query('ROLLBACK');
+      client.release();
       throw error;
     }
   } catch (error) {
     console.error('Error updating invoice:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to update invoice' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update invoice'
+      },
       { status: 500 }
     );
   }
@@ -365,17 +490,18 @@ export async function DELETE(request: Request) {
     }
 
     const pool = getPool();
-
-    // Start transaction
-    await pool.query('BEGIN');
+    const client = await pool.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Check if invoice is finalized
       const checkQuery = `SELECT is_finalized FROM dealer_transactions WHERE id = $1`;
-      const checkResult = await pool.query(checkQuery, [invoiceId]);
+      const checkResult = await client.query(checkQuery, [invoiceId]);
 
       if (checkResult.rows.length === 0) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
+        client.release();
         return NextResponse.json(
           { success: false, error: 'Invoice not found' },
           { status: 404 }
@@ -383,7 +509,8 @@ export async function DELETE(request: Request) {
       }
 
       if (checkResult.rows[0].is_finalized) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
+        client.release();
         return NextResponse.json(
           { success: false, error: 'Cannot delete finalized invoice' },
           { status: 400 }
@@ -391,19 +518,21 @@ export async function DELETE(request: Request) {
       }
 
       // Delete invoice items
-      await pool.query(`DELETE FROM dealer_transaction_items WHERE transaction_id = $1`, [invoiceId]);
+      await client.query(`DELETE FROM dealer_transaction_items WHERE transaction_id = $1`, [invoiceId]);
 
       // Delete invoice
-      await pool.query(`DELETE FROM dealer_transactions WHERE id = $1`, [invoiceId]);
+      await client.query(`DELETE FROM dealer_transactions WHERE id = $1`, [invoiceId]);
 
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
+      client.release();
 
       return NextResponse.json({
         success: true,
         message: 'Invoice deleted successfully'
       });
     } catch (error) {
-      await pool.query('ROLLBACK');
+      await client.query('ROLLBACK');
+      client.release();
       throw error;
     }
   } catch (error) {

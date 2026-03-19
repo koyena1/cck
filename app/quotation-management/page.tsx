@@ -44,6 +44,7 @@ import {
   LayoutGrid,
   Zap,
   Mail,
+  Phone,
   Loader2
 } from "lucide-react";
 
@@ -503,66 +504,32 @@ export default function HomePage() {
     total = cameraTypePrice + brandPrice + channelPrice + cameraCost + storageCost + cableCost + accessoryCost + installationCost;
 
     console.log('💰 PRICE BREAKDOWN:');
-    console.log(`  Camera Type (${cameraType}): ₹${cameraTypePrice}`);
-    console.log(`  Brand (${brand}): ₹${brandPrice}`);
-    console.log(`  Channel (${channels}CH): ₹${channelPrice}`);
-    console.log(`  Cameras: ₹${cameraCost}`);
-    console.log(`  Storage: ₹${storageCost}`);
-    console.log(`  Cable: ₹${cableCost}`);
-    console.log(`  Accessories: ₹${accessoryCost}`);
-    console.log(`  Installation: ₹${installationCost}`);
+    console.log(`  Camera Type (${cameraType}): RS ${cameraTypePrice}`);
+    console.log(`  Brand (${brand}): RS ${brandPrice}`);
+    console.log(`  Channel (${channels}CH): RS ${channelPrice}`);
+    console.log(`  Cameras: RS ${cameraCost}`);
+    console.log(`  Storage: RS ${storageCost}`);
+    console.log(`  Cable: RS ${cableCost}`);
+    console.log(`  Accessories: RS ${accessoryCost}`);
+    console.log(`  Installation: RS ${installationCost}`);
     console.log(`  ═══════════════════════════`);
-    console.log(`  TOTAL: ₹${Math.round(total)}`);
+    console.log(`  TOTAL: RS ${Math.round(total)}`);
 
     return Math.round(total);
   }, [cameraType, brand, channels, indoorSubTypes, outdoorSubTypes, storage, cableOption, hdCableQty, includeAccessories, includeInstallation, totalCameraCount, CAMERA_TYPE_PRICES, BRAND_PRICES, PIXEL_PRICES, TECH_TYPE_PRICES, STORAGE_OPTIONS, CABLE_PRICES, ACCESSORY_PRICES_DB, CHANNEL_OPTIONS]);
 
   // Handlers
-  const handleSendOtp = async () => {
+  const handleSendOtp = () => {
     if (custName.length < 3) {
       setOtpError("Please enter a valid name (at least 3 characters).");
       return;
     }
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!custEmail || !emailRegex.test(custEmail)) {
-      setOtpError("Please enter a valid email address.");
+    if (!/^[0-9]{10}$/.test(custPhone)) {
+      setOtpError("Please enter a valid 10-digit phone number.");
       return;
     }
-    
-    setSendingOTP(true);
     setOtpError("");
-    setOtpMessage("");
-
-    try {
-      const response = await fetch('/api/otp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: custEmail })
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setOtpSent(true);
-        setCountdown(60); // 60 seconds cooldown
-        
-        // Show message
-        if (result.devMode && result.devOtp) {
-          setOtpMessage(`🧪 DEV MODE: Your OTP is ${result.devOtp}`);
-        } else {
-          setOtpMessage(`OTP sent to ${custEmail}. Check your email inbox.`);
-        }
-      } else {
-        setOtpError(result.error || "Failed to send OTP");
-      }
-    } catch (err) {
-      console.error('OTP send error:', err);
-      setOtpError("Failed to send OTP. Please check your connection and try again.");
-    } finally {
-      setSendingOTP(false);
-    }
+    setIsVerified(true);
   };
 
   const handleVerifyOtp = async () => {
@@ -1219,7 +1186,7 @@ export default function HomePage() {
                 </div>
 
                 <CardContent className="p-6">
-                  {!isVerified && !otpSent ? (
+                  {!isVerified ? (
                     <div className="space-y-6 print:hidden">
                       <div className="text-center"><Lock size={44} className="mx-auto text-slate-300 mb-2"/><p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Verify Identity</p></div>
                       
@@ -1231,75 +1198,18 @@ export default function HomePage() {
                       
                       <div className="space-y-4">
                         <div className="relative"><User className="absolute left-3 top-3 text-slate-400" size={16}/><Input placeholder="Your Name" value={custName} onChange={(e) => setCustName(e.target.value)} className="pl-10"/></div>
-                        <div className="relative"><Mail className="absolute left-3 top-3 text-slate-400" size={16}/><Input type="email" placeholder="Email Address" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} className="pl-10"/></div>
+                        <div className="relative"><Phone className="absolute left-3 top-3 text-slate-400" size={16}/><Input type="tel" placeholder="Phone Number" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} maxLength={10} className="pl-10"/></div>
                         <Button 
-                          onClick={handleSendOtp} 
-                          disabled={sendingOTP}
-                          className="w-full bg-slate-900 text-white font-black h-12 uppercase tracking-tighter hover:bg-slate-800 disabled:opacity-50"
+                          onClick={handleSendOtp}
+                          className="w-full bg-slate-900 text-white font-black h-12 uppercase tracking-tighter hover:bg-slate-800"
                         >
-                          {sendingOTP ? (
-                            <><Loader2 className="animate-spin mr-2" size={16} /> Sending OTP...</>
-                          ) : (
-                            "Request Quote Access"
-                          )}
+                          View Quotation
                         </Button>
-                      </div>
-                    </div>
-                  ) : !isVerified && otpSent ? (
-                    <div className="space-y-4 print:hidden">
-                      <p className="text-xs font-bold text-slate-500 text-center uppercase">Enter 6-Digit Verification Code</p>
-                      <p className="text-xs text-slate-400 text-center">Code sent to {custEmail}</p>
-                      
-                      {otpMessage && (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 font-semibold text-center">
-                          {otpMessage}
-                        </div>
-                      )}
-                      
-                      {otpError && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold text-center">
-                          {otpError}
-                        </div>
-                      )}
-                      
-                      <Input 
-                        placeholder="Enter 6-digit OTP" 
-                        value={otpInput} 
-                        onChange={(e) => setOtpInput(e.target.value)} 
-                        maxLength={6}
-                        className="text-center font-black text-2xl h-16"
-                      />
-                      
-                      <Button 
-                        onClick={handleVerifyOtp} 
-                        disabled={verifyingOTP || otpInput.length !== 6}
-                        className="w-full bg-[#e63946] text-white font-black h-12 uppercase hover:bg-red-700 disabled:opacity-50"
-                      >
-                        {verifyingOTP ? (
-                          <><Loader2 className="animate-spin mr-2" size={16} /> Verifying...</>
-                        ) : (
-                          "Verify & Unlock"
-                        )}
-                      </Button>
-                      
-                      <div className="text-center">
-                        {countdown > 0 ? (
-                          <p className="text-xs text-slate-400">Resend OTP in {countdown}s</p>
-                        ) : (
-                          <Button 
-                            onClick={handleSendOtp} 
-                            disabled={sendingOTP}
-                            variant="ghost" 
-                            className="text-xs text-[#e63946] hover:text-red-700 font-bold"
-                          >
-                            {sendingOTP ? "Sending..." : "Resend OTP"}
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-8">
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-xl print:hidden flex justify-between items-center"><span className="text-xs font-bold text-green-700">{custEmail}</span><CheckCircle2 size={16} className="text-green-600"/></div>
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-xl print:hidden flex justify-between items-center"><span className="text-xs font-bold text-green-700">{custPhone}</span><CheckCircle2 size={16} className="text-green-600"/></div>
 
                       {/* Customer Details Form */}
                       <div className="space-y-4 print:hidden">
@@ -1383,7 +1293,7 @@ export default function HomePage() {
 
                       <div className="pt-8 border-t-2 border-slate-900">
                         <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1">Total Quotation Value</p>
-                        <div className="text-5xl font-black text-[#e63946] flex items-start print:text-4xl"><span className="text-2xl mt-1.5 mr-1">₹</span>{totalPrice}</div>
+                        <div className="text-5xl font-black text-[#e63946] flex items-start print:text-4xl"><span className="text-2xl mt-1.5 mr-1">RS</span>{totalPrice}</div>
                         <div className="mt-8 space-y-3 print:hidden">
                           <Button onClick={() => window.print()} variant="outline" className="w-full border-slate-300 font-black h-14 flex items-center gap-2 uppercase tracking-tighter"><FileText size={18}/> Technical PDF Report</Button>
                           

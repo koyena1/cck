@@ -409,8 +409,8 @@ export default function ${config.componentName}() {
                     className="w-full"
                   />
                   <div className="flex items-center justify-between text-sm text-slate-600">
-                    <span>₹{priceRange[0].toLocaleString()}</span>
-                    <span>₹{priceRange[1].toLocaleString()}</span>
+                    <span>RS {priceRange[0].toLocaleString()}</span>
+                    <span>RS {priceRange[1].toLocaleString()}</span>
                   </div>
                 </div>
               </FilterSection>
@@ -549,10 +549,10 @@ export default function ${config.componentName}() {
                       {/* Price Section */}
                       <div className="mt-auto pt-4 border-t border-gray-200">
                         <div className="flex items-baseline gap-2 mb-3">
-                          <p className="text-2xl font-bold text-gray-900">₹{product.price.toLocaleString()}</p>
+                          <p className="text-2xl font-bold text-gray-900">RS {product.price.toLocaleString()}</p>
                           {product.originalPrice > product.price && (
                             <p className="text-sm text-gray-500 line-through">
-                              ₹{product.originalPrice.toLocaleString()}
+                              RS {product.originalPrice.toLocaleString()}
                             </p>
                           )}
                         </div>

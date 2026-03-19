@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     if (DEV_MODE) {
       const mockOrderId = `order_DEV${Date.now()}`;
       console.log(`💳 DEV MODE - Mock Razorpay order created: ${mockOrderId}`);
-      console.log(`Amount: ₹${amount}, Receipt: ${receipt}`);
+      console.log(`Amount: RS ${amount}, Receipt: ${receipt}`);
       
       return NextResponse.json({
         success: true,

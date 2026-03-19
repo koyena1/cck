@@ -6,12 +6,12 @@ import {
   Download,
   Package,
   TrendingUp,
-  Filter,
   Edit,
   Trash2,
   Plus,
-  DollarSign,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
 
 interface DealerProduct {
   id: number;
+  product_code?: string;
   company: string;
   segment: string;
   model_number: string;
@@ -53,10 +54,25 @@ interface DealerProduct {
   updated_at: string;
 }
 
+interface DealerOption {
+  dealer_id: number;
+  business_name?: string;
+  full_name?: string;
+  unique_dealer_id?: string;
+  status?: string;
+}
+
+const DEFAULT_PRODUCT_TYPES = ['Single Product', 'Combo Product'];
+
 export default function DealerProductPricingPage() {
   const [products, setProducts] = useState<DealerProduct[]>([]);
+  const [dealers, setDealers] = useState<DealerOption[]>([]);
+  const [selectedDealerId, setSelectedDealerId] = useState<string>('global');
+  const [dealerDropdownOpen, setDealerDropdownOpen] = useState(false);
+  const [dealerSearch, setDealerSearch] = useState('');
   const [filters, setFilters] = useState<any>({});
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -89,12 +105,47 @@ export default function DealerProductPricingPage() {
   });
 
   useEffect(() => {
+    fetchDealers();
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    fetchProducts();
+  }, [selectedDealerId]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchDealers();
+    }, 30000);
+
+    const handleWindowFocus = () => {
+      fetchDealers();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, []);
+
+  const fetchDealers = async () => {
+    try {
+      const response = await fetch('/api/dealers');
+      const data = await response.json();
+      if (data.success) {
+        setDealers((data.dealers || []).filter((d: DealerOption) => d.status !== 'Rejected'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch dealers:', error);
+    }
+  };
+
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/dealer-products');
+      const dealerQuery = selectedDealerId !== 'global' ? `?dealerId=${selectedDealerId}` : '';
+      const response = await fetch(`/api/dealer-products${dealerQuery}`);
       const data = await response.json();
       
       if (data.success) {
@@ -144,6 +195,9 @@ export default function DealerProductPricingPage() {
     const formData = new FormData();
     formData.append('file', uploadFile);
     formData.append('uploadedBy', localStorage.getItem('userName') || 'admin');
+    if (selectedDealerId !== 'global') {
+      formData.append('dealerId', selectedDealerId);
+    }
 
     try {
       const response = await fetch('/api/dealer-products/upload', {
@@ -154,7 +208,11 @@ export default function DealerProductPricingPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert(`Upload successful!\nTotal: ${data.stats.total}\nSuccessful: ${data.stats.successful}\nFailed: ${data.stats.failed}`);
+        const sampleErrors = (data.stats?.errors || []).slice(0, 3);
+        const errorBlock = sampleErrors.length > 0
+          ? `\n\nSample Errors:\n- ${sampleErrors.join('\n- ')}`
+          : '';
+        alert(`Upload successful!\nTotal: ${data.stats.total}\nSuccessful: ${data.stats.successful}\nFailed: ${data.stats.failed}${errorBlock}`);
         setUploadFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
         fetchProducts();
@@ -203,7 +261,8 @@ export default function DealerProductPricingPage() {
           filterType: adjustmentFilter,
           filterValue: adjustmentValue,
           percentage: pct,
-          priceType
+          priceType,
+          dealerId: selectedDealerId !== 'global' ? Number(selectedDealerId) : null
         })
       });
 
@@ -226,10 +285,19 @@ export default function DealerProductPricingPage() {
   };
 
   const handleDeleteProduct = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    const isDealerSpecific = selectedDealerId !== 'global';
+    const confirmMessage = isDealerSpecific
+      ? 'Are you sure you want to remove this selected dealer pricing for this product?'
+      : 'Are you sure you want to delete this product?';
+
+    if (!confirm(confirmMessage)) return;
 
     try {
-      const response = await fetch(`/api/dealer-products?id=${id}`, {
+      const deleteUrl = selectedDealerId !== 'global'
+        ? `/api/dealer-products?id=${id}&dealerId=${selectedDealerId}`
+        : `/api/dealer-products?id=${id}`;
+
+      const response = await fetch(deleteUrl, {
         method: 'DELETE'
       });
 
@@ -305,6 +373,8 @@ export default function DealerProductPricingPage() {
       const salePercentage = parseFloat(productForm.sale_percentage) || 0;
 
       const payload = {
+        id: editingProduct?.id,
+        dealerId: selectedDealerId !== 'global' ? Number(selectedDealerId) : null,
         company: productForm.company,
         segment: productForm.segment,
         model_number: productForm.model_number,
@@ -342,28 +412,64 @@ export default function DealerProductPricingPage() {
     }
   };
 
+  const filteredProducts = products.filter((product) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return [
+      product.product_code || '',
+      product.company,
+      product.segment,
+      product.model_number,
+      product.product_type,
+      product.description || '',
+    ].some((value) => value.toLowerCase().includes(q));
+  });
+
+  const selectedDealerLabel = selectedDealerId === 'global'
+    ? 'Global Default (All Dealers)'
+    : (() => {
+        const d = dealers.find((dealer) => String(dealer.dealer_id) === selectedDealerId);
+        if (!d) return 'Select Dealer';
+        return `${d.business_name || d.full_name || `Dealer ${d.dealer_id}`}${d.unique_dealer_id ? ` (${d.unique_dealer_id})` : ''}`;
+      })();
+
+  const visibleDealers = dealers.filter((dealer) => {
+    const q = dealerSearch.trim().toLowerCase();
+    if (!q) return true;
+    return [
+      dealer.business_name || '',
+      dealer.full_name || '',
+      dealer.unique_dealer_id || '',
+      String(dealer.dealer_id),
+    ].some((value) => value.toLowerCase().includes(q));
+  });
+
+  const productTypeOptions = Array.from(
+    new Set([...(filters.productTypes || []), ...DEFAULT_PRODUCT_TYPES])
+  ).sort((a, b) => a.localeCompare(b));
+
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return <div className="p-8 dark:text-slate-400">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black text-slate-900">Dealer Product Pricing</h1>
-        <p className="text-slate-600 mt-1">
+        <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">Dealer Product Pricing</h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">
           Manage dealer products and pricing through Excel upload or manual adjustments
         </p>
       </div>
 
       {/* Excel Upload Section */}
-      <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+      <Card className="border-2 border-blue-200 dark:border-blue-800 bg-linear-to-r from-blue-50 dark:from-blue-950 to-indigo-50 dark:to-indigo-950">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-900">
+          <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
             <FileSpreadsheet className="w-5 h-5" />
             Upload Pricing Excel File
           </CardTitle>
-          <CardDescription className="text-blue-700">
+          <CardDescription className="text-blue-700 dark:text-blue-300">
             Upload your product pricing Excel file to update dealer prices in bulk
           </CardDescription>
         </CardHeader>
@@ -384,10 +490,10 @@ export default function DealerProductPricingPage() {
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               dragActive
-                ? 'border-blue-500 bg-blue-50'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
                 : uploadFile
-                ? 'border-green-500 bg-green-50'
-                : 'border-slate-300 bg-white'
+                ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -402,21 +508,21 @@ export default function DealerProductPricingPage() {
               onChange={handleFileChange}
               className="hidden"
             />
-            <Upload className={`w-12 h-12 mx-auto mb-4 ${uploadFile ? 'text-green-600' : 'text-slate-400'}`} />
+            <Upload className={`w-12 h-12 mx-auto mb-4 ${uploadFile ? 'text-green-600 dark:text-green-400' : 'text-slate-400 dark:text-slate-500'}`} />
             {uploadFile ? (
               <div>
-                <p className="text-green-700 font-semibold mb-2">File selected:</p>
-                <p className="text-sm text-slate-600">{uploadFile.name}</p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-green-700 dark:text-green-300 font-semibold mb-2">File selected:</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{uploadFile.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   ({(uploadFile.size / 1024).toFixed(2)} KB)
                 </p>
               </div>
             ) : (
               <div>
-                <p className="text-slate-600 font-semibold mb-2">
+                <p className="text-slate-600 dark:text-slate-400 font-semibold mb-2">
                   Drag & drop your Excel file here, or click to browse
                 </p>
-                <p className="text-xs text-slate-500">Supports .xlsx and .xls files</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Supports .xlsx and .xls files</p>
               </div>
             )}
           </div>
@@ -446,18 +552,71 @@ export default function DealerProductPricingPage() {
       </Card>
 
       {/* Price Adjustment Section */}
-      <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+      <Card className="border-2 border-purple-200 dark:border-purple-800 bg-linear-to-r from-purple-50 dark:from-purple-950 to-pink-50 dark:to-pink-950">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-900">
+          <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
             <TrendingUp className="w-5 h-5" />
             Bulk Price Adjustment
           </CardTitle>
-          <CardDescription className="text-purple-700">
+          <CardDescription className="text-purple-700 dark:text-purple-300">
             Adjust prices by percentage based on segment, company, product type, or all products
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="space-y-2 lg:col-span-2 relative">
+              <Label className="font-bold">Dealer</Label>
+              <button
+                type="button"
+                className="w-full h-10 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 px-3 text-left text-sm flex items-center justify-between"
+                onClick={() => setDealerDropdownOpen((v) => !v)}
+              >
+                <span className="truncate">{selectedDealerLabel}</span>
+                <ChevronDown className="w-4 h-4 opacity-70" />
+              </button>
+              {dealerDropdownOpen && (
+                <div className="absolute z-20 mt-1 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-2 space-y-2">
+                  <Input
+                    value={dealerSearch}
+                    onChange={(e) => setDealerSearch(e.target.value)}
+                    placeholder="Search dealer by name or unique ID"
+                    className="h-8"
+                  />
+                  <div className="max-h-52 overflow-y-auto space-y-1">
+                    <button
+                      type="button"
+                      className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setSelectedDealerId('global');
+                        setDealerDropdownOpen(false);
+                        setDealerSearch('');
+                      }}
+                    >
+                      Global Default (All Dealers)
+                    </button>
+                    {visibleDealers.map((dealer) => (
+                      <button
+                        key={dealer.dealer_id}
+                        type="button"
+                        className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                        onClick={() => {
+                          setSelectedDealerId(String(dealer.dealer_id));
+                          setDealerDropdownOpen(false);
+                          setDealerSearch('');
+                        }}
+                      >
+                        {(dealer.business_name || dealer.full_name || `Dealer ${dealer.dealer_id}`)
+                          + (dealer.unique_dealer_id ? ` (${dealer.unique_dealer_id})` : '')}
+                      </button>
+                    ))}
+                    {visibleDealers.length === 0 && (
+                      <p className="text-xs text-slate-500 px-2 py-1">No dealers found</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="adjustmentFilter" className="font-bold">Filter By</Label>
               <Select value={adjustmentFilter} onValueChange={setAdjustmentFilter}>
@@ -487,7 +646,7 @@ export default function DealerProductPricingPage() {
                     {adjustmentFilter === 'company' && filters.companies?.map((comp: string) => (
                       <SelectItem key={comp} value={comp}>{comp}</SelectItem>
                     ))}
-                    {adjustmentFilter === 'product_type' && filters.productTypes?.map((type: string) => (
+                    {adjustmentFilter === 'product_type' && productTypeOptions.map((type: string) => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
                   </SelectContent>
@@ -531,8 +690,8 @@ export default function DealerProductPricingPage() {
               </Button>
             </div>
           </div>
-          <p className="text-xs text-slate-500 mt-3">
-            Sets new percentage (replaces old value). Purchase from Base: -10 = 10% discount. Sale from Purchase: +15 = 15% markup. Example: -10% on ₹3500 base = ₹3150 purchase.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+            Sets new percentage (replaces old value). Purchase from Base: -10 = 10% discount. Sale from Purchase: +15 = 15% markup. Example: -10% on RS 3500 base = RS 3150 purchase.
           </p>
         </CardContent>
       </Card>
@@ -541,16 +700,16 @@ export default function DealerProductPricingPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Total Products</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Total Products</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-slate-900">{products.length}</div>
+            <div className="text-3xl font-black text-slate-900 dark:text-slate-100">{products.length}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Companies</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Companies</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-blue-600">{filters.companies?.length || 0}</div>
@@ -559,7 +718,7 @@ export default function DealerProductPricingPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Segments</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Segments</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-purple-600">{filters.segments?.length || 0}</div>
@@ -568,7 +727,7 @@ export default function DealerProductPricingPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-600">Active Products</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-600 dark:text-slate-400">Active Products</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black text-green-600">
@@ -582,7 +741,7 @@ export default function DealerProductPricingPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <Package className="w-5 h-5" />
               All Dealer Products
             </CardTitle>
@@ -594,54 +753,75 @@ export default function DealerProductPricingPage() {
               Add New Product
             </Button>
           </div>
+          <div className="mt-3 max-w-xs">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Product ID, model, company"
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-100 border-b-2">
+              <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Company</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Segment</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Model</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Type</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase">Base Price</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Product ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Company</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Segment</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Model</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase dark:text-slate-300">Type</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold uppercase dark:text-slate-300">Base Price</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold uppercase dark:text-slate-300">
                     <div>Purchase %</div>
-                    <div className="font-normal text-[10px] text-gray-500">(from Base)</div>
+                    <div className="font-normal text-[10px] text-gray-500 dark:text-gray-400">(from Base)</div>
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase">
+                  <th className="px-4 py-3 text-right text-xs font-bold uppercase dark:text-slate-300">
                     <div>Sale %</div>
-                    <div className="font-normal text-[10px] text-gray-500">(from Purchase)</div>
+                    <div className="font-normal text-[10px] text-gray-500 dark:text-gray-400">(from Purchase)</div>
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold uppercase">Stock</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold uppercase dark:text-slate-300">Stock</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold uppercase dark:text-slate-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
-                {products.map((product) => (
-                  <tr key={product.id} className={`hover:bg-slate-50 ${!product.is_active ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-3 font-semibold">{product.company}</td>
-                    <td className="px-4 py-3 text-sm">{product.segment}</td>
-                    <td className="px-4 py-3 text-sm font-mono">{product.model_number}</td>
-                    <td className="px-4 py-3 text-sm">{product.product_type}</td>
-                    <td className="px-4 py-3 text-right font-semibold">
-                      ₹{product.base_price.toLocaleString('en-IN')}
+              <tbody className="divide-y dark:divide-slate-700">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800 ${!product.is_active ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {product.product_code || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{product.company}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{product.segment}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-slate-700 dark:text-slate-300">
+                      {product.model_number}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{product.product_type}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                      RS {product.base_price.toLocaleString('en-IN')}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex flex-col items-end">
                         <span className="font-bold text-blue-600">{product.purchase_percentage > 0 ? '+' : ''}{product.purchase_percentage}%</span>
-                        <span className="text-xs text-gray-500">₹{product.dealer_purchase_price.toLocaleString('en-IN')}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">RS {product.dealer_purchase_price.toLocaleString('en-IN')}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex flex-col items-end">
                         <span className="font-bold text-green-600">{product.sale_percentage > 0 ? '+' : ''}{product.sale_percentage}%</span>
-                        <span className="text-xs text-gray-500">₹{product.dealer_sale_price.toLocaleString('en-IN')}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">RS {product.dealer_sale_price.toLocaleString('en-IN')}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        product.in_stock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        product.in_stock
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                       }`}>
                         {product.stock_quantity}
                       </span>
@@ -668,6 +848,13 @@ export default function DealerProductPricingPage() {
                     </td>
                   </tr>
                 ))}
+                {filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                      No products match your search.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -676,12 +863,12 @@ export default function DealerProductPricingPage() {
 
       {/* Add/Edit Product Dialog */}
       <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900">
           <DialogHeader>
-            <DialogTitle className="text-2xl text-slate-900">
+            <DialogTitle className="text-2xl text-slate-900 dark:text-slate-100">
               {editingProduct ? 'Edit Product' : 'Add New Product'}
             </DialogTitle>
-            <DialogDescription className="text-slate-600">
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
               {editingProduct ? 'Update product details below' : 'Fill in the details to add a new dealer product'}
             </DialogDescription>
           </DialogHeader>
@@ -720,16 +907,22 @@ export default function DealerProductPricingPage() {
                   placeholder="e.g., CP-UNC-TA22L2-V3"
                   disabled={!!editingProduct}
                 />
-                {editingProduct && <p className="text-xs text-gray-500">Model number cannot be changed</p>}
+                {editingProduct && <p className="text-xs text-gray-500 dark:text-gray-400">Model number cannot be changed</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="product_type" className="font-bold">Product Type *</Label>
                 <Input
                   id="product_type"
+                  list="product-type-options"
                   value={productForm.product_type}
                   onChange={(e) => setProductForm({...productForm, product_type: e.target.value})}
-                  placeholder="e.g., Bullet Camera, NVR"
+                  placeholder="e.g., Single Product, Combo Product"
                 />
+                <datalist id="product-type-options">
+                  {productTypeOptions.map((type: string) => (
+                    <option key={type} value={type} />
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -758,7 +951,7 @@ export default function DealerProductPricingPage() {
             {/* Row 5: Pricing */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="base_price" className="font-bold">Base Price (₹) *</Label>
+                <Label htmlFor="base_price" className="font-bold">Base Price (RS) *</Label>
                 <Input
                   id="base_price"
                   type="number"
@@ -778,7 +971,7 @@ export default function DealerProductPricingPage() {
                   onChange={(e) => setProductForm({...productForm, purchase_percentage: e.target.value})}
                   placeholder="-10 (10% discount)"
                 />
-                <p className="text-xs text-gray-500">Negative for discount</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Negative for discount</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="sale_percentage" className="font-bold">Sale % (from Purchase)</Label>
@@ -790,29 +983,29 @@ export default function DealerProductPricingPage() {
                   onChange={(e) => setProductForm({...productForm, sale_percentage: e.target.value})}
                   placeholder="15 (15% markup)"
                 />
-                <p className="text-xs text-gray-500">Positive for markup</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Positive for markup</p>
               </div>
             </div>
 
             {/* Price Preview */}
             {productForm.base_price && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-bold text-blue-900 mb-2">Price Preview:</h4>
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-2">Price Preview:</h4>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-600">Base Price:</p>
-                    <p className="font-bold text-lg">₹{parseFloat(productForm.base_price).toLocaleString('en-IN')}</p>
+                    <p className="text-gray-600 dark:text-gray-400">Base Price:</p>
+                    <p className="font-bold text-lg text-slate-900 dark:text-slate-100">RS {parseFloat(productForm.base_price).toLocaleString('en-IN')}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Dealer Purchase:</p>
-                    <p className="font-bold text-lg text-blue-600">
-                      ₹{(parseFloat(productForm.base_price) * (1 + (parseFloat(productForm.purchase_percentage) || 0) / 100)).toLocaleString('en-IN', {maximumFractionDigits: 2})}
+                    <p className="text-gray-600 dark:text-gray-400">Dealer Purchase:</p>
+                    <p className="font-bold text-lg text-blue-600 dark:text-blue-400">
+                      RS {(parseFloat(productForm.base_price) * (1 + (parseFloat(productForm.purchase_percentage) || 0) / 100)).toLocaleString('en-IN', {maximumFractionDigits: 2})}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Dealer Sale:</p>
-                    <p className="font-bold text-lg text-green-600">
-                      ₹{(parseFloat(productForm.base_price) * (1 + (parseFloat(productForm.purchase_percentage) || 0) / 100) * (1 + (parseFloat(productForm.sale_percentage) || 0) / 100)).toLocaleString('en-IN', {maximumFractionDigits: 2})}
+                    <p className="text-gray-600 dark:text-gray-400">Dealer Sale:</p>
+                    <p className="font-bold text-lg text-green-600 dark:text-green-400">
+                      RS {(parseFloat(productForm.base_price) * (1 + (parseFloat(productForm.purchase_percentage) || 0) / 100) * (1 + (parseFloat(productForm.sale_percentage) || 0) / 100)).toLocaleString('en-IN', {maximumFractionDigits: 2})}
                     </p>
                   </div>
                 </div>

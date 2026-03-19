@@ -43,9 +43,58 @@ export async function POST(request: Request) {
       [email]
     );
 
+    const orders = result.rows;
+
+    if (orders.length === 0) {
+      return NextResponse.json({
+        success: true,
+        orders: []
+      });
+    }
+
+    const orderIds = orders.map((order) => order.order_id);
+
+    const historyResult = await pool.query(
+      `SELECT
+        order_id,
+        status,
+        created_at
+      FROM order_status_history
+      WHERE order_id = ANY($1::int[])
+        AND status IN ('Accepted', 'Awaiting Dealer Confirmation')
+      ORDER BY created_at DESC`,
+      [orderIds]
+    );
+
+    const historyByOrderId = new Map<number, Array<{ status: string; remarks: string; created_at: string }>>();
+
+    for (const row of historyResult.rows) {
+      const orderId = Number(row.order_id);
+      const history = historyByOrderId.get(orderId) || [];
+
+      let remarks = '';
+      if (row.status === 'Accepted') {
+        remarks = 'Your order has been accepted and is being processed.';
+      } else if (row.status === 'Awaiting Dealer Confirmation') {
+        remarks = 'Your order has been assigned and is awaiting confirmation.';
+      }
+
+      history.push({
+        status: row.status,
+        remarks,
+        created_at: row.created_at,
+      });
+      historyByOrderId.set(orderId, history);
+    }
+
+    const ordersWithHistory = orders.map((order) => ({
+      ...order,
+      statusHistory: historyByOrderId.get(Number(order.order_id)) || [],
+    }));
+
     return NextResponse.json({
       success: true,
-      orders: result.rows
+      orders: ordersWithHistory
     });
 
   } catch (error) {

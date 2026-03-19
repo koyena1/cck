@@ -23,7 +23,12 @@ export async function POST(request: Request) {
     const orderResult = await pool.query(
       `SELECT 
         o.order_id,
-        o.order_number,
+        -- Strip dealer UID suffix only if present (PR-DDMMYY-SEQ-DEALERID → PR-DDMMYY-SEQ)
+        CASE
+          WHEN o.order_number ~ '^PR-[0-9]+-[0-9]+-[0-9]+$'
+            THEN REGEXP_REPLACE(o.order_number, '-[0-9]+$', '')
+          ELSE o.order_number
+        END AS order_number,
         o.order_token,
         o.customer_name,
         o.customer_phone,
@@ -47,11 +52,8 @@ export async function POST(request: Request) {
         o.actual_delivery_date,
         o.installation_date,
         o.created_at,
-        o.updated_at,
-        d.full_name as dealer_name,
-        d.phone_number as dealer_phone
+        o.updated_at
       FROM orders o
-      LEFT JOIN dealers d ON o.assigned_dealer_id = d.dealer_id
       WHERE o.order_token = $1 AND o.is_guest_order = true`,
       [orderToken]
     );
@@ -72,35 +74,67 @@ export async function POST(request: Request) {
     // Fetch order items
     const itemsResult = await pool.query(
       `SELECT 
-        id as item_id,
-        product_id,
-        item_type,
-        item_name,
-        quantity,
-        unit_price,
-        total_price
-      FROM order_items
+        oi.id as item_id,
+        COALESCE(oi.product_id, resolved_dp.id) AS product_id,
+        COALESCE(
+          resolved_dp.product_code,
+          CASE
+            WHEN COALESCE(oi.product_id, resolved_dp.id) IS NOT NULL
+            THEN 'PIC' || LPAD(COALESCE(oi.product_id, resolved_dp.id)::text, 3, '0')
+          END,
+          'PIC' || LPAD(oi.id::text, 3, '0')
+        ) AS product_code,
+        oi.item_type,
+        oi.item_name,
+        oi.quantity,
+        oi.unit_price,
+        oi.total_price
+      FROM order_items oi
+      LEFT JOIN LATERAL (
+        SELECT
+          dp.id,
+          to_jsonb(dp)->>'product_code' AS product_code
+        FROM dealer_products dp
+        WHERE dp.id = oi.product_id
+           OR (
+             oi.product_id IS NULL
+             AND LOWER(TRIM(dp.model_number)) = LOWER(TRIM(oi.item_name))
+           )
+        ORDER BY CASE WHEN dp.id = oi.product_id THEN 0 ELSE 1 END, dp.id
+        LIMIT 1
+      ) resolved_dp ON TRUE
       WHERE order_id = $1
-      ORDER BY id`,
+      ORDER BY oi.id`,
       [order.order_id]
     );
 
     // Fetch order status history (optional - may not exist for all orders)
-    let statusHistory = [];
+    let statusHistory: Array<{
+      status: string;
+      remarks: string;
+      created_at: string | Date;
+    }> = [];
     try {
       const historyResult = await pool.query(
-        `SELECT 
+        `SELECT
           status,
-          remarks,
-          created_at,
-          updated_by,
-          updated_by_dealer
+          created_at
         FROM order_status_history
         WHERE order_id = $1
+          AND status IN ('Accepted', 'Awaiting Dealer Confirmation')
         ORDER BY created_at DESC`,
         [order.order_id]
       );
-      statusHistory = historyResult.rows;
+      // Map to customer-friendly messages, never exposing dealer identity
+      statusHistory = historyResult.rows.map((row: any) => {
+        let remarks = '';
+        if (row.status === 'Accepted') {
+          remarks = 'Your order has been accepted and is being processed.';
+        } else if (row.status === 'Awaiting Dealer Confirmation') {
+          remarks = 'Your order has been assigned and is awaiting confirmation.';
+        }
+        return { status: row.status, remarks, created_at: row.created_at };
+      });
     } catch (historyError) {
       console.log('No status history found for order:', order.order_id);
     }

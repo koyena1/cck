@@ -24,6 +24,7 @@ interface InstallationSettings {
 
 interface CartItem {
   id: string;
+  product_code?: string;
   name: string;
   price: number;
   image?: string;
@@ -65,6 +66,13 @@ function BuyNowContent() {
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [pointsDiscount, setPointsDiscount] = useState(0);
   const [loadingPoints, setLoadingPoints] = useState(false);
+
+  const getProductCode = (item: CartItem) => {
+    if (item.product_code) return item.product_code;
+    if (/^PIC\d+$/i.test(item.id || '')) return String(item.id).toUpperCase();
+    if (/^\d+$/.test(item.id || '')) return `PIC${String(item.id).padStart(3, '0')}`;
+    return null;
+  };
 
   // Check if user is logged in and fetch rewards info
   useEffect(() => {
@@ -180,8 +188,68 @@ function BuyNowContent() {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
+  const [district, setDistrict] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [landmark, setLandmark] = useState('');
+
+  // PIN code auto-detection state
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeDetected, setPincodeDetected] = useState(false);
+  const [pincodeError, setPincodeError] = useState('');
+  const [autoFilledFields, setAutoFilledFields] = useState<string[]>([]);
+
+  // Auto-detect location from 6-digit PIN code using India Post API
+  useEffect(() => {
+    if (pinCode.length !== 6) {
+      setPincodeDetected(false);
+      setPincodeError('');
+      if (pinCode.length === 0) setAutoFilledFields([]);
+      return;
+    }
+    let cancelled = false;
+    const lookup = async () => {
+      setPincodeLoading(true);
+      setPincodeError('');
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pinCode}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+          const po = data[0].PostOffice[0];
+          const filled: string[] = [];
+          // Only overwrite if blank or previously auto-filled
+          if (!state || autoFilledFields.includes('state')) {
+            setState(po.State || '');
+            filled.push('state');
+          }
+          if (!district || autoFilledFields.includes('district')) {
+            setDistrict(po.District || '');
+            filled.push('district');
+          }
+          if (!city || autoFilledFields.includes('city')) {
+            // Division is usually the main city/area in India Post data
+            setCity(po.Division || po.Block || po.Name || '');
+            filled.push('city');
+          }
+          setAutoFilledFields(filled);
+          setPincodeDetected(true);
+        } else {
+          setPincodeError('PIN code not found');
+          setPincodeDetected(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setPincodeError('Could not look up PIN code');
+          setPincodeDetected(false);
+        }
+      } finally {
+        if (!cancelled) setPincodeLoading(false);
+      }
+    };
+    lookup();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinCode]);
 
   useEffect(() => {
     // Priority 1: Load from buyNowCart (from cart checkout)
@@ -380,6 +448,7 @@ function BuyNowContent() {
         address,
         city,
         state,
+        district,
         pinCode,
         landmark
       }
@@ -396,6 +465,7 @@ function BuyNowContent() {
     if (!address.trim()) return { valid: false, message: 'Address is required' };
     if (!city.trim()) return { valid: false, message: 'City is required' };
     if (!state.trim()) return { valid: false, message: 'State is required' };
+    if (!district.trim()) return { valid: false, message: 'District is required' };
     if (!pinCode.trim() || !/^\d{6}$/.test(pinCode)) return { valid: false, message: 'Valid 6-digit PIN code is required' };
     return { valid: true, message: '' };
   };
@@ -559,24 +629,24 @@ function BuyNowContent() {
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `   CASH ON DELIVERY (COD) DETAILS\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `📦 Product Total: ₹${productsTotal.toLocaleString()}\n`;
+      `📦 Product Total: RS ${productsTotal.toLocaleString()}\n`;
     
     if (installationCost > 0) {
-      confirmMessage += `🔧 Installation Charges: ₹${installationCost.toLocaleString()}\n`;
+      confirmMessage += `🔧 Installation Charges: RS ${installationCost.toLocaleString()}\n`;
     }
     
     if (amcCost > 0) {
-      confirmMessage += `📅 AMC Charges: ₹${amcCost.toLocaleString()}\n`;
+      confirmMessage += `📅 AMC Charges: RS ${amcCost.toLocaleString()}\n`;
     }
     
     confirmMessage +=
-      `💰 Extra COD Charges: ₹${extraCODAmount.toLocaleString()}\n` +
+      `💰 Extra COD Charges: RS ${extraCODAmount.toLocaleString()}\n` +
       `➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n` +
-      `📊 Base Amount: ₹${baseAmount.toLocaleString()}\n\n` +
+      `📊 Base Amount: RS ${baseAmount.toLocaleString()}\n\n` +
       `⚠️ ADVANCE PAYMENT REQUIRED:\n` +
       `You must pay ${settings.codPercentage}% of base amount\n` +
-      `= ₹${advancePayment.toLocaleString()} via Razorpay NOW\n\n` +
-      `💵 Pay on Delivery: ₹${remainingAmount.toLocaleString()}\n\n` +
+      `= RS ${advancePayment.toLocaleString()} via Razorpay NOW\n\n` +
+      `💵 Pay on Delivery: RS ${remainingAmount.toLocaleString()}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `Click OK to proceed with payment`;
 
@@ -636,6 +706,7 @@ function BuyNowContent() {
           pincode: pinCode,
           city,
           state,
+          district,
           orderType: 'product',
           productName: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} Products`,
           productPrice: getProductsTotal() / (cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)),
@@ -645,7 +716,9 @@ function BuyNowContent() {
           installationCharges: withInstallation ? settings?.installationCost : 0,
           includesAmc: withAmc,
           amcCharges: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
-          totalAmount: calculateTotal(),
+          totalAmount: paymentMethod === 'cod'
+            ? calculateTotal() + (settings?.codAdvanceAmount ?? 0)
+            : calculateTotal(),
           paymentMethod,
         };
         console.log('📦 Guest order data:', orderData);
@@ -658,6 +731,7 @@ function BuyNowContent() {
           address,
           city,
           state,
+          district,
           pinCode,
           landmark,
           products: cartItems,
@@ -667,7 +741,9 @@ function BuyNowContent() {
           withAmc,
           amcDetails: withAmc && amcMaterial && amcDuration ? { material: amcMaterial, duration: amcDuration } : null,
           amcCost: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
-          totalAmount: calculateTotal(),
+          totalAmount: paymentMethod === 'cod'
+            ? calculateTotal() + (settings?.codAdvanceAmount ?? 0)
+            : calculateTotal(),
           paymentMethod,
           status: 'pending',
           referralCode: referralValidated ? referralCode : null,
@@ -775,6 +851,7 @@ function BuyNowContent() {
                 <div key={`${item.id}-${index}`} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
                   <div className="flex-1">
                     <p className="font-medium text-slate-900">{item.name}</p>
+                    {getProductCode(item) && <p className="text-xs text-slate-500">Product ID: {getProductCode(item)}</p>}
                     {item.category && (
                       <p className="text-sm text-slate-500">{item.category}</p>
                     )}
@@ -784,11 +861,11 @@ function BuyNowContent() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-[#e63946]">
-                      ₹{item.price.toLocaleString()}
+                      RS {item.price.toLocaleString()}
                     </p>
                     {item.quantity && item.quantity > 1 && (
                       <p className="text-xs text-slate-500">
-                        ₹{(item.price * item.quantity).toLocaleString()} total
+                        RS {(item.price * item.quantity).toLocaleString()} total
                       </p>
                     )}
                   </div>
@@ -798,7 +875,7 @@ function BuyNowContent() {
               <div className="flex justify-between items-center pt-3 border-t-2 border-slate-200">
                 <p className="font-bold text-slate-900">Products Total ({getTotalItems()} items)</p>
                 <p className="text-xl font-bold text-[#e63946]">
-                  ₹{getProductsTotal().toLocaleString()}
+                  RS {getProductsTotal().toLocaleString()}
                 </p>
               </div>
             </div>
@@ -825,7 +902,7 @@ function BuyNowContent() {
                   Professional installation service by certified technicians
                 </p>
                 <p className="text-lg font-bold text-[#e63946]">
-                  ₹{settings?.installationCost.toLocaleString()}
+                  RS {settings?.installationCost.toLocaleString()}
                 </p>
               </div>
             </label>
@@ -899,7 +976,7 @@ function BuyNowContent() {
                           <span className="text-slate-900 font-medium">For 1 Year</span>
                         </div>
                         <span className="font-semibold text-[#e63946]">
-                          ₹{settings.amcOptions.with_1year.toLocaleString()}/Camera
+                          RS {settings.amcOptions.with_1year.toLocaleString()}/Camera
                         </span>
                       </label>
                       
@@ -920,7 +997,7 @@ function BuyNowContent() {
                           <span className="text-slate-900 font-medium">For 2 Years</span>
                         </div>
                         <span className="font-semibold text-[#e63946]">
-                          ₹{settings.amcOptions.with_2year.toLocaleString()}/Camera
+                          RS {settings.amcOptions.with_2year.toLocaleString()}/Camera
                         </span>
                       </label>
                     </div>
@@ -968,7 +1045,7 @@ function BuyNowContent() {
                           <span className="text-slate-900 font-medium">For 1 Year</span>
                         </div>
                         <span className="font-semibold text-[#e63946]">
-                          ₹{settings.amcOptions.without_1year.toLocaleString()}/Camera
+                          RS {settings.amcOptions.without_1year.toLocaleString()}/Camera
                         </span>
                       </label>
                       
@@ -989,7 +1066,7 @@ function BuyNowContent() {
                           <span className="text-slate-900 font-medium">For 2 Years</span>
                         </div>
                         <span className="font-semibold text-[#e63946]">
-                          ₹{settings.amcOptions.without_2year.toLocaleString()}/Camera
+                          RS {settings.amcOptions.without_2year.toLocaleString()}/Camera
                         </span>
                       </label>
                     </div>
@@ -1004,13 +1081,13 @@ function BuyNowContent() {
             <div className="space-y-3 text-white">
               <div className="flex justify-between text-sm">
                 <span>Products Total ({getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'})</span>
-                <span>₹{getProductsTotal().toLocaleString()}</span>
+                <span>RS {getProductsTotal().toLocaleString()}</span>
               </div>
               
               {withInstallation && (
                 <div className="flex justify-between text-sm">
                   <span>Installation</span>
-                  <span>₹{settings?.installationCost.toLocaleString()}</span>
+                  <span>RS {settings?.installationCost.toLocaleString()}</span>
                 </div>
               )}
               
@@ -1018,7 +1095,7 @@ function BuyNowContent() {
                 <div className="flex justify-between text-sm">
                   <span>AMC ({amcMaterial === 'with' ? 'With' : 'Without'} Material - {amcDuration === '1year' ? '1 Year' : '2 Years'})</span>
                   <span>
-                    ₹{(settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0).toLocaleString()}
+                    RS {(settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0).toLocaleString()}
                   </span>
                 </div>
               )}
@@ -1026,21 +1103,21 @@ function BuyNowContent() {
               {referralValidated && referralDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-400">
                   <span>Referral Discount</span>
-                  <span>-₹{referralDiscount.toLocaleString()}</span>
+                  <span>-RS {referralDiscount.toLocaleString()}</span>
                 </div>
               )}
               
               {pointsDiscount > 0 && (
                 <div className="flex justify-between text-sm text-green-400">
                   <span>Points Redeemed ({pointsToRedeem} points)</span>
-                  <span>-₹{pointsDiscount.toLocaleString()}</span>
+                  <span>-RS {pointsDiscount.toLocaleString()}</span>
                 </div>
               )}
               
               <div className="border-t border-white/20 pt-3 mt-3">
                 <div className="flex justify-between text-xl font-bold">
                   <span>Total Amount</span>
-                  <span>₹{calculateTotal().toLocaleString()}</span>
+                  <span>RS {calculateTotal().toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1054,7 +1131,7 @@ function BuyNowContent() {
                 Have a Referral Code?
               </h2>
               <p className="text-sm text-slate-600 mb-4">
-                Enter your friend's referral code to get ₹50 off on your first order!
+                Enter your friend's referral code to get RS 50 off on your first order!
               </p>
               
               {!referralValidated ? (
@@ -1084,7 +1161,7 @@ function BuyNowContent() {
                     <span className="text-3xl">✅</span>
                     <div>
                       <p className="font-semibold text-green-800">Referral code applied!</p>
-                      <p className="text-sm text-green-600">You're saving ₹{referralDiscount}</p>
+                      <p className="text-sm text-green-600">You're saving RS {referralDiscount}</p>
                     </div>
                   </div>
                   <Button
@@ -1117,7 +1194,7 @@ function BuyNowContent() {
                 Redeem Reward Points
               </h2>
               <p className="text-sm text-slate-600 mb-4">
-                You have <span className="font-bold text-orange-600">{availablePoints} points</span> available (1 point = ₹1 discount)
+                You have <span className="font-bold text-orange-600">{availablePoints} points</span> available (1 point = RS 1 discount)
               </p>
               
               {pointsDiscount === 0 ? (
@@ -1148,7 +1225,7 @@ function BuyNowContent() {
                     <span className="text-3xl">🎉</span>
                     <div>
                       <p className="font-semibold text-green-800">{pointsToRedeem} points redeemed!</p>
-                      <p className="text-sm text-green-600">You're saving ₹{pointsDiscount}</p>
+                      <p className="text-sm text-green-600">You're saving RS {pointsDiscount}</p>
                     </div>
                   </div>
                   <Button
@@ -1214,14 +1291,34 @@ function BuyNowContent() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   PIN Code <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={pinCode}
-                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="6-digit PIN code"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={pinCode}
+                    onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="6-digit PIN code"
+                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent pr-10 ${
+                      pincodeDetected ? 'border-green-400' : pincodeError ? 'border-red-400' : 'border-slate-300'
+                    }`}
+                    required
+                  />
+                  {pincodeLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-[#e63946] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {pincodeDetected && !pincodeLoading && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-base">✓</span>
+                  )}
+                </div>
+                {pincodeDetected && !pincodeLoading && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <span>✓</span> Location auto-detected
+                  </p>
+                )}
+                {pincodeError && !pincodeLoading && (
+                  <p className="text-xs text-red-500 mt-1">{pincodeError}</p>
+                )}
               </div>
 
               <div className="md:col-span-2">
@@ -1252,29 +1349,58 @@ function BuyNowContent() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
                   City <span className="text-red-500">*</span>
+                  {autoFilledFields.includes('city') && (
+                    <span className="text-xs font-normal text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Auto-filled</span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={(e) => { setCity(e.target.value); setAutoFilledFields(p => p.filter(f => f !== 'city')); }}
                   placeholder="Enter city"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent ${
+                    autoFilledFields.includes('city') ? 'border-green-400 bg-green-50' : 'border-slate-300'
+                  }`}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
                   State <span className="text-red-500">*</span>
+                  {autoFilledFields.includes('state') && (
+                    <span className="text-xs font-normal text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Auto-filled</span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  onChange={(e) => { setState(e.target.value); setAutoFilledFields(p => p.filter(f => f !== 'state')); }}
                   placeholder="Enter state"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent ${
+                    autoFilledFields.includes('state') ? 'border-green-400 bg-green-50' : 'border-slate-300'
+                  }`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                  District <span className="text-red-500">*</span>
+                  {autoFilledFields.includes('district') && (
+                    <span className="text-xs font-normal text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Auto-filled</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={district}
+                  onChange={(e) => { setDistrict(e.target.value); setAutoFilledFields(p => p.filter(f => f !== 'district')); }}
+                  placeholder="Enter district"
+                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent ${
+                    autoFilledFields.includes('district') ? 'border-green-400 bg-green-50' : 'border-slate-300'
+                  }`}
                   required
                 />
               </div>

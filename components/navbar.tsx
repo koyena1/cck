@@ -5,10 +5,11 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useSearchParams, useRouter } from "next/navigation"
-import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut, ChevronDown, Gift } from "lucide-react"
+import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut, ChevronDown, Gift, CircleHelp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCart } from "./cart-context"
 import { CustomerAuthModal } from "./customer-auth-modal"
+import { HelpDeskModal } from "./help-desk-modal"
 
 function NavbarComponent() {
   const pathname = usePathname()
@@ -16,6 +17,7 @@ function NavbarComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [isHelpDeskOpen, setIsHelpDeskOpen] = useState(false)
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const [customerName, setCustomerName] = useState<string | null>(null)
   const { cartCount, setIsCartOpen } = useCart()
@@ -64,10 +66,8 @@ function NavbarComponent() {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    { href: "/services", label: "Services" },
-    { href: "/about", label: "About Us" },
+    { href: customerName ? "/track-order" : "/guest-track-order", label: "Track Order" },
     { href: "/quotation-management", label: "Quotation Management", highlighted: true },
-    ...(customerName ? [{ href: "/track-order", label: "Track Order" }] : []),
   ]
 
   // Light theme active style: Light grey background with dark text
@@ -120,21 +120,27 @@ function NavbarComponent() {
             Contact Us
           </Link>
           
-          {/* Cart Icon - Only show when logged in */}
-          {customerName && (
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="ml-2 relative p-2 hover:bg-slate-100 rounded-full transition-colors"
-              aria-label="Shopping cart"
-            >
-              <ShoppingBag className="w-6 h-6 text-slate-900 stroke-2" />
-              {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg border-2 border-white">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-          )}
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="ml-2 relative p-2 hover:bg-slate-100 rounded-full transition-colors"
+            aria-label="Shopping cart"
+          >
+            <ShoppingBag className="w-6 h-6 text-slate-900 stroke-2" />
+            {cartCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg border-2 border-white">
+                {cartCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setIsHelpDeskOpen(true)}
+            className="ml-2 p-2 hover:bg-slate-100 rounded-full transition-colors"
+            aria-label="Open help desk"
+            title="Help Desk"
+          >
+            <CircleHelp className="w-6 h-6 text-slate-900 stroke-2" />
+          </button>
         </div>
 
         {/* Mobile Menu Toggle Button - Darker Icon */}
@@ -230,24 +236,32 @@ function NavbarComponent() {
               Get Instant Quote
             </Link>
             
-            {/* Cart Button for Mobile - Only show when logged in */}
-            {customerName && (
-              <button
-                onClick={() => {
-                  setIsCartOpen(true)
-                  setIsMenuOpen(false)
-                }}
-                className="relative flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
-              >
-                <ShoppingBag className="w-5 h-5" />
-                Shopping Cart
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setIsCartOpen(true)
+                setIsMenuOpen(false)
+              }}
+              className="relative flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              Shopping Cart
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#e63946] text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold shadow-lg">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setIsHelpDeskOpen(true)
+                setIsMenuOpen(false)
+              }}
+              className="relative flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+            >
+              <CircleHelp className="w-5 h-5" />
+              Help Desk
+            </button>
             
             {/* Login/Register for Mobile */}
             {customerName ? (
@@ -297,6 +311,11 @@ function NavbarComponent() {
       <CustomerAuthModal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 
+      />
+
+      <HelpDeskModal
+        open={isHelpDeskOpen}
+        onOpenChange={setIsHelpDeskOpen}
       />
     </nav>
   )

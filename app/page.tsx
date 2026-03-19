@@ -6,6 +6,7 @@ import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import ThumbnailCarousel from "@/components/ui/thumbnail-carousel";
 import Image from "next/image";
 import {
   motion,
@@ -473,16 +474,16 @@ export default function HomePage() {
     total = cameraTypePrice + brandPrice + channelPrice + cameraCost + storageCost + cableCost + accessoryCost + installationCost;
 
     console.log('💰 PRICE BREAKDOWN:');
-    console.log(`  Camera Type (${cameraType}): ₹${cameraTypePrice}`);
-    console.log(`  Brand (${brand}): ₹${brandPrice}`);
-    console.log(`  Channel (${channels}CH): ₹${channelPrice}`);
-    console.log(`  Cameras: ₹${cameraCost}`);
-    console.log(`  Storage: ₹${storageCost}`);
-    console.log(`  Cable: ₹${cableCost}`);
-    console.log(`  Accessories: ₹${accessoryCost}`);
-    console.log(`  Installation: ₹${installationCost}`);
+    console.log(`  Camera Type (${cameraType}): RS ${cameraTypePrice}`);
+    console.log(`  Brand (${brand}): RS ${brandPrice}`);
+    console.log(`  Channel (${channels}CH): RS ${channelPrice}`);
+    console.log(`  Cameras: RS ${cameraCost}`);
+    console.log(`  Storage: RS ${storageCost}`);
+    console.log(`  Cable: RS ${cableCost}`);
+    console.log(`  Accessories: RS ${accessoryCost}`);
+    console.log(`  Installation: RS ${installationCost}`);
     console.log(`  ═══════════════════════════`);
-    console.log(`  TOTAL: ₹${Math.round(total)}`);
+    console.log(`  TOTAL: RS ${Math.round(total)}`);
 
     return Math.round(total);
   }, [cameraType, brand, channels, indoorSubTypes, outdoorSubTypes, storage, cableOption, hdCableQty, includeAccessories, includeInstallation, totalCameraCount, CAMERA_TYPE_PRICES, BRAND_PRICES, PIXEL_PRICES, TECH_TYPE_PRICES, STORAGE_OPTIONS, CABLE_PRICES, ACCESSORY_PRICES_DB, CHANNEL_OPTIONS]);
@@ -850,52 +851,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative pt-74 pb-70 bg-white print:hidden overflow-hidden">
-        {/* Background Video */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src="/vid1.mp4" type="video/mp4" />
-        </video>
-        
-        {/* <motion.div initial="hidden" animate="visible" variants={heroVariants} className="container mx-auto px-4 text-center relative z-10">
-          <div className="flex items-center justify-center mb-6"><BlinkingDot /><span className="text-white text-sm font-bold uppercase tracking-[0.2em] drop-shadow-lg">Officially Certified</span></div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-wider text-white mb-6 leading-tight drop-shadow-2xl">Professional CCTV & <br /><span className="text-[#e63946]">Security Services</span></h1>
-          <p className="text-white text-base md:text-lg max-w-3xl mx-auto mb-8 drop-shadow-lg">Verified hardware installed by certified experts across India.</p>
-        </motion.div> */}
-      </section>
-
-      {/* Service Categories Section */}
-      <section className="bg-slate-50 py-12 border-y border-slate-200 print:hidden">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 max-w-6xl mx-auto">
-            {[
-              { icon: Camera, label: "Installation" },
-              { icon: Network, label: "System Design" },
-              { icon: Settings, label: "Maintenance" },
-              { icon: Monitor, label: "Monitoring" },
-              { icon: HardDrive, label: "Storage & Backup" },
-              { icon: MessageSquare, label: "Consultation" }
-            ].map((s, i) => (
-              <motion.div 
-                key={i} 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="flex flex-col items-center p-4 rounded-xl hover:bg-white transition-all group cursor-pointer"
-              >
-                <div className="w-16 h-16 flex items-center justify-center mb-3 transition-transform group-hover:scale-110">
-                  <s.icon className="w-12 h-12 text-[#e63946]" />
-                </div>
-                <span className="text-slate-800 text-xs font-bold uppercase text-center">{s.label}</span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+      <section className="relative bg-gradient-to-b from-slate-950 via-slate-900 to-white print:hidden overflow-hidden">
+        <ThumbnailCarousel />
       </section>
 
       {/* Maintain How It Works, Trust, Availability and Footer sections */}

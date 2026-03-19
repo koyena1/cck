@@ -243,8 +243,8 @@ export default function HDComboAdmin() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">HD Combo Products</h1>
-          <p className="text-gray-600 mt-1">Manage your HD Combo CCTV kits</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">HD Combo Products</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Manage your HD Combo products</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -256,9 +256,9 @@ export default function HDComboAdmin() {
       </div>
 
       {/* Products Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white dark:bg-slate-900 rounded-lg shadow overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+          <thead className="bg-gray-50 dark:bg-slate-800">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Image</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -273,11 +273,11 @@ export default function HDComboAdmin() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-700">
             {products.map((product) => (
               <tr key={product.id}>
                 <td className="px-6 py-4">
-                  <div className="h-16 w-16 relative bg-gray-100 rounded flex items-center justify-center">
+                  <div className="h-16 w-16 relative bg-gray-100 dark:bg-slate-800 rounded flex items-center justify-center">
                     {product.image ? (
                       <Image
                         src={product.image}
@@ -286,18 +286,18 @@ export default function HDComboAdmin() {
                         className="object-cover rounded"
                       />
                     ) : (
-                      <span className="text-gray-400 text-xs">No Image</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">No Image</span>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.name}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.brand}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.channels}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.cameraType}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.resolution}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.hdd}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">{product.cable}</td>
-                <td className="px-6 py-4 text-sm text-gray-900">₹{product.price}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.name}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.brand}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.channels}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.cameraType}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.resolution}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.hdd}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.cable}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">RS {product.price}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs rounded-full ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     {product.isActive ? 'Active' : 'Inactive'}
@@ -328,12 +328,12 @@ export default function HDComboAdmin() {
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-slate-900 border-b px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h2>
-              <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700">
+              <button onClick={handleCloseModal} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -342,7 +342,7 @@ export default function HDComboAdmin() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Name */}
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Product Name *
                   </label>
                   <input
@@ -356,7 +356,7 @@ export default function HDComboAdmin() {
 
                 {/* Brand - Dynamic from Admin */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Brand *
                   </label>
                   <select
@@ -372,14 +372,14 @@ export default function HDComboAdmin() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Brands are managed in Quotation Management
                   </p>
                 </div>
 
                 {/* Channels - Dynamic from Admin */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Channels *
                   </label>
                   <select
@@ -394,14 +394,14 @@ export default function HDComboAdmin() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Channels are managed in Quotation Management
                   </p>
                 </div>
 
                 {/* Camera Type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Camera Type *
                   </label>
                   <select
@@ -418,7 +418,7 @@ export default function HDComboAdmin() {
 
                 {/* Resolution - Dynamic from Admin */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Resolution *
                   </label>
                   <select
@@ -433,14 +433,14 @@ export default function HDComboAdmin() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Resolutions are managed in Quotation Management
                   </p>
                 </div>
 
                 {/* Hard Disk - Dynamic from Admin */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Hard Disk *
                   </label>
                   <select
@@ -455,14 +455,14 @@ export default function HDComboAdmin() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Storage options are managed in Quotation Management
                   </p>
                 </div>
 
                 {/* Cable Length */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Cable Length *
                   </label>
                   <select
@@ -481,21 +481,20 @@ export default function HDComboAdmin() {
 
                 {/* Price */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price *
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Price
                   </label>
                   <input
                     type="number"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
                   />
                 </div>
 
                 {/* Original Price */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Original Price
                   </label>
                   <input
@@ -508,7 +507,7 @@ export default function HDComboAdmin() {
 
                 {/* Rating */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Rating
                   </label>
                   <input
@@ -524,7 +523,7 @@ export default function HDComboAdmin() {
 
                 {/* Reviews */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Reviews Count
                   </label>
                   <input
@@ -537,7 +536,7 @@ export default function HDComboAdmin() {
 
                 {/* Image Upload */}
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Product Image *
                   </label>
                   <div className="flex items-center gap-4">
@@ -566,7 +565,7 @@ export default function HDComboAdmin() {
 
                 {/* Specifications */}
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Specifications
                   </label>
                   {formData.specs.map((spec, index) => (
@@ -608,7 +607,7 @@ export default function HDComboAdmin() {
                       onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Active</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active</span>
                   </label>
                 </div>
               </div>
@@ -625,7 +624,7 @@ export default function HDComboAdmin() {
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>

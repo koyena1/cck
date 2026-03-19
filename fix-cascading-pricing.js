@@ -72,9 +72,9 @@ async function fixCascadingPricing() {
     console.log('📌 Sale Price = Purchase Price - discount (NOT from base)');
     console.log('\nExample from first row:');
     const first = result.rows[0];
-    console.log(`  Base: ₹${first.base}`);
-    console.log(`  Purchase: ₹${first.base} + (₹${first.base} × ${first.purch_pct}%) = ₹${first.purch_price}`);
-    console.log(`  Sale: ₹${first.purch_price} + (₹${first.purch_price} × ${first.sale_pct}%) = ₹${first.sale_price}`);
+    console.log(`  Base: RS ${first.base}`);
+    console.log(`  Purchase: RS ${first.base} + (RS ${first.base} × ${first.purch_pct}%) = RS ${first.purch_price}`);
+    console.log(`  Sale: RS ${first.purch_price} + (RS ${first.purch_price} × ${first.sale_pct}%) = RS ${first.sale_price}`);
 
   } catch (error) {
     console.error('❌ Error:', error.message);

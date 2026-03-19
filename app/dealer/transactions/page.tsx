@@ -226,7 +226,7 @@ export default function TransactionHistoryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0f172a] text-white p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 text-slate-900 p-8 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#facc15] mx-auto mb-4"></div>
           <p className="text-lg">Loading...</p>
@@ -237,9 +237,9 @@ export default function TransactionHistoryPage() {
 
   if (!dealerId) {
     return (
-      <div className="min-h-screen bg-[#0f172a] text-white p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 text-slate-900 p-8 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-xl text-slate-400">Please log in to access transaction history</p>
+          <p className="text-xl text-slate-600">Please log in to access transaction history</p>
           <Button
             onClick={() => window.location.href = '/login'}
             className="bg-[#facc15] hover:bg-[#e6b800] text-[#0f172a]"
@@ -255,59 +255,59 @@ export default function TransactionHistoryPage() {
   const saleCount = transactions.filter(t => t.transaction_type === 'sale').length;
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 text-slate-900 p-3 sm:p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-black text-[#facc15] font-orbitron uppercase">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-orbitron uppercase">
             Transaction History
           </h1>
-          <p className="text-slate-400 mt-1 font-poppins">
+          <p className="text-slate-600 mt-1 font-poppins text-sm sm:text-base">
             View and download all your completed transactions
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-slate-700">
+        <div className="flex gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => window.location.href = '/dealer/pricing'}
-            className="px-6 py-3 font-bold font-poppins uppercase text-xs tracking-widest transition-colors text-slate-400 hover:text-white"
+            className="px-3 sm:px-6 py-2 sm:py-3 font-bold font-poppins uppercase text-[10px] sm:text-xs tracking-widest transition-colors text-slate-500 hover:text-slate-900 whitespace-nowrap"
           >
             Statistics
           </button>
           <button
             onClick={() => window.location.href = '/dealer/pricing'}
-            className="px-6 py-3 font-bold font-poppins uppercase text-xs tracking-widest transition-colors text-slate-400 hover:text-white"
+            className="px-3 sm:px-6 py-2 sm:py-3 font-bold font-poppins uppercase text-[10px] sm:text-xs tracking-widest transition-colors text-slate-500 hover:text-slate-900 whitespace-nowrap"
           >
             Buy Products
           </button>
           <button
             onClick={() => window.location.href = '/dealer/pricing'}
-            className="px-6 py-3 font-bold font-poppins uppercase text-xs tracking-widest transition-colors text-slate-400 hover:text-white"
+            className="px-3 sm:px-6 py-2 sm:py-3 font-bold font-poppins uppercase text-[10px] sm:text-xs tracking-widest transition-colors text-slate-500 hover:text-slate-900 whitespace-nowrap"
           >
             Sale Products
           </button>
           <button
             onClick={() => window.location.href = '/dealer/invoices'}
-            className="px-6 py-3 font-bold font-poppins uppercase text-xs tracking-widest transition-colors text-slate-400 hover:text-white"
+            className="px-3 sm:px-6 py-2 sm:py-3 font-bold font-poppins uppercase text-[10px] sm:text-xs tracking-widest transition-colors text-slate-500 hover:text-slate-900 whitespace-nowrap"
           >
             Invoices
           </button>
           <button
-            className="px-6 py-3 font-bold font-poppins uppercase text-xs tracking-widest transition-colors text-[#facc15] border-b-2 border-[#facc15]"
+            className="px-3 sm:px-6 py-2 sm:py-3 font-bold font-poppins uppercase text-[10px] sm:text-xs tracking-widest transition-colors text-blue-700 border-b-2 border-blue-700 whitespace-nowrap"
           >
             Transactions
           </button>
         </div>
 
         {/* Filter Section */}
-        <div className="flex items-center gap-3">
-          <Filter className="w-5 h-5 text-slate-400" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
           <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-            <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white">
+            <SelectTrigger className="w-full sm:w-50 bg-white border-slate-300 text-slate-900">
               <SelectValue placeholder="Filter transactions" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-700 text-white">
+            <SelectContent className="bg-white border-slate-200 text-slate-900">
               <SelectItem value="all">All Transactions</SelectItem>
               <SelectItem value="purchase">Buy Transactions</SelectItem>
               <SelectItem value="sale">Sale Transactions</SelectItem>
@@ -316,24 +316,24 @@ export default function TransactionHistoryPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="bg-slate-800 border-slate-700">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
+          <Card className="bg-white border-slate-200">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2 font-orbitron uppercase text-sm">
+              <CardTitle className="text-slate-900 flex items-center gap-2 font-orbitron uppercase text-sm">
                 <FileText className="w-5 h-5 text-blue-400" />
                 Total Transactions
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-white font-orbitron">
+              <div className="text-3xl font-black text-slate-900 font-orbitron">
                 {transactions.length}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-slate-200">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2 font-orbitron uppercase text-sm">
+              <CardTitle className="text-slate-900 flex items-center gap-2 font-orbitron uppercase text-sm">
                 <ShoppingCart className="w-5 h-5 text-orange-400" />
                 Buy Transactions
               </CardTitle>
@@ -345,9 +345,9 @@ export default function TransactionHistoryPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-slate-200">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2 font-orbitron uppercase text-sm">
+              <CardTitle className="text-slate-900 flex items-center gap-2 font-orbitron uppercase text-sm">
                 <TrendingUp className="w-5 h-5 text-green-400" />
                 Sale Transactions
               </CardTitle>
@@ -361,12 +361,12 @@ export default function TransactionHistoryPage() {
         </div>
 
         {/* Transactions Table */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white border-slate-200">
           <CardHeader>
-            <CardTitle className="text-[#facc15] font-orbitron uppercase text-sm">
+            <CardTitle className="text-slate-900 font-orbitron uppercase text-sm">
               Transaction Records
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-slate-600">
               {filterType === 'all' 
                 ? `Showing all ${filteredTransactions.length} transactions`
                 : `Showing ${filteredTransactions.length} ${filterType} transactions`
@@ -375,7 +375,7 @@ export default function TransactionHistoryPage() {
           </CardHeader>
           <CardContent>
             {filteredTransactions.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">
+              <div className="p-8 text-center text-slate-500">
                 <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No transactions found</p>
               </div>
@@ -383,60 +383,62 @@ export default function TransactionHistoryPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                      <TableHead className="text-slate-300 font-bold">Date</TableHead>
-                      <TableHead className="text-slate-300 font-bold">Invoice #</TableHead>
-                      <TableHead className="text-slate-300 font-bold">Type</TableHead>
-                      <TableHead className="text-slate-300 font-bold text-right">Amount</TableHead>
-                      <TableHead className="text-slate-300 font-bold text-right">GST</TableHead>
-                      <TableHead className="text-slate-300 font-bold text-right">Total</TableHead>
-                      <TableHead className="text-slate-300 font-bold">Status</TableHead>
-                      <TableHead className="text-slate-300 font-bold text-right">Action</TableHead>
+                    <TableRow className="border-slate-200 hover:bg-slate-50">
+                      <TableHead className="text-slate-600 font-bold text-xs sm:text-sm">Date</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-xs sm:text-sm">Invoice #</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-xs sm:text-sm hidden sm:table-cell">Type</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-right text-xs sm:text-sm hidden md:table-cell">Amount</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-right text-xs sm:text-sm hidden md:table-cell">GST</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-right text-xs sm:text-sm">Total</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-xs sm:text-sm hidden lg:table-cell">Status</TableHead>
+                      <TableHead className="text-slate-600 font-bold text-right text-xs sm:text-sm">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredTransactions.map((transaction) => (
-                      <TableRow key={transaction.id} className="border-slate-700 hover:bg-slate-700/30">
-                        <TableCell className="text-white">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-slate-400" />
-                            {new Date(transaction.created_at).toLocaleDateString()}
+                      <TableRow key={transaction.id} className="border-slate-200 hover:bg-slate-50">
+                        <TableCell className="text-slate-900 text-xs sm:text-sm">
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500" />
+                            <span className="hidden sm:inline">{new Date(transaction.created_at).toLocaleDateString()}</span>
+                            <span className="sm:hidden">{new Date(transaction.created_at).toLocaleDateString('en-GB', {day: '2-digit', month: '2-digit'})}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-sm text-slate-300">
-                          {transaction.invoice_number}
+                        <TableCell className="font-mono text-[10px] sm:text-xs text-slate-600">
+                          <span className="hidden sm:inline">{transaction.invoice_number}</span>
+                          <span className="sm:hidden">{transaction.invoice_number.slice(-6)}</span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <Badge 
                             variant="outline" 
-                            className={
+                            className={`text-xs ${
                               transaction.transaction_type === 'purchase' 
                                 ? 'text-orange-400 border-orange-400' 
                                 : 'text-green-400 border-green-400'
-                            }
+                            }`}
                           >
                             {transaction.transaction_type === 'purchase' ? 'BUY' : 'SALE'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right text-white">
-                          ₹{transaction.total_amount.toLocaleString('en-IN')}
+                        <TableCell className="text-right text-slate-900 text-xs sm:text-sm hidden md:table-cell">
+                          RS {transaction.total_amount.toLocaleString('en-IN')}
                         </TableCell>
-                        <TableCell className="text-right text-slate-400 text-sm">
-                          ₹{transaction.gst_amount.toLocaleString('en-IN')}
+                        <TableCell className="text-right text-slate-500 text-xs sm:text-sm hidden md:table-cell">
+                          RS {transaction.gst_amount.toLocaleString('en-IN')}
                         </TableCell>
-                        <TableCell className="text-right text-[#facc15] font-bold font-orbitron">
-                          ₹{transaction.final_amount.toLocaleString('en-IN')}
+                        <TableCell className="text-right text-blue-700 font-bold font-orbitron text-xs sm:text-sm">
+                          RS {transaction.final_amount.toLocaleString('en-IN')}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <Badge 
                             variant="outline" 
-                            className={
+                            className={`text-xs ${
                               transaction.payment_status === 'completed' 
                                 ? 'text-green-400 border-green-400' 
                                 : transaction.payment_status === 'pending'
                                 ? 'text-yellow-400 border-yellow-400'
                                 : 'text-red-400 border-red-400'
-                            }
+                            }`}
                           >
                             {transaction.payment_status}
                           </Badge>
@@ -446,10 +448,10 @@ export default function TransactionHistoryPage() {
                             onClick={() => downloadInvoice(transaction.id, transaction.invoice_number)}
                             variant="outline"
                             size="sm"
-                            className="bg-[#facc15] text-[#0f172a] hover:bg-yellow-400 border-0 font-bold"
+                            className="bg-slate-900 text-white hover:bg-slate-800 border-0 font-bold text-[10px] sm:text-xs p-1.5 sm:p-2"
                           >
-                            <Download className="w-4 h-4 mr-1" />
-                            Invoice
+                            <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Invoice</span>
                           </Button>
                         </TableCell>
                       </TableRow>

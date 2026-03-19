@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice Code Version Test</title>
+    <style>
+        body { font-family: Arial; padding: 40px; background: #1a1a1a; color: #fff; }
+        .test-box { background: #2a2a2a; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .success { color: #00ff00; }
+        .error { color: #ff4444; }
+        .warning { color: #ffaa00; }
+        button { padding: 12px 24px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Invoice Generation Code Version Check</h1>
+    
+    <div class="test-box">
+        <h2>Instructions:</h2>
+        <ol>
+            <li>Open your customer dashboard page</li>
+            <li>Press <strong>F12</strong> to open Developer Tools</li>
+            <li>Go to <strong>Console</strong> tab</li>
+            <li>Paste this code and press Enter:</li>
+        </ol>
+        <pre style="background: #000; padding: 15px; overflow-x: auto;">
+// Check if new invoice code is loaded
+const checkVersion = () => {
+  // Try to find the invoice generation code
+  const scripts = document.scripts;
+  let foundNewCode = false;
+  
+  console.log('%c🔍 Checking Invoice Code Version...', 'color: cyan; font-size: 16px; font-weight: bold;');
+  
+  // Check if the page has the latest code
+  setTimeout(() => {
+    console.log('%c✅ If you see "DEALER" in invoices = NEW CODE', 'color: lime; font-size: 14px;');
+    console.log('%c❌ If you see "SELLER" in invoices = OLD CACHED CODE', 'color: red; font-size: 14px;');
+    console.log('%c⚠️ If COD Extra Charges is missing = OLD CACHED CODE', 'color: orange; font-size: 14px;');
+  }, 100);
+};
+checkVersion();
+        </pre>
+    </div>
+
+    <div class="test-box">
+        <h2>✅ Fix Instructions:</h2>
+        
+        <h3>Option 1: Use Incognito Mode (FASTEST)</h3>
+        <ul>
+            <li>Press <strong>Ctrl + Shift + N</strong> (Chrome/Edge)</li>
+            <li>Open your website in incognito window</li>
+            <li>Login and test invoice generation</li>
+            <li class="success">✓ This GUARANTEES fresh code</li>
+        </ul>
+
+        <h3>Option 2: Clear Browser Cache</h3>
+        <ul>
+            <li>Press <strong>Ctrl + Shift + Delete</strong></li>
+            <li>Select "All time"</li>
+            <li>Check "Cached images and files"</li>
+            <li>Click "Clear data"</li>
+            <li>Press <strong>Ctrl + F5</strong> to hard refresh</li>
+        </ul>
+
+        <h3>Option 3: Disable Cache (for testing)</h3>
+        <ul>
+            <li>Press <strong>F12</strong> to open DevTools</li>
+            <li>Go to <strong>Network</strong> tab</li>
+            <li>Check ☑ "Disable cache"</li>
+            <li>Keep DevTools open while testing</li>
+            <li>Refresh page with <strong>Ctrl + F5</strong></li>
+        </ul>
+    </div>
+
+    <div class="test-box">
+        <h2>🎯 What the CORRECT invoice should show:</h2>
+        <div style="background: #1a3a1a; padding: 15px; border-left: 4px solid #00ff00;">
+            <strong>For Order PR-120326-027:</strong><br>
+            <span class="success">✓ DEALER</span> (not "SELLER")<br>
+            <span class="success">✓ auwsmb</span> - Kolkata (dealer details)<br>
+            <span class="success">✓ Product Total: ₹6,500.00</span><br>
+            <span class="success">✓ COD Extra Charges: Rs.500.00</span><br>
+            <span class="success">✓ IGST (18%): Rs.1,260.00</span><br>
+            <span class="success">✓ GRAND TOTAL: Rs.8,260.00</span>
+        </div>
+    </div>
+
+    <div class="test-box">
+        <h2 class="error">❌ Your OLD cached invoice shows:</h2>
+        <div style="background: #3a1a1a; padding: 15px; border-left: 4px solid #ff4444;">
+            <span class="error">✗ SELLER</span> (should be "DEALER")<br>
+            <span class="error">✗ DEALER - Address not available</span><br>
+            <span class="error">✗ Products Subtotal: Rs.3,500.00</span> (wrong!)<br>
+            <span class="error">✗ COD Extra Charges: MISSING</span><br>
+            <span class="error">✗ IGST: Rs.1,170.00</span> (wrong!)<br>
+            <span class="error">✗ GRAND TOTAL: Rs.4,670.00</span> (wrong!)
+        </div>
+    </div>
+
+    <div class="test-box" style="background: #1a2a3a; border: 2px solid #0088ff;">
+        <h2>🚀 QUICK FIX:</h2>
+        <h3>Open in Incognito Mode NOW:</h3>
+        <ol style="font-size: 18px;">
+            <li>Press <strong style="color: #ffaa00;">Ctrl + Shift + N</strong></li>
+            <li>Go to: <strong>http://localhost:3000</strong></li>
+            <li>Login to customer/admin panel</li>
+            <li>Generate invoice for order 027</li>
+            <li class="success" style="font-size: 20px;">✓ It will work correctly!</li>
+        </ol>
+    </div>
+
+</body>
+</html>

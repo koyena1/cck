@@ -5,17 +5,17 @@ export default function AccessManagementPage() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Access Management</h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2 dark:text-slate-400">
           Manage different types of user access and login credentials
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Telecaller Access */}
-        <div className="border rounded-lg p-6 hover:border-primary transition-colors">
+        <div className="border dark:border-slate-700 rounded-lg p-6 hover:border-primary transition-colors dark:hover:border-primary">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Telecaller</h3>
-            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+            <h3 className="text-lg font-semibold dark:text-slate-100">Telecaller</h3>
+            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
               <span className="text-blue-600 text-xl">📞</span>
             </div>
           </div>
@@ -28,10 +28,10 @@ export default function AccessManagementPage() {
         </div>
 
         {/* Field Sales Access */}
-        <div className="border rounded-lg p-6 hover:border-primary transition-colors">
+        <div className="border dark:border-slate-700 rounded-lg p-6 hover:border-primary transition-colors dark:hover:border-primary">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Field Sales</h3>
-            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+            <h3 className="text-lg font-semibold dark:text-slate-100">Field Sales</h3>
+            <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
               <span className="text-green-600 text-xl">🚗</span>
             </div>
           </div>
@@ -44,10 +44,10 @@ export default function AccessManagementPage() {
         </div>
 
         {/* Merchant Access */}
-        <div className="border rounded-lg p-6 hover:border-primary transition-colors">
+        <div className="border dark:border-slate-700 rounded-lg p-6 hover:border-primary transition-colors dark:hover:border-primary">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Merchant</h3>
-            <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+            <h3 className="text-lg font-semibold dark:text-slate-100">Merchant</h3>
+            <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
               <span className="text-purple-600 text-xl">🏪</span>
             </div>
           </div>
@@ -60,10 +60,10 @@ export default function AccessManagementPage() {
         </div>
 
         {/* Online Sales Access */}
-        <div className="border rounded-lg p-6 hover:border-primary transition-colors">
+        <div className="border dark:border-slate-700 rounded-lg p-6 hover:border-primary transition-colors dark:hover:border-primary">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Online Sales</h3>
-            <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <h3 className="text-lg font-semibold dark:text-slate-100">Online Sales</h3>
+            <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
               <span className="text-orange-600 text-xl">🌐</span>
             </div>
           </div>
@@ -77,12 +77,12 @@ export default function AccessManagementPage() {
       </div>
 
       {/* Coming Soon Notice */}
-      <div className="mt-8 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <div className="mt-8 p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
         <div className="flex items-start gap-3">
           <span className="text-2xl">⚠️</span>
           <div>
-            <h3 className="font-semibold text-yellow-900 mb-1">Feature Under Development</h3>
-            <p className="text-sm text-yellow-800">
+            <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">Feature Under Development</h3>
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
               The access management system for different user roles is currently being developed. 
               This feature will allow you to create and manage login credentials for telecallers, 
               field sales, merchants, and online sales team members.

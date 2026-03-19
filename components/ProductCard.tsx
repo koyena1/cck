@@ -93,17 +93,17 @@ export function ProductCard({ product, userSession }: ProductCardProps) {
             <>
               {/* Show Wholesale Price  */}
               <span className="text-2xl font-bold text-blue-600">
-                ₹{product.WholesalePrice.toLocaleString()}
+                RS {product.WholesalePrice.toLocaleString()}
               </span>
               <span className="text-sm text-gray-400 line-through">
-                MRP: ₹{product.RetailPrice.toLocaleString()}
+                MRP: RS {product.RetailPrice.toLocaleString()}
               </span>
             </>
           ) : (
             <>
               {/* Show Standard Retail Price [cite: 8] */}
               <span className="text-2xl font-bold text-slate-900">
-                ₹{product.RetailPrice.toLocaleString()}
+                RS {product.RetailPrice.toLocaleString()}
               </span>
             </>
           )}

@@ -173,14 +173,17 @@ export async function POST(request: Request) {
       console.log(`✅ DEV MODE - Auto-verifying payment for order: ${order_number}`);
       
       if (order_number) {
+        // Use flexible matching: order_number may have been suffixed with dealer UID after allocation
+        // (e.g. 'PR-090326-008' becomes 'PR-090326-008-101'). Match both the exact value and
+        // any version with a '-NNN' suffix appended by the allocation system.
         const updateResult = await pool.query(
           `UPDATE orders 
            SET payment_status = $1, 
                payment_id = $2,
                razorpay_order_id = $3,
                updated_at = NOW()
-           WHERE order_number = $4
-           RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, created_at`,
+           WHERE order_number = $4 OR order_number LIKE $4 || '-%'
+           RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, order_number, created_at`,
           ['Paid', razorpay_payment_id || 'DEV_PAYMENT', razorpay_order_id, order_number]
         );
 
@@ -199,7 +202,6 @@ export async function POST(request: Request) {
               const totalAmount = parseFloat(order.total_amount);
               const subtotalAmount = parseFloat(order.subtotal || 0); // Products only
               const installationCharges = parseFloat(order.installation_charges || 0);
-              const advanceAmount = parseFloat(order.advance_amount || 0);
               
               // Fetch AMC charges from order_items if exists
               const amcResult = await pool.query(
@@ -209,16 +211,66 @@ export async function POST(request: Request) {
                 [order.order_id]
               );
               const amcCharges = parseFloat(amcResult.rows[0]?.amc_total || 0);
+
+              // Fetch COD percentage from settings.
+              // advance_amount column is always 0 in the DB because it is never written at order creation,
+              // so we must recalculate: advance = totalAmount × cod_percentage / 100
+              // (totalAmount already includes the flat COD extra fee, matching calculateCODAdvancePayment() on the frontend)
+              const codSettingsResult = await pool.query(
+                'SELECT cod_percentage, cod_advance_amount FROM installation_settings LIMIT 1'
+              );
+              const codPercentage = parseFloat(codSettingsResult.rows[0]?.cod_percentage || 0);
+
+              // Fetch full order + dealer fields for invoice attachment parity with portal invoices
+              const fullOrderResult = await pool.query(
+                `SELECT o.*,
+                        d.business_name AS dealer_business_name,
+                        d.full_name AS dealer_full_name,
+                        d.unique_dealer_id AS dealer_unique_id,
+                        d.dealer_id AS dealer_id,
+                        d.phone_number AS dealer_phone,
+                        d.gstin AS dealer_gstin,
+                        d.business_address AS dealer_address,
+                        d.pincode AS dealer_pincode,
+                        d.location AS dealer_location,
+                        d.state AS dealer_state
+                 FROM orders o
+                 LEFT JOIN dealers d ON d.dealer_id = o.assigned_dealer_id
+                 WHERE o.order_id = $1`,
+                [order.order_id]
+              );
+              const fullOrderData = fullOrderResult.rows[0] || order;
+              fullOrderData._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
               
               // Calculate breakdown correctly
               const productTotal = subtotalAmount; // subtotal is ALREADY just products
               const baseAmount = subtotalAmount + installationCharges + amcCharges; // Product + Installation + AMC
-              const codExtraCharges = totalAmount - baseAmount; // COD extra charges
-              const codAdvancePaid = advanceAmount;
+              const codExtraCharges = totalAmount - baseAmount; // flat COD extra fee (cod_advance_amount from settings)
+              const codAdvancePaid = codPercentage > 0
+                ? Math.round((totalAmount * codPercentage) / 100)
+                : parseFloat(order.advance_amount || 0);
               const codPendingAmount = totalAmount - codAdvancePaid;
-              
+
+              // Persist the calculated advance so it is available for admin view and future reference
+              if (codAdvancePaid > 0) {
+                await pool.query(
+                  'UPDATE orders SET advance_amount = $1 WHERE order_id = $2',
+                  [codAdvancePaid, order.order_id]
+                );
+              }
+
+              // Fetch order items to include in invoice email
+              const orderItemsResult = await pool.query(
+                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code
+                 FROM order_items oi
+                 LEFT JOIN dealer_products dp ON dp.id = oi.product_id
+                 WHERE oi.order_id = $1
+                 ORDER BY oi.item_id`,
+                [order.order_id]
+              );
+
               const emailSent = await sendOrderConfirmationEmail({
-                orderNumber: order_number,
+                orderNumber: order.order_number,
                 orderToken: order.order_token,
                 customerName: order.customer_name,
                 customerEmail: order.customer_email,
@@ -227,6 +279,7 @@ export async function POST(request: Request) {
                 paymentStatus: 'Advance Paid',
                 orderDate: order.created_at || new Date().toISOString(),
                 trackingUrl,
+                orderItems: orderItemsResult.rows,
                 // COD Payment Breakdown (matching checkout page format)
                 productTotal: productTotal,
                 installationCharges: installationCharges,
@@ -234,6 +287,7 @@ export async function POST(request: Request) {
                 baseAmount: baseAmount,
                 codAdvancePaid: codAdvancePaid,
                 codPendingAmount: codPendingAmount,
+                fullOrderData,
               });
               
               // Log email attempt
@@ -245,7 +299,7 @@ export async function POST(request: Request) {
                     order.order_id,
                     order.customer_email,
                     'order_confirmation',
-                    `Order Confirmation - ${order_number}`,
+                    `Order Confirmation - ${order.order_number}`,
                     'sent',
                     new Date()
                   ]
@@ -288,6 +342,7 @@ export async function POST(request: Request) {
 
     if (razorpay_signature === expectedSign) {
       // Update order payment status in database
+      // Use flexible matching: order_number may have been suffixed with dealer UID after allocation
       if (order_number) {
         const updateResult = await pool.query(
           `UPDATE orders 
@@ -295,8 +350,8 @@ export async function POST(request: Request) {
                payment_id = $2,
                razorpay_order_id = $3,
                updated_at = NOW()
-           WHERE order_number = $4
-           RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, created_at`,
+           WHERE order_number = $4 OR order_number LIKE $4 || '-%'
+           RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, order_number, created_at`,
           ['Paid', razorpay_payment_id, razorpay_order_id, order_number]
         );
 
@@ -315,7 +370,6 @@ export async function POST(request: Request) {
               const totalAmount = parseFloat(order.total_amount);
               const subtotalAmount = parseFloat(order.subtotal || 0); // Products only
               const installationCharges = parseFloat(order.installation_charges || 0);
-              const advanceAmount = parseFloat(order.advance_amount || 0);
               
               // Fetch AMC charges from order_items if exists
               const amcResult = await pool.query(
@@ -325,16 +379,66 @@ export async function POST(request: Request) {
                 [order.order_id]
               );
               const amcCharges = parseFloat(amcResult.rows[0]?.amc_total || 0);
+
+              // Fetch COD percentage from settings.
+              // advance_amount column is always 0 in the DB because it is never written at order creation,
+              // so we must recalculate: advance = totalAmount × cod_percentage / 100
+              // (totalAmount already includes the flat COD extra fee, matching calculateCODAdvancePayment() on the frontend)
+              const codSettingsResult = await pool.query(
+                'SELECT cod_percentage, cod_advance_amount FROM installation_settings LIMIT 1'
+              );
+              const codPercentage = parseFloat(codSettingsResult.rows[0]?.cod_percentage || 0);
+
+              // Fetch full order + dealer fields for invoice attachment parity with portal invoices
+              const fullOrderResult = await pool.query(
+                `SELECT o.*,
+                        d.business_name AS dealer_business_name,
+                        d.full_name AS dealer_full_name,
+                        d.unique_dealer_id AS dealer_unique_id,
+                        d.dealer_id AS dealer_id,
+                        d.phone_number AS dealer_phone,
+                        d.gstin AS dealer_gstin,
+                        d.business_address AS dealer_address,
+                        d.pincode AS dealer_pincode,
+                        d.location AS dealer_location,
+                        d.state AS dealer_state
+                 FROM orders o
+                 LEFT JOIN dealers d ON d.dealer_id = o.assigned_dealer_id
+                 WHERE o.order_id = $1`,
+                [order.order_id]
+              );
+              const fullOrderData = fullOrderResult.rows[0] || order;
+              fullOrderData._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
               
               // Calculate breakdown correctly
               const productTotal = subtotalAmount; // subtotal is ALREADY just products
               const baseAmount = subtotalAmount + installationCharges + amcCharges; // Product + Installation + AMC
-              const codExtraCharges = totalAmount - baseAmount; // COD extra charges
-              const codAdvancePaid = advanceAmount;
+              const codExtraCharges = totalAmount - baseAmount; // flat COD extra fee (cod_advance_amount from settings)
+              const codAdvancePaid = codPercentage > 0
+                ? Math.round((totalAmount * codPercentage) / 100)
+                : parseFloat(order.advance_amount || 0);
               const codPendingAmount = totalAmount - codAdvancePaid;
-              
+
+              // Persist the calculated advance so it is available for admin view and future reference
+              if (codAdvancePaid > 0) {
+                await pool.query(
+                  'UPDATE orders SET advance_amount = $1 WHERE order_id = $2',
+                  [codAdvancePaid, order.order_id]
+                );
+              }
+
+              // Fetch order items to include in invoice email
+              const orderItemsResult = await pool.query(
+                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code
+                 FROM order_items oi
+                 LEFT JOIN dealer_products dp ON dp.id = oi.product_id
+                 WHERE oi.order_id = $1
+                 ORDER BY oi.item_id`,
+                [order.order_id]
+              );
+
               const emailSent = await sendOrderConfirmationEmail({
-                orderNumber: order_number,
+                orderNumber: order.order_number,
                 orderToken: order.order_token,
                 customerName: order.customer_name,
                 customerEmail: order.customer_email,
@@ -343,6 +447,7 @@ export async function POST(request: Request) {
                 paymentStatus: 'Advance Paid',
                 orderDate: order.created_at || new Date().toISOString(),
                 trackingUrl,
+                orderItems: orderItemsResult.rows,
                 // COD Payment Breakdown (matching checkout page format)
                 productTotal: productTotal,
                 installationCharges: installationCharges,
@@ -350,6 +455,7 @@ export async function POST(request: Request) {
                 baseAmount: baseAmount,
                 codAdvancePaid: codAdvancePaid,
                 codPendingAmount: codPendingAmount,
+                fullOrderData,
               });
               
               // Log email attempt
@@ -361,7 +467,7 @@ export async function POST(request: Request) {
                     order.order_id,
                     order.customer_email,
                     'order_confirmation',
-                    `Order Confirmation - ${order_number}`,
+                    `Order Confirmation - ${order.order_number}`,
                     'sent',
                     new Date()
                   ]

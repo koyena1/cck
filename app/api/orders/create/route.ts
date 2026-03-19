@@ -1,6 +1,7 @@
 // app/api/orders/create/route.ts
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { notifyNewOrderPlaced } from '@/lib/portal-notifications';
 
 export async function POST(request: Request) {
   try {
@@ -132,6 +133,52 @@ export async function POST(request: Request) {
 
       // Commit transaction
       await pool.query('COMMIT');
+
+      // 🚀 TRIGGER ORDER ALLOCATION TO NEAREST DEALER
+      try {
+        const allocationResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/order-allocation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: order_id })
+        });
+
+        const allocationData = await allocationResponse.json();
+        
+        if (allocationData.success) {
+          if (allocationData.allocated) {
+            console.log(`✅ Order #${order_number} allocated to dealer: ${allocationData.dealer_name}`);
+          } else if (allocationData.escalated_to_admin) {
+            console.log(`⚠️ Order #${order_number} escalated to admin - no dealer has stock`);
+          }
+        } else {
+          console.error(`❌ Order allocation failed for #${order_number}:`, allocationData.error);
+        }
+      } catch (allocationError) {
+        // Don't fail the order if allocation fails - log and continue
+        console.error('Order allocation error:', allocationError);
+      }
+
+      try {
+        const notifyResult = await pool.query(
+          `SELECT o.order_id, o.order_number, o.city, o.pincode, d.district AS dealer_district
+           FROM orders o
+           LEFT JOIN dealers d ON d.dealer_id = o.assigned_dealer_id
+           WHERE o.order_id = $1`,
+          [order_id]
+        );
+        const notifyOrder = notifyResult.rows[0] || { order_number, city, pincode };
+        await notifyNewOrderPlaced({
+          orderId: order_id,
+          orderNumber: notifyOrder.order_number || order_number,
+          customerName,
+          city: notifyOrder.city || city || null,
+          pincode: notifyOrder.pincode || pincode || null,
+          totalAmount,
+          district: notifyOrder.dealer_district || null,
+        });
+      } catch (notifyError) {
+        console.error('Failed to send new-order portal notifications:', notifyError);
+      }
 
       return NextResponse.json({
         success: true,

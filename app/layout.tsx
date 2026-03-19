@@ -2,11 +2,12 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Poppins, Orbitron } from "next/font/google"
 import { WhatsAppFloat } from "@/components/whatsapp-float"
-import Chatbot from "@/components/chatbot" // This looks for the 'export default'
+import Chatbot from "@/components/chatbot"
 import { CookieConsent } from "@/components/cookie-consent"
 import { SmoothScroll } from "@/components/smooth-scroll"
 import { CartProvider } from "@/components/cart-context"
 import { CartSidebar } from "@/components/cart-sidebar"
+import { ClientOnly } from "@/components/client-only"
 import "./globals.css"
 
 const poppins = Poppins({
@@ -155,7 +156,9 @@ export default function RootLayout({
           <SmoothScroll />
           {children}
           <CartSidebar />
-          <Chatbot />
+          <ClientOnly>
+            <Chatbot />
+          </ClientOnly>
           <WhatsAppFloat />
           <CookieConsent />
         </CartProvider>

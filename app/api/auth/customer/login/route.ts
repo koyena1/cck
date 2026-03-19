@@ -14,7 +14,17 @@ export async function POST(request: Request) {
 
     console.log('Customer login attempt for:', email);
     
-    const pool = getPool();
+    let pool;
+    try {
+      pool = getPool();
+    } catch (dbError: any) {
+      console.error('Database connection error:', dbError);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Database connection failed. Please try again later.',
+        details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      }, { status: 503 });
+    }
 
     // Check Customer table
     const res = await pool.query(

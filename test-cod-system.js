@@ -32,28 +32,28 @@ const testProducts = [
 ];
 
 const productsTotal = testProducts.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-console.log('   Products Total: ₹' + productsTotal);
+console.log('   Products Total: RS' + productsTotal);
 
 // Test 1: Without optional items
 let baseAmount1 = productsTotal + testSettings.codAdvanceAmount;
 let advance1 = (baseAmount1 * testSettings.codPercentage) / 100;
 console.log('   Without Installation/AMC:');
-console.log('      Base Amount: ₹' + baseAmount1);
-console.log('      Advance (10%): ₹' + advance1);
+console.log('      Base Amount: RS' + baseAmount1);
+console.log('      Advance (10%): RS' + advance1);
 
 // Test 2: With Installation
 let baseAmount2 = productsTotal + testSettings.installationCost + testSettings.codAdvanceAmount;
 let advance2 = (baseAmount2 * testSettings.codPercentage) / 100;
-console.log('   With Installation (₹5000):');
-console.log('      Base Amount: ₹' + baseAmount2);
-console.log('      Advance (10%): ₹' + advance2);
+console.log('   With Installation (RS 5000):');
+console.log('      Base Amount: RS' + baseAmount2);
+console.log('      Advance (10%): RS' + advance2);
 
 // Test 3: With Installation + AMC
 let baseAmount3 = productsTotal + testSettings.installationCost + testSettings.amcOptions.with_1year + testSettings.codAdvanceAmount;
 let advance3 = (baseAmount3 * testSettings.codPercentage) / 100;
 console.log('   With Installation + AMC (1yr with material):');
-console.log('      Base Amount: ₹' + baseAmount3);
-console.log('      Advance (10%): ₹' + advance3);
+console.log('      Base Amount: RS' + baseAmount3);
+console.log('      Advance (10%): RS' + advance3);
 
 // 3. Email System Status
 console.log('\n📬 EMAIL SYSTEM STATUS:');

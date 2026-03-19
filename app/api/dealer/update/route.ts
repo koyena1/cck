@@ -13,8 +13,14 @@ export async function PUT(request: Request) {
       phone,
       address,
       location,
+      district,
+      state,
+      pincode,
+      serviceable_pincodes,
       gst_number,
-      registration_number
+      registration_number,
+      latitude,
+      longitude
     } = body;
 
     if (!dealerId) {
@@ -36,9 +42,15 @@ export async function PUT(request: Request) {
         phone_number = COALESCE($4, phone_number),
         business_address = COALESCE($5, business_address),
         location = COALESCE($6, location),
-        gstin = COALESCE($7, gstin),
-        registration_number = COALESCE($8, registration_number)
-      WHERE dealer_id = $9 AND status = 'Active'
+        district = COALESCE($7, district),
+        state = COALESCE($8, state),
+        pincode = COALESCE($9, pincode),
+        serviceable_pincodes = COALESCE($10, serviceable_pincodes),
+        gstin = COALESCE($11, gstin),
+        registration_number = COALESCE($12, registration_number),
+        latitude = COALESCE($13, latitude),
+        longitude = COALESCE($14, longitude)
+      WHERE dealer_id = $15 AND status = 'Active'
       RETURNING 
         dealer_id,
         full_name,
@@ -47,8 +59,14 @@ export async function PUT(request: Request) {
         phone_number,
         business_address,
         location,
+        district,
+        state,
+        pincode,
+        serviceable_pincodes,
         gstin,
         registration_number,
+        latitude,
+        longitude,
         status,
         rating,
         completed_jobs,
@@ -62,8 +80,14 @@ export async function PUT(request: Request) {
       phone || null,
       address || null,
       location || null,
+      district || null,
+      state || null,
+      pincode || null,
+      serviceable_pincodes || null,
       gst_number || null,
       registration_number || null,
+      latitude !== undefined ? latitude : null,
+      longitude !== undefined ? longitude : null,
       dealerId
     ]);
 
@@ -84,8 +108,14 @@ export async function PUT(request: Request) {
       phone: dealerData.phone_number,
       address: dealerData.business_address,
       location: dealerData.location,
+      district: dealerData.district,
+      state: dealerData.state,
+      pincode: dealerData.pincode,
+      serviceable_pincodes: dealerData.serviceable_pincodes || '',
       gst_number: dealerData.gstin,
       registration_number: dealerData.registration_number,
+      latitude: dealerData.latitude,
+      longitude: dealerData.longitude,
       status: dealerData.status,
       rating: dealerData.rating,
       completed_jobs: dealerData.completed_jobs,

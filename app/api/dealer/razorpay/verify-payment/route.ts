@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getPool } from '@/lib/db';
+import { syncDealerStockThresholdAlerts } from '@/lib/dealer-stock-alerts';
 
 export async function POST(request: Request) {
   try {
@@ -103,6 +104,8 @@ export async function POST(request: Request) {
       }
       
       await pool.query('COMMIT');
+
+      await syncDealerStockThresholdAlerts(parseInt(transaction.dealer_id));
 
       console.log('✅ Dealer payment verified successfully');
       console.log('✅ Inventory updated');

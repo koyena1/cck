@@ -384,18 +384,18 @@ export default function PricingManagementPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-900">Product & Pricing Master</h1>
-        <p className="text-slate-600 mt-1">Complete product catalog with pricing - Single source of truth for all products</p>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100">Product & Pricing Master</h1>
+        <p className="text-slate-600 dark:text-slate-300 mt-1">Complete product catalog with pricing - Single source of truth for all products</p>
       </div>
 
       {/* Bulk Price Adjustment Section */}
-      <Card className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50">
+      <Card className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950 dark:to-yellow-950">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-900">
+          <CardTitle className="flex items-center gap-2 text-orange-900 dark:text-orange-100">
             <DollarSign className="w-5 h-5" />
             Bulk Price Adjustment (Backend Only)
           </CardTitle>
-          <CardDescription className="text-orange-700">
+          <CardDescription className="text-orange-700 dark:text-orange-300">
             Adjust all product prices by a percentage. Use positive values to increase (e.g., 10) or negative values to decrease (e.g., -10). 
             <strong className="block mt-1">Note: This changes database prices but does NOT affect frontend display.</strong>
           </CardDescription>
@@ -429,13 +429,13 @@ export default function PricingManagementPage() {
       </Card>
 
       {/* Global Settings Section */}
-      <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+      <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-900">
+          <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
             <Settings className="w-5 h-5" />
             Global Pricing Settings
           </CardTitle>
-          <CardDescription className="text-blue-700">
+          <CardDescription className="text-blue-700 dark:text-blue-300">
             Configure GST, default discounts, and base installation charges for all quotations
           </CardDescription>
         </CardHeader>
@@ -468,7 +468,7 @@ export default function PricingManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="installation" className="font-bold">Base Installation Charges (₹)</Label>
+              <Label htmlFor="installation" className="font-bold">Base Installation Charges (RS)</Label>
               <Input 
                 id="installation" 
                 type="number" 
@@ -481,7 +481,7 @@ export default function PricingManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="codAdvance" className="font-bold">COD Advance Amount (₹)</Label>
+              <Label htmlFor="codAdvance" className="font-bold">COD Extra Amount (RS)</Label>
               <Input 
                 id="codAdvance" 
                 type="number" 
@@ -492,7 +492,7 @@ export default function PricingManagementPage() {
                 }}
                 disabled={isSavingSettings}
               />
-              <p className="text-xs text-slate-600">Extra COD charges added to order total</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Extra COD charges added to order total</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="codPercentage" className="font-bold">COD Advance Percentage (%)</Label>
@@ -509,7 +509,7 @@ export default function PricingManagementPage() {
                 }}
                 disabled={isSavingSettings}
               />
-              <p className="text-xs text-slate-600">Percentage of (Product + COD charges) to pay upfront</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Percentage of (Product + COD charges) to pay upfront</p>
             </div>
           </div>
           <Button 
@@ -541,7 +541,7 @@ export default function PricingManagementPage() {
           <div className="space-y-6">
             {/* Camera Type Pricing */}
             <Card>
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5" />
                   Camera Type Pricing
@@ -550,16 +550,16 @@ export default function PricingManagementPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full">
-                  <thead className="bg-slate-100 border-b-2">
+                  <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-bold uppercase">Camera Type</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Price (₹)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Price (RS)</th>
                       <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {quotationSettings?.cameraTypes?.map((ct: any) => (
-                      <tr key={ct.id} className="hover:bg-slate-50">
+                      <tr key={ct.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="px-4 py-3 font-bold">{ct.name}</td>
                         <td className="px-4 py-3 text-right">
                           <Input 
@@ -590,7 +590,7 @@ export default function PricingManagementPage() {
 
             {/* Brand Pricing */}
             <Card>
-              <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50">
+              <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5" />
                   Brand Pricing
@@ -599,12 +599,12 @@ export default function PricingManagementPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full">
-                  <thead className="bg-slate-100 border-b-2">
+                  <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-bold uppercase">Brand</th>
                       {quotationSettings?.cameraTypes?.map((ct: any) => (
                         <th key={ct.id} className="px-4 py-3 text-right text-xs font-bold uppercase">
-                          {ct.name} Price (₹)
+                          {ct.name} Price (RS)
                         </th>
                       ))}
                       <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
@@ -612,7 +612,7 @@ export default function PricingManagementPage() {
                   </thead>
                   <tbody className="divide-y">
                     {quotationSettings?.brands?.map((brand: any) => (
-                      <tr key={brand.id} className="hover:bg-slate-50">
+                      <tr key={brand.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="px-4 py-3 font-bold">{brand.name}</td>
                         {quotationSettings?.cameraTypes?.map((ct: any) => (
                           <td key={ct.id} className="px-4 py-3 text-right">
@@ -653,7 +653,7 @@ export default function PricingManagementPage() {
 
             {/* Channel Pricing */}
             <Card>
-              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5" />
                   DVR/NVR Channel Pricing
@@ -662,16 +662,16 @@ export default function PricingManagementPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full">
-                  <thead className="bg-slate-100 border-b-2">
+                  <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-bold uppercase">Channels</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Price (₹)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Price (RS)</th>
                       <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {quotationSettings?.channels?.map((ch: any) => (
-                      <tr key={ch.id} className="hover:bg-slate-50">
+                      <tr key={ch.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="px-4 py-3 font-bold">{ch.channel_count} CH</td>
                         <td className="px-4 py-3 text-right">
                           <Input 
@@ -702,7 +702,7 @@ export default function PricingManagementPage() {
 
             {/* Pixel Pricing */}
             <Card>
-              <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50">
+              <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950 dark:to-blue-950">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5" />
                   Pixel/Resolution Pricing
@@ -711,16 +711,16 @@ export default function PricingManagementPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <table className="w-full">
-                  <thead className="bg-slate-100 border-b-2">
+                  <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-bold uppercase">Megapixel</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Premium Price (₹)</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold uppercase">Premium Price (RS)</th>
                       <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {quotationSettings?.pixels?.map((px: any) => (
-                      <tr key={px.id} className="hover:bg-slate-50">
+                      <tr key={px.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="px-4 py-3 font-bold">{px.name}</td>
                         <td className="px-4 py-3 text-right">
                           <Input 
@@ -754,7 +754,7 @@ export default function PricingManagementPage() {
         {/* Camera Tech Type Pricing Tab */}
         <TabsContent value="tech-types">
           <Card>
-            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950">
               <CardTitle className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
                 Camera Technology Type Pricing (HD vs IP)
@@ -763,19 +763,19 @@ export default function PricingManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Tech Type</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase">Camera Type</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase">Location</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">HD Price (₹)</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">IP Price (₹)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">HD Price (RS)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">IP Price (RS)</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {quotationSettings?.techTypes?.map((tech: any) => (
-                    <tr key={tech.id} className="hover:bg-slate-50">
+                    <tr key={tech.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-4 py-3 font-bold">{tech.name}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant={tech.camera_type === 'IP' ? 'default' : 'secondary'}>
@@ -825,7 +825,7 @@ export default function PricingManagementPage() {
         {/* Storage Pricing Tab */}
         <TabsContent value="storage">
           <Card>
-            <CardHeader className="bg-gradient-to-r from-teal-50 to-cyan-50">
+            <CardHeader className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950 dark:to-cyan-950">
               <CardTitle className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
                 Storage Pricing (HD vs IP)
@@ -834,17 +834,17 @@ export default function PricingManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Capacity</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">HD Price (₹)</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">IP Price (₹)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">HD Price (RS)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">IP Price (RS)</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {quotationSettings?.storage?.map((storage: any) => (
-                    <tr key={storage.id} className="hover:bg-slate-50">
+                    <tr key={storage.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-4 py-3 font-bold">{storage.capacity}</td>
                       <td className="px-4 py-3 text-right">
                         <Input 
@@ -886,7 +886,7 @@ export default function PricingManagementPage() {
         {/* Cameras Tab */}
         <TabsContent value="cameras">
           <Card>
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><Package className="w-5 h-5" />Camera Pricing</CardTitle>
@@ -900,7 +900,7 @@ export default function PricingManagementPage() {
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-100 border-b-2">
+                  <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                     <tr>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase">Model</th>
                       <th className="px-3 py-3 text-left text-xs font-bold uppercase">Type/Brand</th>
@@ -914,7 +914,7 @@ export default function PricingManagementPage() {
                   </thead>
                   <tbody className="divide-y">
                     {cameras.map((item: any) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
+                      <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                         <td className="px-3 py-3 font-mono text-xs">{item.model_number}</td>
                         <td className="px-3 py-3">
                           <div className="text-xs"><Badge className="bg-blue-100 text-blue-800">{item.camera_type}</Badge></div>
@@ -924,7 +924,7 @@ export default function PricingManagementPage() {
                         <td className="px-3 py-3"><Badge className="bg-green-100 text-green-800">{item.pixel}</Badge></td>
                         <td className="px-3 py-3 text-xs">{item.tech_type}</td>
                         <td className="px-3 py-3 text-xs">{item.ir_distance}</td>
-                        <td className="px-3 py-3 text-right font-bold text-green-600">₹{parseFloat(item.price).toLocaleString('en-IN')}</td>
+                        <td className="px-3 py-3 text-right font-bold text-green-600">RS {parseFloat(item.price).toLocaleString('en-IN')}</td>
                         <td className="px-3 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Button variant="outline" size="sm" onClick={() => { setEditingItem(item); setShowCameraModal(true); }}><Edit className="w-3 h-3" /></Button>
@@ -943,7 +943,7 @@ export default function PricingManagementPage() {
         {/* HD Accessories Tab */}
         <TabsContent value="hd-accessories">
           <Card>
-            <CardHeader className="bg-orange-50">
+            <CardHeader className="bg-orange-50 dark:bg-orange-950">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><Wrench className="w-5 h-5" />HD Camera Accessories</CardTitle>
@@ -968,12 +968,12 @@ export default function PricingManagementPage() {
                 </thead>
                 <tbody className="divide-y">
                   {hd_accessories.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.ch_count} CH</td>
                       <td className="px-6 py-4">{item.smps_qty} pc</td>
                       <td className="px-6 py-4">{item.bnc_qty} pc</td>
                       <td className="px-6 py-4">{item.dc_jack_qty} pc</td>
-                      <td className="px-6 py-4 text-right font-bold text-green-600">₹{parseFloat(item.total_cost).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-green-600">RS {parseFloat(item.total_cost).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => { setEditingItem(item); setShowHDAccessoryModal(true); }}><Edit className="w-3 h-3" /></Button>
@@ -991,7 +991,7 @@ export default function PricingManagementPage() {
         {/* IP Accessories Tab */}
         <TabsContent value="ip-accessories">
           <Card>
-            <CardHeader className="bg-green-50">
+            <CardHeader className="bg-green-50 dark:bg-green-950">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><Cable className="w-5 h-5" />IP Camera Accessories</CardTitle>
@@ -1015,11 +1015,11 @@ export default function PricingManagementPage() {
                 </thead>
                 <tbody className="divide-y">
                   {ip_accessories.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.ch_count} CH</td>
                       <td className="px-6 py-4">{item.poe_qty} pc</td>
                       <td className="px-6 py-4">{item.rj45_qty} pc</td>
-                      <td className="px-6 py-4 text-right font-bold text-green-600">₹{parseFloat(item.total_cost).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-green-600">RS {parseFloat(item.total_cost).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => { setEditingItem(item); setShowIPAccessoryModal(true); }}><Edit className="w-3 h-3" /></Button>
@@ -1037,7 +1037,7 @@ export default function PricingManagementPage() {
         {/* Cables Tab */}
         <TabsContent value="cables">
           <Card>
-            <CardHeader className="bg-yellow-50">
+            <CardHeader className="bg-yellow-50 dark:bg-yellow-950">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><Cable className="w-5 h-5" />Cable Pricing</CardTitle>
@@ -1061,11 +1061,11 @@ export default function PricingManagementPage() {
                 </thead>
                 <tbody className="divide-y">
                   {cables.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.cable_name}</td>
                       <td className="px-6 py-4">{item.length}</td>
                       <td className="px-6 py-4"><Badge className="bg-blue-100 text-blue-800">{item.camera_type}</Badge></td>
-                      <td className="px-6 py-4 text-right font-bold text-green-600">₹{parseFloat(item.price).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-green-600">RS {parseFloat(item.price).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => { setEditingItem(item); setShowCableModal(true); }}><Edit className="w-3 h-3" /></Button>
@@ -1083,7 +1083,7 @@ export default function PricingManagementPage() {
         {/* Installation Tab */}
         <TabsContent value="installation">
           <Card>
-            <CardHeader className="bg-purple-50">
+            <CardHeader className="bg-purple-50 dark:bg-purple-950">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><DollarSign className="w-5 h-5" />Installation Pricing</CardTitle>
@@ -1096,7 +1096,7 @@ export default function PricingManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase">Camera Qty Range</th>
                     <th className="px-6 py-3 text-right text-xs font-bold uppercase">Price/Camera</th>
@@ -1106,9 +1106,9 @@ export default function PricingManagementPage() {
                 </thead>
                 <tbody className="divide-y">
                   {installation.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.camera_qty_from} - {item.camera_qty_to} cameras</td>
-                      <td className="px-6 py-4 text-right font-bold text-green-600">₹{parseFloat(item.price_per_camera).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-green-600">RS {parseFloat(item.price_per_camera).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4 text-sm">{item.description}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -1127,7 +1127,7 @@ export default function PricingManagementPage() {
         {/* AMC Tab */}
         <TabsContent value="amc">
           <Card>
-            <CardHeader className="bg-pink-50">
+            <CardHeader className="bg-pink-50 dark:bg-pink-950">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2"><Shield className="w-5 h-5" />AMC Pricing</CardTitle>
@@ -1140,7 +1140,7 @@ export default function PricingManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase">Type</th>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase">Duration</th>
@@ -1151,14 +1151,14 @@ export default function PricingManagementPage() {
                 </thead>
                 <tbody className="divide-y">
                   {amc.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4">
                         <Badge className={item.amc_type === 'with_material' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}>
                           {item.amc_type === 'with_material' ? 'With Material' : 'Without Material'}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 font-bold">{item.duration} Year{item.duration > 1 ? 's' : ''}</td>
-                      <td className="px-6 py-4 text-right font-bold text-green-600">₹{parseFloat(item.price_per_camera).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-green-600">RS {parseFloat(item.price_per_camera).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4 text-sm">{item.description}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -1232,7 +1232,7 @@ export default function PricingManagementPage() {
               <Input placeholder="20 mtr" value={editingItem?.ir_distance || ''} onChange={(e) => setEditingItem({...editingItem, ir_distance: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label>Price (₹) *</Label>
+              <Label>Price (RS) *</Label>
               <Input type="number" step="0.01" value={editingItem?.price || ''} onChange={(e) => setEditingItem({...editingItem, price: e.target.value})} />
             </div>
             <div className="space-y-2 col-span-2">
@@ -1282,7 +1282,7 @@ export default function PricingManagementPage() {
               <Input type="number" value={editingItem?.dc_jack_qty || ''} onChange={(e) => setEditingItem({...editingItem, dc_jack_qty: parseInt(e.target.value)})} />
             </div>
             <div className="space-y-2 col-span-2">
-              <Label>Total Cost (₹) *</Label>
+              <Label>Total Cost (RS) *</Label>
               <Input type="number" step="0.01" value={editingItem?.total_cost || ''} onChange={(e) => setEditingItem({...editingItem, total_cost: e.target.value})} />
             </div>
             <div className="space-y-2 col-span-2">
@@ -1320,7 +1320,7 @@ export default function PricingManagementPage() {
               <Input type="number" value={editingItem?.rj45_qty || ''} onChange={(e) => setEditingItem({...editingItem, rj45_qty: parseInt(e.target.value)})} />
             </div>
             <div className="space-y-2 col-span-2">
-              <Label>Total Cost (₹) *</Label>
+              <Label>Total Cost (RS) *</Label>
               <Input type="number" step="0.01" value={editingItem?.total_cost || ''} onChange={(e) => setEditingItem({...editingItem, total_cost: e.target.value})} />
             </div>
             <div className="space-y-2 col-span-2">
@@ -1369,7 +1369,7 @@ export default function PricingManagementPage() {
               <Input placeholder="90 MTR, 305 MTR" value={editingItem?.length || ''} onChange={(e) => setEditingItem({...editingItem, length: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <Label>Price (₹) *</Label>
+              <Label>Price (RS) *</Label>
               <Input type="number" step="0.01" value={editingItem?.price || ''} onChange={(e) => setEditingItem({...editingItem, price: e.target.value})} />
             </div>
           </div>
@@ -1399,7 +1399,7 @@ export default function PricingManagementPage() {
               <Input type="number" value={editingItem?.camera_qty_to || ''} onChange={(e) => setEditingItem({...editingItem, camera_qty_to: parseInt(e.target.value)})} />
             </div>
             <div className="space-y-2 col-span-2">
-              <Label>Price Per Camera (₹) *</Label>
+              <Label>Price Per Camera (RS) *</Label>
               <Input type="number" step="0.01" value={editingItem?.price_per_camera || ''} onChange={(e) => setEditingItem({...editingItem, price_per_camera: e.target.value})} />
             </div>
             <div className="space-y-2 col-span-2">
@@ -1437,7 +1437,7 @@ export default function PricingManagementPage() {
               <Input type="number" value={editingItem?.duration || ''} onChange={(e) => setEditingItem({...editingItem, duration: parseInt(e.target.value)})} />
             </div>
             <div className="space-y-2 col-span-2">
-              <Label>Price Per Camera (₹) *</Label>
+              <Label>Price Per Camera (RS) *</Label>
               <Input type="number" step="0.01" value={editingItem?.price_per_camera || ''} onChange={(e) => setEditingItem({...editingItem, price_per_camera: e.target.value})} />
             </div>
             <div className="space-y-2 col-span-2">

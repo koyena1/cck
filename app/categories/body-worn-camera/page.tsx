@@ -312,9 +312,9 @@ function BodyWornCameraContent() {
                       className="w-full"
                     />
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">₹{(priceRange[0] || 0).toLocaleString()}</span>
+                      <span className="text-slate-700">RS {(priceRange[0] || 0).toLocaleString()}</span>
                       <Minus className="w-4 h-4 text-slate-400" />
-                      <span className="text-slate-700">₹{(priceRange[1] || 100000).toLocaleString()}</span>
+                      <span className="text-slate-700">RS {(priceRange[1] || 100000).toLocaleString()}</span>
                     </div>
                   </div>
                 </FilterSection>
@@ -428,11 +428,11 @@ function BodyWornCameraContent() {
                         {/* Price */}
                         <div className="flex items-center gap-2 mb-4">
                           <span className="text-2xl font-bold text-slate-900">
-                            ₹{product.price.toLocaleString()}
+                            RS {product.price.toLocaleString()}
                           </span>
                           {product.originalPrice && (
                             <span className="text-sm text-slate-500 line-through">
-                              ₹{product.originalPrice.toLocaleString()}
+                              RS {product.originalPrice.toLocaleString()}
                             </span>
                           )}
                         </div>

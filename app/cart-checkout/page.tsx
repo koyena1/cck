@@ -9,6 +9,7 @@ import { ShoppingBag, ChevronRight } from 'lucide-react';
 
 interface CartItem {
   id: string;
+  product_code?: string;
   name: string;
   price: number;
   image?: string;
@@ -39,6 +40,13 @@ export default function CartCheckoutPage() {
 
   const cartTotal = cartItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
   const totalItems = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+  const getProductCode = (item: CartItem) => {
+    if (item.product_code) return item.product_code;
+    if (/^PIC\d+$/i.test(item.id || '')) return String(item.id).toUpperCase();
+    if (/^\d+$/.test(item.id || '')) return `PIC${String(item.id).padStart(3, '0')}`;
+    return null;
+  };
 
   if (loading) {
     return (
@@ -91,6 +99,7 @@ export default function CartCheckoutPage() {
                     )}
                     <div className="flex-1">
                       <h3 className="font-bold text-slate-900">{item.name}</h3>
+                      {getProductCode(item) && <p className="text-xs text-slate-500 mt-1">Product ID: {getProductCode(item)}</p>}
                       {item.category && (
                         <p className="text-sm text-slate-500 mt-1">{item.category}</p>
                       )}
@@ -100,11 +109,11 @@ export default function CartCheckoutPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-[#e63946]">
-                        ₹{item.price.toLocaleString()}
+                        RS {item.price.toLocaleString()}
                       </p>
                       {item.quantity && item.quantity > 1 && (
                         <p className="text-sm text-slate-500">
-                          ₹{(item.price * item.quantity).toLocaleString()} total
+                          RS {(item.price * item.quantity).toLocaleString()} total
                         </p>
                       )}
                     </div>
@@ -120,13 +129,13 @@ export default function CartCheckoutPage() {
               <div className="space-y-3 text-white">
                 <div className="flex justify-between text-lg">
                   <span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>
-                  <span>₹{cartTotal.toLocaleString()}</span>
+                  <span>RS {cartTotal.toLocaleString()}</span>
                 </div>
                 
                 <div className="border-t border-white/20 pt-3 mt-3">
                   <div className="flex justify-between text-2xl font-bold">
                     <span>Total</span>
-                    <span>₹{cartTotal.toLocaleString()}</span>
+                    <span>RS {cartTotal.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

@@ -10,21 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Package, 
   Shield, 
-  CheckCircle2, 
-  MapPin,
-  Calendar,
-  User,
-  CreditCard,
   Loader2
 } from "lucide-react";
 
 export default function TrackOrderPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if user is logged in
@@ -37,7 +30,6 @@ export default function TrackOrderPage() {
       return;
     }
     
-    setCustomerEmail(email);
     fetchOrders(email);
   }, [router]);
 
@@ -150,11 +142,11 @@ export default function TrackOrderPage() {
                         <div
                           key={order.order_id}
                           className="p-4 border border-slate-200 rounded-lg hover:border-[#e63946] transition-colors cursor-pointer"
-                          onClick={() => setSelectedOrder(order)}
+                          onClick={() => router.push(`/track-order/${order.order_id}`)}
                         >
                           <div className="flex items-center justify-between mb-3">
                             <div>
-                              <p className="font-mono font-bold text-slate-900">{order.order_number}</p>
+                              <p className="font-mono font-bold text-slate-900">{order.order_number?.replace(/-\d{3}$/, '') ?? order.order_number}</p>
                               <p className="text-xs text-slate-500">
                                 {new Date(order.created_at).toLocaleDateString('en-IN', {
                                   day: '2-digit',
@@ -175,7 +167,7 @@ export default function TrackOrderPage() {
                                order.order_type}
                             </span>
                             <span className="font-bold text-[#e63946]">
-                              ₹{order.total_amount?.toLocaleString('en-IN')}
+                              RS {order.total_amount?.toLocaleString('en-IN')}
                             </span>
                           </div>
                         </div>
@@ -184,88 +176,6 @@ export default function TrackOrderPage() {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Selected Order Details */}
-              {selectedOrder && (
-                <Card className="bg-white shadow-xl">
-                  <CardHeader className="bg-[#e63946] text-white">
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Order Details</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setSelectedOrder(null)}
-                        className="text-white hover:bg-white/20"
-                      >
-                        ✕ Close
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="flex items-start gap-3">
-                        <User className="text-[#e63946] mt-1" size={20} />
-                        <div>
-                          <p className="text-xs font-bold uppercase text-slate-500">Customer</p>
-                          <p className="text-sm font-bold text-slate-900">{selectedOrder.customer_name}</p>
-                          <p className="text-xs text-slate-600">{selectedOrder.customer_phone}</p>
-                          {selectedOrder.customer_email && (
-                            <p className="text-xs text-slate-600">{selectedOrder.customer_email}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <MapPin className="text-[#e63946] mt-1" size={20} />
-                        <div>
-                          <p className="text-xs font-bold uppercase text-slate-500">Location</p>
-                          <p className="text-sm text-slate-900">{selectedOrder.installation_address || selectedOrder.address}</p>
-                          <p className="text-xs text-slate-600">
-                            {selectedOrder.city}, {selectedOrder.state} - {selectedOrder.pincode}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <Calendar className="text-[#e63946] mt-1" size={20} />
-                        <div>
-                          <p className="text-xs font-bold uppercase text-slate-500">Order Date</p>
-                          <p className="text-sm font-bold text-slate-900">
-                            {new Date(selectedOrder.created_at).toLocaleDateString('en-IN')}
-                          </p>
-                          {selectedOrder.expected_delivery_date && (
-                            <p className="text-xs text-slate-600">
-                              Expected: {new Date(selectedOrder.expected_delivery_date).toLocaleDateString('en-IN')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <CreditCard className="text-[#e63946] mt-1" size={20} />
-                        <div>
-                          <p className="text-xs font-bold uppercase text-slate-500">Payment</p>
-                          <p className="text-2xl font-black text-[#e63946]">
-                            ₹{selectedOrder.total_amount?.toLocaleString('en-IN')}
-                          </p>
-                          <p className="text-xs text-slate-600">
-                            {selectedOrder.payment_method?.toUpperCase() || 'N/A'} • {selectedOrder.payment_status}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t">
-                      <p className="text-xs font-bold uppercase text-slate-500 mb-2">Current Status</p>
-                      <div className="flex items-center gap-2">
-                        <Badge className={`${getStatusColor(selectedOrder.status)} text-sm px-3 py-1`}>
-                          {selectedOrder.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
           </div>
         </div>
       </section>

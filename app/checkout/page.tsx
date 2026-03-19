@@ -67,27 +67,27 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Product Price:</span>
-                  <span className="font-semibold">₹{(parseFloat(orderDetails.productPrice) * orderDetails.quantity).toLocaleString()}</span>
+                  <span className="font-semibold">RS {(parseFloat(orderDetails.productPrice) * orderDetails.quantity).toLocaleString()}</span>
                 </div>
                 
                 {orderDetails.withInstallation && (
                   <div className="flex justify-between">
                     <span className="text-slate-600">Installation:</span>
-                    <span className="font-semibold">₹{orderDetails.installationCost.toLocaleString()}</span>
+                    <span className="font-semibold">RS {orderDetails.installationCost.toLocaleString()}</span>
                   </div>
                 )}
                 
                 {orderDetails.selectedAmc && (
                   <div className="flex justify-between">
                     <span className="text-slate-600">AMC:</span>
-                    <span className="font-semibold">₹{orderDetails.amcCost.toLocaleString()}</span>
+                    <span className="font-semibold">RS {orderDetails.amcCost.toLocaleString()}</span>
                   </div>
                 )}
                 
                 <div className="border-t pt-2 mt-2">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total:</span>
-                    <span className="text-[#e63946]">₹{orderDetails.total.toLocaleString()}</span>
+                    <span className="text-[#e63946]">RS {orderDetails.total.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

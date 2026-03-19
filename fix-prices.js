@@ -47,11 +47,11 @@ async function fixPrices() {
       if (name.includes('ip')) {
         price = 500;
         await pool.query("UPDATE camera_types SET price = $1 WHERE id = $2", [price, row.id]);
-        console.log(`✅ Set ${row.name} = ₹${price}`);
+        console.log(`✅ Set ${row.name} = RS ${price}`);
       } else if (name.includes('hd')) {
         price = 300;
         await pool.query("UPDATE camera_types SET price = $1 WHERE id = $2", [price, row.id]);
-        console.log(`✅ Set ${row.name} = ₹${price}`);
+        console.log(`✅ Set ${row.name} = RS ${price}`);
       }
     }
 
@@ -59,12 +59,12 @@ async function fixPrices() {
     const pixelResult = await pool.query("SELECT id, name FROM pixel_options WHERE name LIKE '%8%'");
     if (pixelResult.rows.length > 0) {
       await pool.query("UPDATE pixel_options SET price = 400 WHERE id = $1", [pixelResult.rows[0].id]);
-      console.log(`✅ Set ${pixelResult.rows[0].name} = ₹400`);
+      console.log(`✅ Set ${pixelResult.rows[0].name} = RS 400`);
     }
 
     // Set Honeywell prices
     await pool.query("UPDATE brands SET hd_price = 280, ip_price = 480 WHERE name = 'Honeywell'");
-    console.log('✅ Set Honeywell prices: HD=₹280, IP=₹480');
+    console.log('✅ Set Honeywell prices: HD=RS 280, IP=RS 480');
 
     console.log('\n📊 Final verification:\n');
 

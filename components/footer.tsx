@@ -214,10 +214,10 @@ function FooterComponent() {
                 <div>
                   <p className="text-white font-semibold text-sm mb-1">Send a Message</p>
                   <a 
-                    href="mailto:contact@ucam-cctv.com" 
+                    href="mailto:support@protechtur.com" 
                     className="text-gray-400 hover:text-emerald-400 transition-colors text-xs flex items-center gap-1"
                   >
-                    contact@ucam-cctv.com
+                    support@protechtur.com
                   </a>
                 </div>
               </motion.div>

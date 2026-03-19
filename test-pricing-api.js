@@ -49,7 +49,7 @@ async function testPricingAPIs() {
     if (invoiceData.success) {
       console.log('\n✅ All APIs working correctly!');
       console.log(`Invoice ID: ${invoiceData.transaction.transaction_id}`);
-      console.log(`Total Amount: ₹${invoiceData.transaction.total_amount}`);
+      console.log(`Total Amount: RS ${invoiceData.transaction.total_amount}`);
     } else {
       console.log('\n❌ Invoice generation failed:', invoiceData.error);
     }

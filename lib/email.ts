@@ -1,5 +1,6 @@
 // lib/email.ts
 import nodemailer from 'nodemailer';
+import { generateInvoicePDFBuffer } from './generate-invoice-pdf';
 
 // Email configuration
 const EMAIL_CONFIG = {
@@ -37,6 +38,15 @@ function getTransporter() {
   return transporter;
 }
 
+interface OrderItem {
+  item_name: string;
+  product_code?: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  item_type?: string;
+}
+
 interface OrderEmailData {
   orderNumber: string;
   orderToken: string;
@@ -48,6 +58,9 @@ interface OrderEmailData {
   orderDate: string;
   trackingUrl: string;
   orderDetails?: any;
+  orderItems?: OrderItem[];
+  // For PDF invoice attachment — pass the full order DB row
+  fullOrderData?: Record<string, any>;
   // COD Payment Breakdown (optional)
   productTotal?: number;
   installationCharges?: number;
@@ -55,6 +68,19 @@ interface OrderEmailData {
   baseAmount?: number;
   codAdvancePaid?: number;
   codPendingAmount?: number;
+}
+
+function buildInvoiceNumber(order: Record<string, any>): string {
+  const dealerNameSource = String(order.dealer_business_name || order.dealer_full_name || 'PR');
+  const dealerNameFirstTwo = dealerNameSource.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'PR';
+  const dealerUniqueId = String(order.dealer_unique_id || '').trim().toUpperCase();
+  const fallbackDealerId = order.dealer_id
+    ? String(order.dealer_id).padStart(3, '0')
+    : order.assigned_dealer_id
+      ? String(order.assigned_dealer_id).padStart(3, '0')
+      : 'NA';
+
+  return `PR-${dealerNameFirstTwo}-${dealerUniqueId || fallbackDealerId}`;
 }
 
 /**
@@ -79,6 +105,8 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
       baseAmount,
       codAdvancePaid,
       codPendingAmount,
+      orderItems,
+      fullOrderData,
     } = data;
 
     const isCOD = paymentMethod === 'cod';
@@ -181,10 +209,38 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         <div class="total-row">
           <div class="order-info-row" style="border: none; margin: 0;">
             <span class="label">Total Amount:</span>
-            <span class="value">₹${totalAmount.toLocaleString('en-IN')}</span>
+            <span class="value">RS ${totalAmount.toLocaleString('en-IN')}</span>
           </div>
         </div>
       </div>
+
+      ${orderItems && orderItems.length > 0 ? `
+      <div style="margin: 20px 0; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
+        <div style="background: #e63946; padding: 12px 16px;">
+          <h2 style="margin: 0; font-size: 17px; color: #ffffff;">🛒 Items Ordered</h2>
+        </div>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="text-right" style="width: 45px;">Qty</th>
+              <th class="text-right" style="width: 90px;">Unit Price</th>
+              <th class="text-right" style="width: 90px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orderItems.map(item => `
+            <tr>
+              <td>${item.item_name}${item.product_code ? ` <span style="color:#475569;font-size:11px;font-weight:700;">(Product Unique_ID: ${item.product_code})</span>` : ''}${item.item_type && item.item_type !== 'Product' ? ` <span style="color:#777;font-size:11px;">(${item.item_type})</span>` : ''}</td>
+              <td class="text-right">${item.quantity}</td>
+              <td class="text-right">RS ${parseFloat(String(item.unit_price)).toLocaleString('en-IN')}</td>
+              <td class="text-right">RS ${parseFloat(String(item.total_price)).toLocaleString('en-IN')}</td>
+            </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
 
       ${hasCODBreakdown ? `
       <div class="payment-breakdown">
@@ -202,20 +258,20 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         
         <div class="breakdown-row">
           <span class="breakdown-label">📦 Products:</span>
-          <span class="breakdown-value">₹${(productTotal || 0).toLocaleString('en-IN')}</span>
+          <span class="breakdown-value">RS ${(productTotal || 0).toLocaleString('en-IN')}</span>
         </div>
         
         ${(installationCharges || 0) > 0 ? `
         <div class="breakdown-row">
           <span class="breakdown-label">🏠 Installation Service:</span>
-          <span class="breakdown-value">₹${(installationCharges || 0).toLocaleString('en-IN')}</span>
+          <span class="breakdown-value">RS ${(installationCharges || 0).toLocaleString('en-IN')}</span>
         </div>
         ` : ''}
         
         ${(codExtraCharges || 0) > 0 ? `
         <div class="breakdown-row">
           <span class="breakdown-label">🔥 COD Service Charges:</span>
-          <span class="breakdown-value">₹${(codExtraCharges || 0).toLocaleString('en-IN')}</span>
+          <span class="breakdown-value">RS ${(codExtraCharges || 0).toLocaleString('en-IN')}</span>
         </div>
         ` : ''}
         
@@ -223,7 +279,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         
         <div class="breakdown-row" style="background: linear-gradient(to right, #eff6ff, #dbeafe); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #0ea5e9;">
           <span class="breakdown-label" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">📋 Total Amount:</span>
-          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">₹${totalAmount.toLocaleString('en-IN')}</span>
+          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">RS ${totalAmount.toLocaleString('en-IN')}</span>
         </div>
         
         <h3 style="margin: 20px 0 10px; font-size: 16px; color: #1e293b;">
@@ -231,20 +287,20 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         </h3>
         
         <p style="margin: 10px 0 15px; font-size: 13px; color: #64748b;">
-          From the total amount of <strong>₹${totalAmount.toLocaleString('en-IN')}</strong>:
+          From the total amount of <strong>RS ${totalAmount.toLocaleString('en-IN')}</strong>:
         </p>
         
         <div class="breakdown-highlight">
           <div class="breakdown-row" style="border: none; padding: 0;">
             <span class="breakdown-label">✅ Already Paid (Advance):</span>
-            <span class="breakdown-value">₹${codAdvancePaid.toLocaleString('en-IN')}</span>
+            <span class="breakdown-value">RS ${codAdvancePaid.toLocaleString('en-IN')}</span>
           </div>
         </div>
         
         <div class="breakdown-pending">
           <div class="breakdown-row" style="border: none; padding: 0;">
             <span class="breakdown-label">⏳ Pending (Pay on Delivery):</span>
-            <span class="breakdown-value">₹${(codPendingAmount || 0).toLocaleString('en-IN')}</span>
+            <span class="breakdown-value">RS ${(codPendingAmount || 0).toLocaleString('en-IN')}</span>
           </div>
         </div>
         
@@ -253,8 +309,8 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
             ⚠️ Important: Payment Pending
           </p>
           <p style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5;">
-            You have already paid <strong>₹${codAdvancePaid.toLocaleString('en-IN')}</strong> as advance. <br>
-            The remaining <strong>₹${(codPendingAmount || 0).toLocaleString('en-IN')}</strong> must be paid in cash at the time of delivery.
+            You have already paid <strong>RS ${codAdvancePaid.toLocaleString('en-IN')}</strong> as advance. <br>
+            The remaining <strong>RS ${(codPendingAmount || 0).toLocaleString('en-IN')}</strong> must be paid in cash at the time of delivery.
           </p>
         </div>
       </div>
@@ -318,7 +374,7 @@ Your order has been successfully placed!
 Order Details:
 - Order Number: ${orderNumber}
 - Order Date: ${new Date(orderDate).toLocaleDateString()}
-- Total Amount: ₹${totalAmount.toLocaleString('en-IN')}
+- Total Amount: RS ${totalAmount.toLocaleString('en-IN')}
 - Payment Method: ${paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
 - Payment Status: ${paymentStatus}
 
@@ -328,30 +384,34 @@ ${hasCODBreakdown ? `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Your order includes:
-📦 Products: ₹${(productTotal || 0).toLocaleString('en-IN')}
-${(installationCharges || 0) > 0 ? `🏠 Installation Service: ₹${(installationCharges || 0).toLocaleString('en-IN')}
-` : ''}${(codExtraCharges || 0) > 0 ? `🔥 COD Service Charges: ₹${(codExtraCharges || 0).toLocaleString('en-IN')}
+📦 Products: RS ${(productTotal || 0).toLocaleString('en-IN')}
+${(installationCharges || 0) > 0 ? `🏠 Installation Service: RS ${(installationCharges || 0).toLocaleString('en-IN')}
+` : ''}${(codExtraCharges || 0) > 0 ? `🔥 COD Service Charges: RS ${(codExtraCharges || 0).toLocaleString('en-IN')}
 ` : ''}
 -----------------------------------
-📋 TOTAL AMOUNT: ₹${totalAmount.toLocaleString('en-IN')}
+📋 TOTAL AMOUNT: RS ${totalAmount.toLocaleString('en-IN')}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💳 PAYMENT STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-From the total amount of ₹${totalAmount.toLocaleString('en-IN')}:
+From the total amount of RS ${totalAmount.toLocaleString('en-IN')}:
 
-✅ Already Paid (Advance): ₹${codAdvancePaid.toLocaleString('en-IN')}
-⏳ Pending (Pay on Delivery): ₹${(codPendingAmount || 0).toLocaleString('en-IN')}
+✅ Already Paid (Advance): RS ${codAdvancePaid.toLocaleString('en-IN')}
+⏳ Pending (Pay on Delivery): RS ${(codPendingAmount || 0).toLocaleString('en-IN')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ Important: Payment Pending
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-You have already paid ₹${codAdvancePaid.toLocaleString('en-IN')} as advance.
-The remaining ₹${(codPendingAmount || 0).toLocaleString('en-IN')} must be paid in cash at the time of delivery.
+You have already paid RS ${codAdvancePaid.toLocaleString('en-IN')} as advance.
+The remaining RS ${(codPendingAmount || 0).toLocaleString('en-IN')} must be paid in cash at the time of delivery.
 ` : ''}
 
+${orderItems && orderItems.length > 0 ? `
+Items Ordered:
+${orderItems.map(item => `- ${item.item_name}${item.product_code ? ` [Product Unique_ID: ${item.product_code}]` : ''}${item.item_type && item.item_type !== 'Product' ? ` (${item.item_type})` : ''} x${item.quantity}  RS ${parseFloat(String(item.total_price)).toLocaleString('en-IN')}`).join('\n')}
+` : ''}
 Track Your Order:
 Use this tracking token: ${orderToken}
 Track URL: ${trackingUrl}
@@ -368,6 +428,25 @@ ${COMPANY_NAME} Team
 © ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.
     `;
 
+    // Generate PDF invoice if full order data is available
+    let invoicePdfBuffer: Buffer | null = null;
+    let invoiceFileName = 'Invoice.pdf';
+    if (fullOrderData) {
+      try {
+        const invoiceNumber = buildInvoiceNumber(fullOrderData);
+        invoiceFileName = `Invoice-${invoiceNumber}.pdf`;
+        const codFlatAmt = fullOrderData._codFlatAmount || 500;
+        invoicePdfBuffer = generateInvoicePDFBuffer(
+          fullOrderData,
+          orderItems || [],
+          invoiceNumber,
+          codFlatAmt
+        );
+      } catch (pdfErr) {
+        console.error('⚠️ PDF generation failed (email will be sent without attachment):', pdfErr);
+      }
+    }
+
     // Development mode - just log to console
     if (DEV_MODE) {
       console.log('\n📧 ========== EMAIL (DEV MODE) ==========');
@@ -375,6 +454,7 @@ ${COMPANY_NAME} Team
       console.log(`Subject: ${subject}`);
       console.log(`Order Token: ${orderToken}`);
       console.log(`Tracking URL: ${trackingUrl}`);
+      if (invoicePdfBuffer) console.log(`📎 PDF attachment ready: ${invoiceFileName}`);
       console.log('=======================================\n');
       return true;
     }
@@ -392,6 +472,9 @@ ${COMPANY_NAME} Team
       subject,
       text: textContent,
       html: htmlContent,
+      attachments: invoicePdfBuffer
+        ? [{ filename: invoiceFileName, content: invoicePdfBuffer, contentType: 'application/pdf' }]
+        : [],
     });
 
     console.log(`✓ Order confirmation email sent to ${customerEmail}`);

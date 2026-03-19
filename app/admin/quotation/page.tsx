@@ -272,7 +272,7 @@ export default function QuotationManagementPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-slate-500">Loading quotation settings...</div>
+        <div className="text-slate-500 dark:text-slate-400">Loading quotation settings...</div>
       </div>
     );
   }
@@ -280,7 +280,7 @@ export default function QuotationManagementPage() {
   if (!quotationSettings) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-slate-500">Failed to load settings</div>
+        <div className="text-slate-500 dark:text-slate-400">Failed to load settings</div>
       </div>
     );
   }
@@ -292,19 +292,19 @@ export default function QuotationManagementPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Quotation Settings</h1>
-          <p className="text-slate-600 mt-1">Configure dropdown options for the quotation calculator - changes reflect immediately on homepage</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quotation Settings</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Configure dropdown options for the quotation calculator - changes reflect immediately on homepage</p>
         </div>
       </div>
 
       {/* Info Banner */}
-      <Card className="border-2 border-blue-200 bg-blue-50">
+      <Card className="border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <Settings className="w-5 h-5 text-blue-600 mt-0.5" />
+            <Settings className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
             <div>
-              <p className="font-bold text-blue-900 text-sm">Configuration Options Only</p>
-              <p className="text-blue-700 text-xs mt-1">
+              <p className="font-bold text-blue-900 dark:text-blue-100 text-sm">Configuration Options Only</p>
+              <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
                 Manage dropdown options for the quotation calculator (Camera Types, Brands, Channels, etc.). 
                 For pricing, go to <strong>Product & Pricing Master</strong> page.
               </p>
@@ -329,10 +329,10 @@ export default function QuotationManagementPage() {
         {/* Camera Types Tab */}
         <TabsContent value="camera-types">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Camera className="w-5 h-5" />
                     Camera Types
                   </CardTitle>
@@ -346,17 +346,17 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Name</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Display Order</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Name</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Display Order</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {cameraTypes.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.name}</td>
                       <td className="px-6 py-4 text-center">{item.display_order}</td>
                       <td className="px-6 py-4 text-center">
@@ -379,10 +379,10 @@ export default function QuotationManagementPage() {
         {/* Brands Tab */}
         <TabsContent value="brands">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Tag className="w-5 h-5" />
                     Camera Brands
                   </CardTitle>
@@ -401,21 +401,21 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Brand Logo</th>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Brand Name</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Display Order</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Brand Logo</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Brand Name</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Display Order</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {brands.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4">
                         {item.image_url ? (
-                          <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-slate-200 bg-white">
+                          <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                             <Image 
                               src={item.image_url} 
                               alt={item.name}
@@ -424,7 +424,7 @@ export default function QuotationManagementPage() {
                             />
                           </div>
                         ) : (
-                          <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-bold">
+                          <div className="w-16 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs font-bold">
                             No Logo
                           </div>
                         )}
@@ -460,10 +460,10 @@ export default function QuotationManagementPage() {
         {/* Channels Tab */}
         <TabsContent value="channels">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Grid className="w-5 h-5" />
                     Channel Options
                   </CardTitle>
@@ -477,17 +477,17 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Channels</th>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Features</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Channels</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Features</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {channels.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.channel_count} Ch</td>
                       <td className="px-6 py-4">
                         <ul className="text-xs space-y-1">
@@ -516,10 +516,10 @@ export default function QuotationManagementPage() {
         {/* Pixels Tab */}
         <TabsContent value="pixels">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Monitor className="w-5 h-5" />
                     Pixel Options
                   </CardTitle>
@@ -533,17 +533,17 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Resolution</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Display Order</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Resolution</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Display Order</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {pixels.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.name}</td>
                       <td className="px-6 py-4 text-center">{item.display_order}</td>
                       <td className="px-6 py-4 text-center">
@@ -566,10 +566,10 @@ export default function QuotationManagementPage() {
         {/* Tech Types Tab */}
         <TabsContent value="tech-types">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Camera className="w-5 h-5" />
                     Camera Technology Types
                   </CardTitle>
@@ -583,17 +583,17 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Type Name</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Camera</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Location</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Type Name</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Camera</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Location</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {techTypes.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.name}</td>
                       <td className="px-6 py-4 text-center">
                         <Badge variant="outline">{item.camera_type}</Badge>
@@ -618,10 +618,10 @@ export default function QuotationManagementPage() {
         {/* Storage Tab */}
         <TabsContent value="storage">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <HardDrive className="w-5 h-5" />
                     Storage Options
                   </CardTitle>
@@ -635,16 +635,16 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Capacity</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Capacity</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {storage.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.capacity}</td>
                       <td className="px-6 py-4 text-center">
                         <Badge className="bg-green-100 text-green-800">Active</Badge>
@@ -666,10 +666,10 @@ export default function QuotationManagementPage() {
         {/* Cables Tab */}
         <TabsContent value="cables">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Cable className="w-5 h-5" />
                     Cable Options
                   </CardTitle>
@@ -683,17 +683,17 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Cable Name</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Type</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Length</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Cable Name</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Type</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Length</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {cables.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.name}</td>
                       <td className="px-6 py-4 text-center">
                         <Badge variant="outline">{item.cable_type}</Badge>
@@ -716,10 +716,10 @@ export default function QuotationManagementPage() {
         {/* Accessories Tab */}
         <TabsContent value="accessories">
           <Card className="border-2 shadow-lg">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="font-black text-slate-900 flex items-center gap-2">
+                  <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Box className="w-5 h-5" />
                     Accessories
                   </CardTitle>
@@ -733,16 +733,16 @@ export default function QuotationManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full">
-                <thead className="bg-slate-100 border-b-2">
+                <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 uppercase">Accessory Name</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Accessory Name</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y dark:divide-slate-700">
                   {accessories.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-6 py-4 font-bold">{item.name}</td>
                       <td className="px-6 py-4 text-center">
                         <Badge className="bg-green-100 text-green-800">Active</Badge>
@@ -877,7 +877,7 @@ export default function QuotationManagementPage() {
                       onChange={handleImageChange}
                       className="cursor-pointer"
                     />
-                    <p className="text-xs text-slate-500">Upload a brand logo (PNG, JPG, or WebP recommended)</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Upload a brand logo (PNG, JPG, or WebP recommended)</p>
                   </div>
                 )}
               </>
@@ -945,13 +945,13 @@ export default function QuotationManagementPage() {
                       onChange={handleImageChange}
                       className="cursor-pointer"
                     />
-                    <p className="text-xs text-slate-500">Upload a brand logo (PNG, JPG, or WebP recommended)</p>
-                    <p className="text-xs text-blue-600 font-semibold">Display order will be auto-generated based on entry sequence</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Upload a brand logo (PNG, JPG, or WebP recommended)</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">Display order will be auto-generated based on entry sequence</p>
                   </div>
                 )}
                 {(showAddModal === 'camera_types' || showAddModal === 'pixel_options') && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
-                    <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3 mt-2">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                   </div>
                 )}
                 <input type="hidden" value={formData.display_order || 0} />
@@ -966,7 +966,7 @@ export default function QuotationManagementPage() {
                     onChange={(e) => setFormData({...formData, channel_count: parseInt(e.target.value)})}
                     placeholder="e.g., 4, 8, 16, 32"
                   />
-                  <p className="text-xs text-slate-500">Enter the number of channels (e.g., 4, 8, 16)</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Enter the number of channels (e.g., 4, 8, 16)</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Features (Optional - one per line)</Label>
@@ -976,7 +976,7 @@ export default function QuotationManagementPage() {
                     onChange={(e) => setFormData({...formData, features: e.target.value.split('\n').filter((f: string) => f.trim())})}
                     placeholder="Supports up to 16 Cameras&#10;4K Resolution Support&#10;2 SATA Ports&#10;H.265+ Compression&#10;Smart Detection"
                   />
-                  <p className="text-xs text-slate-500">These features will be displayed only on the Automated Quotation page</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">These features will be displayed only on the Automated Quotation page</p>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                   <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
@@ -1000,8 +1000,8 @@ export default function QuotationManagementPage() {
                     placeholder="e.g., 1TB, 2TB, 4TB"
                   />
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
                 <input type="hidden" value={formData.display_order || 0} />
               </>
@@ -1038,8 +1038,8 @@ export default function QuotationManagementPage() {
                     <option value="outdoor">Outdoor</option>
                   </select>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
                 <input type="hidden" value={formData.display_order || 0} />
               </>
@@ -1072,8 +1072,8 @@ export default function QuotationManagementPage() {
                     placeholder="e.g., 90M, 180M, 305M"
                   />
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
                 <input type="hidden" value={formData.display_order || 0} />
               </>
@@ -1087,8 +1087,8 @@ export default function QuotationManagementPage() {
                     placeholder="e.g., BNC Connectors"
                   />
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-xs text-blue-700 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold">ℹ️ Display order will be auto-generated based on entry sequence</p>
                 </div>
                 <input type="hidden" value={formData.display_order || 0} />
               </>

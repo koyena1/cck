@@ -468,7 +468,7 @@ ${tableHeaders}
                 <td className="px-6 py-4 text-sm text-gray-900">{product.name}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">{product.brand}</td>
 ${tableCells}
-                <td className="px-6 py-4 text-sm text-gray-900">₹{product.price}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">RS {product.price}</td>
                 <td className="px-6 py-4">
                   <span className={\`px-2 py-1 text-xs rounded-full \${product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}\`}>
                     {product.isActive ? 'Active' : 'Inactive'}

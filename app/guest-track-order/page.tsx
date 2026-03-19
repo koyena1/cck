@@ -286,7 +286,7 @@ function GuestTrackOrderContent() {
                     <div>
                       <p className="text-xs text-slate-600 mb-1">Total Amount</p>
                       <p className="font-bold text-xl text-[#e63946]">
-                        ₹{parseFloat(order.total_amount).toLocaleString('en-IN')}
+                        RS {parseFloat(order.total_amount).toLocaleString('en-IN')}
                       </p>
                     </div>
                   </div>
@@ -323,21 +323,7 @@ function GuestTrackOrderContent() {
                     </div>
                   )}
 
-                  {/* Dealer Info */}
-                  {order.dealer_name && (
-                    <div className="border-t mt-6 pt-6">
-                      <h3 className="font-bold text-sm text-slate-900 mb-2">Assigned Technician</h3>
-                      <div className="flex gap-4 text-sm">
-                        <span className="text-slate-900">{order.dealer_name}</span>
-                        {order.dealer_phone && (
-                          <div className="flex items-center gap-1 text-slate-600">
-                            <Phone className="w-4 h-4" />
-                            {order.dealer_phone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+
                 </CardContent>
               </Card>
 
@@ -356,6 +342,7 @@ function GuestTrackOrderContent() {
                         <div key={item.item_id || index} className="py-4 flex justify-between items-center">
                           <div className="flex-1">
                             <p className="font-medium text-slate-900">{item.item_name}</p>
+                            {item.product_code && <p className="text-xs text-slate-500 font-bold">{item.product_code}</p>}
                             {item.item_description && (
                               <p className="text-sm text-slate-600">{item.item_description}</p>
                             )}
@@ -365,10 +352,10 @@ function GuestTrackOrderContent() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-slate-900">
-                              ₹{parseFloat(item.total_price).toLocaleString('en-IN')}
+                              RS {parseFloat(item.total_price).toLocaleString('en-IN')}
                             </p>
                             <p className="text-xs text-slate-500">
-                              ₹{parseFloat(item.unit_price).toLocaleString('en-IN')} each
+                              RS {parseFloat(item.unit_price).toLocaleString('en-IN')} each
                             </p>
                           </div>
                         </div>
@@ -380,14 +367,14 @@ function GuestTrackOrderContent() {
                         <div className="flex justify-between">
                           <span className="text-slate-600">Subtotal:</span>
                           <span className="text-slate-900">
-                            ₹{parseFloat(order.subtotal || 0).toLocaleString('en-IN')}
+                            RS {parseFloat(order.subtotal || 0).toLocaleString('en-IN')}
                           </span>
                         </div>
                         {order.installation_charges > 0 && (
                           <div className="flex justify-between">
                             <span className="text-slate-600">Installation:</span>
                             <span className="text-slate-900">
-                              ₹{parseFloat(order.installation_charges).toLocaleString('en-IN')}
+                              RS {parseFloat(order.installation_charges).toLocaleString('en-IN')}
                             </span>
                           </div>
                         )}
@@ -395,7 +382,7 @@ function GuestTrackOrderContent() {
                           <div className="flex justify-between">
                             <span className="text-slate-600">Delivery:</span>
                             <span className="text-slate-900">
-                              ₹{parseFloat(order.delivery_charges).toLocaleString('en-IN')}
+                              RS {parseFloat(order.delivery_charges).toLocaleString('en-IN')}
                             </span>
                           </div>
                         )}
@@ -403,20 +390,20 @@ function GuestTrackOrderContent() {
                           <div className="flex justify-between">
                             <span className="text-slate-600">Tax:</span>
                             <span className="text-slate-900">
-                              ₹{parseFloat(order.tax_amount).toLocaleString('en-IN')}
+                              RS {parseFloat(order.tax_amount).toLocaleString('en-IN')}
                             </span>
                           </div>
                         )}
                         {order.discount_amount > 0 && (
                           <div className="flex justify-between text-green-600">
                             <span>Discount:</span>
-                            <span>-₹{parseFloat(order.discount_amount).toLocaleString('en-IN')}</span>
+                            <span>-RS {parseFloat(order.discount_amount).toLocaleString('en-IN')}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                           <span className="text-slate-900">Total:</span>
                           <span className="text-[#e63946]">
-                            ₹{parseFloat(order.total_amount).toLocaleString('en-IN')}
+                            RS {parseFloat(order.total_amount).toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>
@@ -425,7 +412,7 @@ function GuestTrackOrderContent() {
                 </Card>
               )}
 
-              {/* Status History */}
+              {/* Order Timeline — customer-visible events only */}
               {order.statusHistory && order.statusHistory.length > 0 && (
                 <Card className="shadow-lg">
                   <CardHeader>
@@ -447,15 +434,13 @@ function GuestTrackOrderContent() {
                           <div className="flex-1 pb-8">
                             <div className="flex justify-between items-start mb-1">
                               <Badge className={`${getStatusColor(history.status)} text-xs`}>
-                                {formatStatus(history.status)}
+                                {history.status === 'Awaiting Dealer Confirmation' ? 'Being Processed' : formatStatus(history.status)}
                               </Badge>
                               <span className="text-xs text-slate-500">
                                 {formatDate(history.created_at)}
                               </span>
                             </div>
-                            {history.remarks && (
-                              <p className="text-sm text-slate-700 mt-2">{history.remarks}</p>
-                            )}
+                            <p className="text-sm text-slate-700 mt-2">{history.remarks}</p>
                           </div>
                         </div>
                       ))}

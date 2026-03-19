@@ -215,7 +215,7 @@ function generateSampleExcel() {
       '': ''
     },
     {
-      'INSTRUCTIONS FOR FILLING THIS EXCEL': '- Do not use currency symbols like ₹ or $',
+      'INSTRUCTIONS FOR FILLING THIS EXCEL': '- Do not use currency symbols like RS or $',
       '': ''
     },
     {
