@@ -67,7 +67,7 @@ const SelectTrigger = ({ className, children }: any) => {
       type="button"
       onClick={() => setIsOpen(!isOpen)}
       className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-10 w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
         className
       )}
     >
@@ -77,9 +77,9 @@ const SelectTrigger = ({ className, children }: any) => {
   );
 };
 
-const SelectValue = ({ placeholder }: any) => {
+const SelectValue = ({ placeholder, children }: any) => {
   const { labelMap, value } = React.useContext(SelectContext);
-  const display = labelMap[value] || value || placeholder || "";
+  const display = children || labelMap[value] || value || placeholder || "";
   return <span className="truncate">{display}</span>;
 };
 
@@ -91,7 +91,7 @@ const SelectContent = ({ children, className }: any) => {
       <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
       <div
         className={cn(
-          "absolute left-0 top-full mt-1 z-50 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg",
+          "absolute left-0 top-full mt-1 z-50 w-full overflow-hidden rounded-md border border-slate-200 bg-white text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
           className
         )}
       >
@@ -101,7 +101,7 @@ const SelectContent = ({ children, className }: any) => {
   );
 };
 
-const SelectItem = ({ value, children, className }: any) => {
+const SelectItem = ({ value, children, className, disabled = false }: any) => {
   const { onSelect, value: selectedValue, registerLabel } = React.useContext(SelectContext);
   const childText = typeof children === "string" ? children : value;
 
@@ -114,15 +114,20 @@ const SelectItem = ({ value, children, className }: any) => {
   return (
     <div
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-2 pl-8 pr-3 text-sm outline-none hover:bg-slate-100 hover:text-slate-900 transition-colors",
-        isSelected && "bg-slate-50 font-semibold",
+        "relative flex w-full select-none items-center rounded-sm py-2 pl-8 pr-3 text-sm outline-none transition-colors",
+        disabled
+          ? "cursor-not-allowed opacity-50 pointer-events-none"
+          : "cursor-pointer text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-100",
+        isSelected && "bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100",
         className
       )}
-      onClick={() => onSelect(value)}
+      onClick={() => {
+        if (!disabled) onSelect(value);
+      }}
     >
       {isSelected && (
         <span className="absolute left-2 flex items-center justify-center">
-          <Check className="h-4 w-4 text-slate-700" />
+          <Check className="h-4 w-4 text-slate-700 dark:text-slate-200" />
         </span>
       )}
       {children}

@@ -6,20 +6,25 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { orderToken } = body;
+    const searchValue = String(orderToken || '').trim();
 
-    console.log('🔍 Guest Track Order - Token:', orderToken);
+    console.log('🔍 Guest Track Order - Search value:', searchValue);
 
     // Validation
-    if (!orderToken) {
+    if (!searchValue) {
       return NextResponse.json({
         success: false,
-        message: 'Order tracking token is required'
+        message: 'Tracking token or order ID is required'
       }, { status: 400 });
     }
 
     const pool = getPool();
 
-    // Fetch order details using order token
+    const numericOrderId = Number(searchValue);
+    const isNumericOrderId = Number.isInteger(numericOrderId) && numericOrderId > 0;
+    const normalizedOrderNumber = searchValue.toUpperCase();
+
+    // Allow guest search by token, numeric order_id, or order_number
     const orderResult = await pool.query(
       `SELECT 
         o.order_id,
@@ -54,17 +59,28 @@ export async function POST(request: Request) {
         o.created_at,
         o.updated_at
       FROM orders o
-      WHERE o.order_token = $1 AND o.is_guest_order = true`,
-      [orderToken]
+      WHERE o.is_guest_order = true
+        AND (
+          o.order_token = $1
+          OR ($2::int IS NOT NULL AND o.order_id = $2)
+          OR UPPER(o.order_number) = $3
+          OR (
+            o.order_number ~ '^PR-[0-9]+-[0-9]+-[0-9]+$'
+            AND UPPER(REGEXP_REPLACE(o.order_number, '-[0-9]+$', '')) = $3
+          )
+        )
+      ORDER BY o.created_at DESC
+      LIMIT 1`,
+      [searchValue, isNumericOrderId ? numericOrderId : null, normalizedOrderNumber]
     );
 
     console.log('📦 Order query result:', orderResult.rows.length, 'rows');
 
     if (orderResult.rows.length === 0) {
-      console.log('❌ Order not found for token:', orderToken);
+      console.log('❌ Order not found for search value:', searchValue);
       return NextResponse.json({
         success: false,
-        message: 'Order not found. Please check your tracking token.'
+        message: 'Order not found. Please check your tracking token or order ID.'
       }, { status: 404 });
     }
 
@@ -139,12 +155,56 @@ export async function POST(request: Request) {
       console.log('No status history found for order:', order.order_id);
     }
 
+    let latestProgressStatus: string | null = null;
+    try {
+      const latestProgressResult = await pool.query(
+        `SELECT status_label
+        FROM order_progress_updates
+        WHERE order_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1`,
+        [order.order_id]
+      );
+
+      if (latestProgressResult.rows.length > 0) {
+        latestProgressStatus = latestProgressResult.rows[0].status_label;
+      }
+    } catch (progressError) {
+      console.log('No progress updates found for order:', order.order_id);
+    }
+
+    let progressUpdates: Array<{
+      id: number;
+      status_label: string;
+      is_delivery_done: boolean;
+      created_at: string | Date;
+    }> = [];
+    try {
+      const progressResult = await pool.query(
+        `SELECT
+          id,
+          status_label,
+          is_delivery_done,
+          created_at
+        FROM order_progress_updates
+        WHERE order_id = $1
+        ORDER BY created_at ASC`,
+        [order.order_id]
+      );
+
+      progressUpdates = progressResult.rows;
+    } catch (progressError) {
+      console.log('No progress update list found for order:', order.order_id);
+    }
+
     return NextResponse.json({
       success: true,
       order: {
         ...order,
         items: itemsResult.rows,
         statusHistory: statusHistory,
+        latestProgressStatus,
+        progressUpdates,
       }
     });
 

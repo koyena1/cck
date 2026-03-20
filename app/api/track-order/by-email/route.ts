@@ -87,9 +87,29 @@ export async function POST(request: Request) {
       historyByOrderId.set(orderId, history);
     }
 
+    const progressResult = await pool.query(
+      `SELECT DISTINCT ON (order_id)
+        order_id,
+        status_label,
+        created_at
+      FROM order_progress_updates
+      WHERE order_id = ANY($1::int[])
+      ORDER BY order_id, created_at DESC`,
+      [orderIds]
+    );
+
+    const latestProgressByOrderId = new Map<number, { status_label: string; created_at: string }>();
+    for (const row of progressResult.rows) {
+      latestProgressByOrderId.set(Number(row.order_id), {
+        status_label: row.status_label,
+        created_at: row.created_at,
+      });
+    }
+
     const ordersWithHistory = orders.map((order) => ({
       ...order,
       statusHistory: historyByOrderId.get(Number(order.order_id)) || [],
+      latestProgressStatus: latestProgressByOrderId.get(Number(order.order_id))?.status_label || null,
     }));
 
     return NextResponse.json({

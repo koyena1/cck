@@ -9,6 +9,7 @@ import {
   isValidCategorySelection,
   normalizeTicketStatus
 } from '@/lib/support-ticket';
+import { sendSupportTicketBellNotifications } from '@/lib/support-ticket-notifications';
 
 function roleFromQuery(value: string | null): TicketViewerRole {
   if (value === 'customer' || value === 'district' || value === 'dealer') return value;
@@ -43,7 +44,32 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'district is required' }, { status: 400 });
       }
       values.push(district.trim().toLowerCase());
-      whereParts.push(`LOWER(COALESCE(st.district, '')) = $${values.length}`);
+      whereParts.push(`
+        LOWER(
+          COALESCE(
+            NULLIF(TRIM(st.district), ''),
+            (
+              SELECT d_ticket.district
+              FROM dealers d_ticket
+              WHERE d_ticket.dealer_id = COALESCE(
+                (SELECT so.assigned_dealer_id FROM orders so WHERE so.order_id = st.reference_order_id),
+                st.dealer_id
+              )
+              LIMIT 1
+            ),
+            (
+              SELECT d_recent.district
+              FROM orders o_recent
+              LEFT JOIN dealers d_recent ON d_recent.dealer_id = o_recent.assigned_dealer_id
+              WHERE LOWER(TRIM(COALESCE(o_recent.customer_email, ''))) = LOWER(TRIM(st.customer_email))
+                AND o_recent.assigned_dealer_id IS NOT NULL
+              ORDER BY o_recent.created_at DESC
+              LIMIT 1
+            ),
+            ''
+          )
+        ) = $${values.length}
+      `);
     }
 
     if (viewer === 'dealer') {
@@ -52,7 +78,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'dealerId is required' }, { status: 400 });
       }
       values.push(parsedDealerId);
-      whereParts.push(`st.dealer_id = $${values.length}`);
+      whereParts.push(`COALESCE(
+        (SELECT so.assigned_dealer_id FROM orders so WHERE so.order_id = st.reference_order_id),
+        st.dealer_id,
+        (
+          SELECT o_recent.assigned_dealer_id
+          FROM orders o_recent
+          WHERE LOWER(TRIM(COALESCE(o_recent.customer_email, ''))) = LOWER(TRIM(st.customer_email))
+            AND o_recent.assigned_dealer_id IS NOT NULL
+          ORDER BY o_recent.created_at DESC
+          LIMIT 1
+        )
+      ) = $${values.length}`);
     }
 
     if (status) {
@@ -72,21 +109,36 @@ export async function GET(request: NextRequest) {
         st.customer_phone,
         st.category,
         st.sub_category,
-        st.reference_order_id,
-        st.reference_order_number,
+        COALESCE(st.reference_order_id, inf.order_id) AS reference_order_id,
+        COALESCE(st.reference_order_number, o.order_number, inf.order_number) AS reference_order_number,
         st.description,
         st.attachment_url,
-        st.district,
-        st.dealer_id,
+        COALESCE(st.district, d.district, inf.district) AS district,
+        COALESCE(o.assigned_dealer_id, st.dealer_id, inf.assigned_dealer_id) AS dealer_id,
         d.full_name AS dealer_name,
         d.business_name AS dealer_business_name,
+        d.unique_dealer_id AS dealer_unique_id,
         st.status,
         st.priority,
         st.last_message_at,
         st.created_at,
         st.updated_at
       FROM support_tickets st
-      LEFT JOIN dealers d ON d.dealer_id = st.dealer_id
+      LEFT JOIN orders o ON o.order_id = st.reference_order_id
+      LEFT JOIN LATERAL (
+        SELECT
+          o_recent.order_id,
+          o_recent.order_number,
+          o_recent.assigned_dealer_id,
+          d_recent.district
+        FROM orders o_recent
+        LEFT JOIN dealers d_recent ON d_recent.dealer_id = o_recent.assigned_dealer_id
+        WHERE LOWER(TRIM(COALESCE(o_recent.customer_email, ''))) = LOWER(TRIM(st.customer_email))
+          AND o_recent.assigned_dealer_id IS NOT NULL
+        ORDER BY o_recent.created_at DESC
+        LIMIT 1
+      ) inf ON true
+      LEFT JOIN dealers d ON d.dealer_id = COALESCE(o.assigned_dealer_id, st.dealer_id, inf.assigned_dealer_id)
       ${whereClause}
       ORDER BY st.last_message_at DESC, st.created_at DESC`,
       values
@@ -234,6 +286,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // If ticket is created without explicit order reference, infer dealer/district
+    // from the customer's latest dealer-assigned order so district visibility stays accurate.
+    if (!dealerId || !district) {
+      const inferredRes = await pool.query(
+        `SELECT
+          o.assigned_dealer_id,
+          d.district AS dealer_district,
+          pm.district AS pincode_district
+        FROM orders o
+        LEFT JOIN dealers d ON d.dealer_id = o.assigned_dealer_id
+        LEFT JOIN pincode_master pm ON pm.pincode = o.pincode
+        WHERE LOWER(TRIM(COALESCE(o.customer_email, ''))) = LOWER(TRIM($1))
+          AND o.assigned_dealer_id IS NOT NULL
+        ORDER BY o.created_at DESC
+        LIMIT 1`,
+        [normalizedEmail]
+      );
+
+      if (inferredRes.rows.length > 0) {
+        const inferred = inferredRes.rows[0];
+        dealerId = dealerId || inferred.assigned_dealer_id || null;
+        district = district || inferred.dealer_district || inferred.pincode_district || null;
+      }
+    }
+
     const ticketInsert = await pool.query(
       `INSERT INTO support_tickets (
         ticket_number,
@@ -290,6 +367,21 @@ export async function POST(request: NextRequest) {
       ) VALUES ($1,'customer','customer',$2,$3,$4,false,CURRENT_TIMESTAMP)`,
       [ticket.ticket_id, displaySenderName('customer', String(customerName)), String(explanation).trim(), attachmentUrl ? String(attachmentUrl).trim() : null]
     );
+
+    await sendSupportTicketBellNotifications({
+      ticketId: ticket.ticket_id,
+      ticketNumber: ticket.ticket_number,
+      customerName: ticket.customer_name,
+      category: ticket.category,
+      subCategory: ticket.sub_category,
+      district: ticket.district,
+      dealerId: ticket.dealer_id,
+      event: 'created',
+      actorRole: 'customer',
+      actorName: ticket.customer_name,
+      messagePreview: String(explanation).trim(),
+      status: ticket.status,
+    });
 
     return NextResponse.json({ success: true, ticket, categories: SUPPORT_CATEGORIES });
   } catch (error) {
@@ -353,7 +445,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Ticket not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, ticket: result.rows[0] });
+    const updatedTicket = result.rows[0];
+    await sendSupportTicketBellNotifications({
+      ticketId: updatedTicket.ticket_id,
+      ticketNumber: updatedTicket.ticket_number,
+      customerName: updatedTicket.customer_name,
+      category: updatedTicket.category,
+      subCategory: updatedTicket.sub_category,
+      district: updatedTicket.district,
+      dealerId: updatedTicket.dealer_id,
+      event: 'status',
+      actorRole: 'admin',
+      actorName: 'Admin(Protechtur)',
+      status: updatedTicket.status,
+    });
+
+    return NextResponse.json({ success: true, ticket: updatedTicket });
   } catch (error) {
     console.error('Support ticket update error:', error);
     return NextResponse.json({ success: false, error: 'Failed to update support ticket' }, { status: 500 });

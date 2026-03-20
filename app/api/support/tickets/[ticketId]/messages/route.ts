@@ -6,6 +6,7 @@ import {
   ensureSupportTicketTables,
   normalizeChannel
 } from '@/lib/support-ticket';
+import { sendSupportTicketBellNotifications } from '@/lib/support-ticket-notifications';
 
 function parseRole(value: unknown): TicketViewerRole {
   if (value === 'customer' || value === 'district' || value === 'dealer') return value;
@@ -37,10 +38,17 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Message or attachment is required' }, { status: 400 });
     }
 
-    const ticketResult = await pool.query('SELECT ticket_id FROM support_tickets WHERE ticket_id = $1 LIMIT 1', [parsedTicketId]);
+    const ticketResult = await pool.query(
+      `SELECT ticket_id, ticket_number, customer_name, category, sub_category, district, dealer_id, status
+       FROM support_tickets
+       WHERE ticket_id = $1
+       LIMIT 1`,
+      [parsedTicketId]
+    );
     if (ticketResult.rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Ticket not found' }, { status: 404 });
     }
+    const ticket = ticketResult.rows[0];
 
     let channel: 'customer' | 'dealer' = inputChannel;
     if (viewerRole === 'customer') channel = 'customer';
@@ -76,6 +84,21 @@ export async function POST(
        WHERE ticket_id = $1`,
       [parsedTicketId, viewerRole, nextStatus]
     );
+
+    await sendSupportTicketBellNotifications({
+      ticketId: ticket.ticket_id,
+      ticketNumber: ticket.ticket_number,
+      customerName: ticket.customer_name,
+      category: ticket.category,
+      subCategory: ticket.sub_category,
+      district: ticket.district,
+      dealerId: ticket.dealer_id,
+      event: 'message',
+      actorRole: viewerRole,
+      actorName: senderName,
+      messagePreview: message,
+      status: nextStatus,
+    });
 
     return NextResponse.json({ success: true, message: insertResult.rows[0] });
   } catch (error) {

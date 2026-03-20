@@ -278,17 +278,17 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose} modal={true}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-[#e63946]/30 text-white z-[100]">
+      <DialogContent className="sm:max-w-125 max-h-[90vh] overflow-y-auto bg-white border border-slate-200 text-slate-900 z-100 shadow-2xl">
         <button
           onClick={handleClose}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10"
         >
-          <X className="h-4 w-4 text-white" />
+          <X className="h-4 w-4 text-slate-700" />
           <span className="sr-only">Close</span>
         </button>
 
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold text-white flex items-center justify-center gap-2">
+          <DialogTitle className="text-center text-2xl font-bold text-slate-900 flex items-center justify-center gap-2">
             <UserCircle className="w-6 h-6 text-[#e63946]" />
             {isLogin ? "Customer Login" : "Create Account"}
           </DialogTitle>
@@ -299,13 +299,13 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
         <div className="mt-4">
           {error && (
-            <div className="p-3 mb-4 bg-red-500/20 text-red-300 text-sm rounded-lg border border-red-500/30">
+            <div className="p-3 mb-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
               {error}
             </div>
           )}
           
           {message && (
-            <div className="p-3 mb-4 bg-green-500/20 text-green-300 text-sm rounded-lg border border-green-500/30">
+            <div className="p-3 mb-4 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200">
               {message}
             </div>
           )}
@@ -314,16 +314,16 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
             {/* Register Fields */}
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="fullName" className="text-gray-300">Full Name</Label>
+                <Label htmlFor="fullName" className="text-slate-700">Full Name</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="fullName"
                     placeholder="Enter your full name"
                     required
                     value={formData.fullName}
                     onChange={e => setFormData({...formData, fullName: e.target.value})}
-                    className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                    className="bg-white border-slate-300 pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                   />
                 </div>
               </div>
@@ -331,12 +331,12 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">
-                Email Address {!isLogin && otpVerified && <span className="text-green-400">✓ Verified</span>}
+              <Label htmlFor="email" className="text-slate-700">
+                Email Address {!isLogin && otpVerified && <span className="text-green-600">✓ Verified</span>}
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="email"
                     type="email"
@@ -353,7 +353,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                       }
                     }}
                     disabled={!isLogin && otpVerified}
-                    className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                    className="bg-white border-slate-300 pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                   />
                 </div>
                 {!isLogin && !otpVerified && (
@@ -383,7 +383,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
             {/* OTP Input for Email Verification - Register Only */}
             {!isLogin && otpSent && !otpVerified && (
               <div className="space-y-2">
-                <Label htmlFor="otp" className="text-gray-300">Enter Verification Code</Label>
+                <Label htmlFor="otp" className="text-slate-700">Enter Verification Code</Label>
                 <div className="flex gap-2">
                   <Input
                     id="otp"
@@ -392,7 +392,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                     maxLength={6}
                     value={otp}
                     onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 focus:border-[#e63946] text-center text-lg tracking-widest"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946] text-center text-lg tracking-widest"
                   />
                   <Button
                     type="button"
@@ -410,7 +410,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-slate-500">
                   Check your email inbox for the verification code
                 </p>
               </div>
@@ -419,9 +419,9 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
             {/* Phone - Register Only (optional contact info) */}
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-gray-300">Phone Number</Label>
+                <Label htmlFor="phone" className="text-slate-700">Phone Number</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="phone"
                     type="tel"
@@ -429,7 +429,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                     required
                     value={formData.phone}
                     onChange={e => setFormData({...formData, phone: e.target.value})}
-                    className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                    className="bg-white border-slate-300 pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                   />
                 </div>
               </div>
@@ -437,9 +437,9 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300">Password</Label>
+              <Label htmlFor="password" className="text-slate-700">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -447,12 +447,12 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                   required
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
-                  className="bg-slate-700/50 border-slate-600 pl-10 pr-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                  className="bg-white border-slate-300 pl-10 pr-10 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -462,9 +462,9 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
             {/* Confirm Password - Register Only */}
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-gray-300">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="text-slate-700">Confirm Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
@@ -472,12 +472,12 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                     required
                     value={formData.confirmPassword}
                     onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                    className="bg-slate-700/50 border-slate-600 pl-10 pr-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                    className="bg-white border-slate-300 pl-10 pr-10 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -489,26 +489,26 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
             {!isLogin && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-gray-300">Address (Optional)</Label>
+                  <Label htmlFor="address" className="text-slate-700">Address (Optional)</Label>
                   <Input
                     id="address"
                     placeholder="Enter your address"
                     value={formData.address}
                     onChange={e => setFormData({...formData, address: e.target.value})}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                    className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pincode" className="text-gray-300">Pincode (Optional)</Label>
+                  <Label htmlFor="pincode" className="text-slate-700">Pincode (Optional)</Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
                       id="pincode"
                       placeholder="Enter your pincode"
                       value={formData.pincode}
                       onChange={e => setFormData({...formData, pincode: e.target.value})}
-                      className="bg-slate-700/50 border-slate-600 pl-10 text-white placeholder:text-gray-500 focus:border-[#e63946]"
+                      className="bg-white border-slate-300 pl-10 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#e63946]"
                     />
                   </div>
                 </div>
@@ -539,7 +539,7 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
                 setIsLogin(!isLogin)
                 resetForm()
               }}
-              className="text-sm text-gray-400 hover:text-[#e63946] transition-colors"
+              className="text-sm text-slate-600 hover:text-[#e63946] transition-colors"
             >
               {isLogin ? (
                 <>Don't have an account? <span className="font-semibold">Create one</span></>

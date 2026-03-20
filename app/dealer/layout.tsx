@@ -275,7 +275,6 @@ function DealerLayoutContent({
     { icon: LayoutDashboard, label: "Dashboard", href: "/dealer/dashboard" },
     { icon: ClipboardList, label: "Order Details", href: "/dealer/order-requests" },
     { icon: FileText, label: "Proforma", href: "/dealer/proforma" },
-    { icon: Headset, label: "Service Support", href: "/dealer/service-support" },
     { icon: Trophy, label: "Rewards", href: "/dealer/rewards" },
     // { icon: MapPin, label: "Service Areas", href: "/dealer/service-areas" },
     { icon: DollarSign, label: "Pricing", href: "/dealer/pricing" },
@@ -463,6 +462,15 @@ function DealerLayoutContent({
 
         {/* Right Side - Mobile & Desktop */}
         <div className="flex items-center gap-2">
+          {/* Service Support Shortcut - Mobile */}
+          <Link
+            href="/dealer/service-support"
+            className="lg:hidden relative flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            title="Service Support"
+          >
+            <Headset className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+          </Link>
+
           {/* Notification Bell - Mobile (visible only on mobile) */}
           <div className="lg:hidden relative" ref={mobileNotificationRef}>
             <button
@@ -568,6 +576,14 @@ function DealerLayoutContent({
 
             {/* Dealer Info with dropdown */}
             <div className="hidden lg:flex items-center gap-3">
+              <Link
+                href="/dealer/service-support"
+                className="relative flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+                title="Service Support"
+              >
+                <Headset className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+              </Link>
+
               {/* Notification Bell */}
               <div className="relative" ref={notificationRef}>
               <button
@@ -867,7 +883,7 @@ function DealerLayoutContent({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 min-h-screen h-screen overflow-hidden pt-16 md:ml-16">
+      <main className="flex-1 min-h-screen h-screen overflow-hidden pt-16 md:ml-16 md:pl-3">
         {/* Mobile Overlay */}
         {isMobileMenuOpen && (
           <div 

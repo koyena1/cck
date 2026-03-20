@@ -47,6 +47,30 @@ type TicketItem = {
 
 type CategoriesMap = Record<string, string[]>;
 
+const roleLabelBySenderRole: Record<string, string> = {
+  admin: "Admin(Protechtur)",
+  district: "District Manager",
+  dealer: "Dealer",
+  customer: "Customer",
+};
+
+function getSenderRoleLabel(senderRole?: string | null) {
+  const normalizedRole = String(senderRole || "").trim().toLowerCase();
+  return roleLabelBySenderRole[normalizedRole] || "Support Team";
+}
+
+function getSenderDisplayText(message: Pick<TicketMessage, "sender_role" | "sender_name">) {
+  const normalizedRole = String(message.sender_role || "").trim().toLowerCase();
+  const roleLabel = getSenderRoleLabel(message.sender_role);
+  const senderName = String(message.sender_name || "").trim();
+
+  if (normalizedRole === "admin") return roleLabel;
+  if (!senderName) return roleLabel;
+  if (senderName.toLowerCase() === roleLabel.toLowerCase()) return roleLabel;
+
+  return `${senderName} (${roleLabel})`;
+}
+
 interface HelpDeskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -366,7 +390,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
                   {selectedTicket.messages.map((message) => (
                     <div key={message.message_id} className="rounded-md bg-slate-50 p-2">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-slate-700">{message.sender_name || message.sender_role}</p>
+                        <p className="text-xs font-semibold text-slate-700">{getSenderDisplayText(message)}</p>
                         <p className="text-[11px] text-slate-400">{new Date(message.created_at).toLocaleString("en-IN")}</p>
                       </div>
                       {message.message_text && <p className="mt-1 text-xs text-slate-600">{message.message_text}</p>}

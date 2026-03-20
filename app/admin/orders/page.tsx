@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { 
   Package, 
@@ -1208,6 +1209,8 @@ function getStatusStyle(status: string): string {
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<'all' | 'pending' | 'closed' | 'unassigned'>('all');
@@ -1222,6 +1225,16 @@ export default function OrdersPage() {
   const [acceptingTaskId, setAcceptingTaskId] = useState<number | null>(null);
 
   useEffect(() => { fetchOrders(); }, []);
+
+  useEffect(() => {
+    const viewOrderIdParam = searchParams.get('viewOrderId');
+    if (!viewOrderIdParam) return;
+
+    const parsed = Number(viewOrderIdParam);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      setViewOrderId(parsed);
+    }
+  }, [searchParams]);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -1721,8 +1734,15 @@ export default function OrdersPage() {
       {viewOrderId !== null && (
         <ViewDetailsModal
           orderId={viewOrderId}
-          onClose={() => setViewOrderId(null)}
-          onOrderUpdated={() => { fetchOrders(); setViewOrderId(null); }}
+          onClose={() => {
+            setViewOrderId(null);
+            router.replace('/admin/orders');
+          }}
+          onOrderUpdated={() => {
+            fetchOrders();
+            setViewOrderId(null);
+            router.replace('/admin/orders');
+          }}
         />
       )}
     </>

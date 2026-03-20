@@ -11,13 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Activity,
   Package,
   CheckCircle2,
+  CheckCheck,
   MapPin,
   Calendar,
   User,
   CreditCard,
   Loader2,
+  RefreshCw,
   Search,
   Truck,
   Clock,
@@ -25,6 +28,13 @@ import {
   Mail,
   Home,
 } from 'lucide-react';
+
+const PROGRESS_STATUS_OPTIONS = [
+  { value: 'In Progress', emoji: '🔧' },
+  { value: 'Order Packing Done', emoji: '📦' },
+  { value: 'Order Dispatch', emoji: '🚚' },
+  { value: 'Order Delivery Done', emoji: '✅' },
+] as const;
 
 function GuestTrackOrderContent() {
   const router = useRouter();
@@ -39,7 +49,7 @@ function GuestTrackOrderContent() {
 
   const trackOrder = async () => {
     if (!orderToken.trim()) {
-      setError('Please enter your order tracking token');
+      setError('Please enter your tracking token or order ID');
       return;
     }
 
@@ -60,7 +70,7 @@ function GuestTrackOrderContent() {
         setOrder(data.order);
         setError('');
       } else {
-        setError(data.message || 'Order not found. Please check your tracking token.');
+        setError(data.message || 'Order not found. Please check your tracking token or order ID.');
         setOrder(null);
       }
     } catch (err: any) {
@@ -84,6 +94,11 @@ function GuestTrackOrderContent() {
     const statusLower = status?.toLowerCase() || '';
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'in progress': 'bg-blue-100 text-blue-800 border-blue-200',
+      'in-progress': 'bg-blue-100 text-blue-800 border-blue-200',
+      'order packing done': 'bg-orange-100 text-orange-800 border-orange-200',
+      'order dispatch': 'bg-purple-100 text-purple-800 border-purple-200',
+      'order delivery done': 'bg-green-100 text-green-800 border-green-200',
       verified: 'bg-blue-100 text-blue-800 border-blue-200',
       allocated: 'bg-purple-100 text-purple-800 border-purple-200',
       in_transit: 'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -109,6 +124,10 @@ function GuestTrackOrderContent() {
 
   const formatStatus = (status: string) => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const getDisplayStatus = (orderData: any) => {
+    return orderData?.latestProgressStatus || orderData?.status || 'Unknown';
   };
 
   const formatDate = (dateString: string) => {
@@ -137,7 +156,7 @@ function GuestTrackOrderContent() {
               Track Your Order
             </h1>
             <p className="text-slate-600 text-lg">
-              Enter your tracking token to view order status
+              Enter your tracking token or order ID to view order status
             </p>
           </div>
 
@@ -147,16 +166,16 @@ function GuestTrackOrderContent() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="orderToken" className="text-base font-semibold">
-                    Order Tracking Token
+                    Tracking Token / Order ID
                   </Label>
                   <p className="text-sm text-slate-600 mb-2">
-                    Check your email for the tracking token (Format: TRK-YYYYMMDD-XXXXXXXX)
+                    Use your tracking token (TRK-YYYYMMDD-XXXXXXXX) or your order ID/number.
                   </p>
                   <div className="flex gap-2">
                     <Input
                       id="orderToken"
                       type="text"
-                      placeholder="e.g., TRK-20260212-ABC12345"
+                      placeholder="e.g., TRK-20260212-ABC12345 or PR-190326-040"
                       value={orderToken}
                       onChange={(e) => setOrderToken(e.target.value.toUpperCase())}
                       onKeyPress={(e) => e.key === 'Enter' && trackOrder()}
@@ -194,6 +213,9 @@ function GuestTrackOrderContent() {
 
           {/* Order Details */}
           {order && (
+            (() => {
+              const displayStatus = getDisplayStatus(order);
+              return (
             <div className="space-y-6">
               {/* Success Message */}
               <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg flex items-start gap-3">
@@ -218,8 +240,8 @@ function GuestTrackOrderContent() {
                         Placed on {formatDate(order.created_at)}
                       </p>
                     </div>
-                    <Badge className={`${getStatusColor(order.status)} border-2 text-sm font-semibold py-1 px-3`}>
-                      {formatStatus(order.status)}
+                    <Badge className={`${getStatusColor(displayStatus)} border-2 text-sm font-semibold py-1 px-3`}>
+                      {formatStatus(displayStatus)}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -412,8 +434,93 @@ function GuestTrackOrderContent() {
                 </Card>
               )}
 
+              {/* Order Progress */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-[#e63946]" />
+                    Order Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const updates = order.progressUpdates || [];
+                    const latestLabel = updates.length > 0
+                      ? updates[updates.length - 1].status_label
+                      : '';
+                    const latestIndex = Math.max(
+                      0,
+                      PROGRESS_STATUS_OPTIONS.findIndex((opt) => opt.value === latestLabel)
+                    );
+                    const isDeliveryDone = updates.some(
+                      (u: any) => u.is_delivery_done || u.status_label === 'Order Delivery Done'
+                    );
+
+                    if (updates.length === 0) {
+                      return (
+                        <div className="text-sm text-slate-500 flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4" />
+                          Waiting for dealer to post progress updates.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        <div className="overflow-x-auto pb-2">
+                          <div className="min-w-140 px-2">
+                            <div className="relative">
+                              <div className="absolute left-6 right-6 top-4 h-1 rounded-full bg-slate-300" />
+                              <div
+                                className="absolute left-6 top-4 h-1 rounded-full bg-green-500 transition-all duration-300"
+                                style={{
+                                  width: `${Math.max(0, (latestIndex / (PROGRESS_STATUS_OPTIONS.length - 1)) * 100)}%`,
+                                  right: 'auto'
+                                }}
+                              />
+                              <div className="relative flex items-start justify-between gap-2">
+                                {PROGRESS_STATUS_OPTIONS.map((opt, idx) => {
+                                  const isDone = idx <= latestIndex;
+                                  const isCurrent = idx === latestIndex && !isDeliveryDone;
+                                  return (
+                                    <div key={opt.value} className="w-28 shrink-0 text-center">
+                                      <div
+                                        className={`mx-auto w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
+                                          isDone
+                                            ? 'bg-green-500 border-green-600 text-white'
+                                            : 'bg-slate-100 border-slate-400 text-slate-500'
+                                        } ${isCurrent ? 'ring-2 ring-green-200' : ''}`}
+                                      >
+                                        {isDone ? '✓' : idx + 1}
+                                      </div>
+                                      <p className={`mt-1 text-[11px] font-semibold leading-tight ${isDone ? 'text-green-700' : 'text-slate-500'}`}>
+                                        {opt.value}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isDeliveryDone && (
+                          <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-300 rounded-xl">
+                            <CheckCheck className="w-5 h-5 text-green-600 shrink-0" />
+                            <div>
+                              <p className="text-sm font-bold text-green-800">Delivery Completed!</p>
+                              <p className="text-xs text-green-600">The order has been closed.</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
               {/* Order Timeline — customer-visible events only */}
-              {order.statusHistory && order.statusHistory.length > 0 && (
+              {order.statusHistory && order.statusHistory.length > 0 && false && (
                 <Card className="shadow-lg">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -453,7 +560,7 @@ function GuestTrackOrderContent() {
               <Card className="bg-blue-50 border-blue-200 shadow-lg">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                       <Phone className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>
@@ -473,6 +580,8 @@ function GuestTrackOrderContent() {
                 </CardContent>
               </Card>
             </div>
+              );
+            })()
           )}
 
           {/* No Results State */}

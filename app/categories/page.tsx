@@ -13,7 +13,7 @@ const categories = [
   {
     id: 1,
     name: "HD Combo",
-    image: "/prod1.jpg", // Fallback - replace with /categories/hd-combo.jpg when available
+    image: "/prod2.jpg", // Temporary fallback - /prod1.jpg is corrupted on disk
     count: 1537,
     description: "Complete HD CCTV combo kits"
   },
@@ -41,7 +41,7 @@ const categories = [
   {
     id: 5,
     name: "Solar Camera",
-    image: "/prod5.jpg", // Fallback - replace with /categories/solar-camera.jpg when available
+    image: "/prod6.jpg", // Temporary fallback - /prod5.jpg is corrupted on disk
     count: 174,
     description: "Solar powered security cameras"
   },
@@ -87,7 +87,7 @@ export default function CategoriesPage() {
         // Use ONLY admin-uploaded images from database
         const logoUrl = brand.image_url && brand.image_url.trim() !== '' 
           ? brand.image_url 
-          : "/placeholder.png";
+          : "/logo2.png";
         
         console.log(`Brand: ${brand.name}, image_url from DB: ${brand.image_url}, Using: ${logoUrl}`);
         

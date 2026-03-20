@@ -499,7 +499,10 @@ export async function sendOrderStatusUpdateEmail(
 ): Promise<boolean> {
   try {
     const trackingUrl = `${WEBSITE_URL}/guest-track-order?token=${orderToken}`;
-    const subject = `Order Update: ${newStatus} - ${orderNumber}`;
+    const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(orderNumber)
+      ? orderNumber.replace(/-\d+$/, '')
+      : orderNumber;
+    const subject = `Order Update: ${newStatus} - ${customerOrderNumber}`;
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -520,7 +523,7 @@ export async function sendOrderStatusUpdateEmail(
       <h1>Order Status Update</h1>
     </div>
     <p>Hello ${customerName},</p>
-    <p>Your order <strong>${orderNumber}</strong> has been updated:</p>
+    <p>Your order <strong>${customerOrderNumber}</strong> has been updated:</p>
     <p><span class="status-badge">${newStatus}</span></p>
     <p style="background: #f8f9fa; padding: 15px; border-left: 4px solid #e63946; margin: 20px 0;">
       ${statusMessage}
@@ -536,7 +539,7 @@ export async function sendOrderStatusUpdateEmail(
     `;
 
     if (DEV_MODE) {
-      console.log(`\n📧 Status Update Email (DEV): ${newStatus} - ${orderNumber}`);
+      console.log(`\n📧 Status Update Email (DEV): ${newStatus} - ${customerOrderNumber}`);
       return true;
     }
 

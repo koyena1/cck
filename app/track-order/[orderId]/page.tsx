@@ -82,6 +82,9 @@ export default function TrackOrderDetailPage() {
       pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
       "in progress": "bg-blue-100 text-blue-800 border-blue-200",
       "in-progress": "bg-blue-100 text-blue-800 border-blue-200",
+      "order packing done": "bg-orange-100 text-orange-800 border-orange-200",
+      "order dispatch": "bg-purple-100 text-purple-800 border-purple-200",
+      "order delivery done": "bg-green-100 text-green-800 border-green-200",
       completed: "bg-green-100 text-green-800 border-green-200",
       cancelled: "bg-red-100 text-red-800 border-red-200",
       delivered: "bg-green-100 text-green-800 border-green-200",
@@ -97,6 +100,14 @@ export default function TrackOrderDetailPage() {
   };
 
   const formatStatus = (status: string) => status?.replace(/_/g, " ") || "Unknown";
+
+  const getDisplayStatus = (orderData: any) => {
+    const updates = orderData?.progressUpdates || [];
+    if (updates.length > 0) {
+      return updates[updates.length - 1].status_label;
+    }
+    return orderData?.status || "Unknown";
+  };
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -134,12 +145,15 @@ export default function TrackOrderDetailPage() {
           )}
 
           {!loading && order && (
+            (() => {
+              const displayStatus = getDisplayStatus(order);
+              return (
             <Card className="bg-white shadow-xl">
               <CardHeader className="bg-[#e63946] text-white">
                 <CardTitle className="flex items-center justify-between">
                   <span>Order Details</span>
-                  <Badge className={`${getStatusColor(order.status)} text-sm px-3 py-1`}>
-                    {order.status}
+                  <Badge className={`${getStatusColor(displayStatus)} text-sm px-3 py-1`}>
+                    {formatStatus(displayStatus)}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -200,8 +214,8 @@ export default function TrackOrderDetailPage() {
                 <div className="pt-4 border-t">
                   <p className="text-xs font-bold uppercase text-slate-500 mb-2">Current Status</p>
                   <div className="flex items-center gap-2">
-                    <Badge className={`${getStatusColor(order.status)} text-sm px-3 py-1`}>
-                      {formatStatus(order.status)}
+                    <Badge className={`${getStatusColor(displayStatus)} text-sm px-3 py-1`}>
+                      {formatStatus(displayStatus)}
                     </Badge>
                   </div>
                 </div>
@@ -293,6 +307,8 @@ export default function TrackOrderDetailPage() {
                 </div>
               </CardContent>
             </Card>
+              );
+            })()
           )}
         </div>
       </section>

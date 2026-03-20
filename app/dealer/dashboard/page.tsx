@@ -80,6 +80,13 @@ export default function DealerDashboard() {
   const [declinedOrdersCount, setDeclinedOrdersCount] = useState<number | null>(null);
   const [transactionsCount, setTransactionsCount] = useState<number | null>(null);
   const [invoiceCount, setInvoiceCount] = useState<number | null>(null);
+  const [totalProformaCount, setTotalProformaCount] = useState<number | null>(null);
+  const [finalizedProformaCount, setFinalizedProformaCount] = useState<number | null>(null);
+  const [claimTotalCount, setClaimTotalCount] = useState<number | null>(null);
+  const [claimOpenCount, setClaimOpenCount] = useState<number | null>(null);
+  const [claimInProgressCount, setClaimInProgressCount] = useState<number | null>(null);
+  const [claimResolvedCount, setClaimResolvedCount] = useState<number | null>(null);
+  const [latestClaimTicketNumber, setLatestClaimTicketNumber] = useState<string>('');
 
   // Growth data
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -140,6 +147,7 @@ export default function DealerDashboard() {
         fetchDeclinedOrdersCount(dId),
         fetchTransactionsCount(dId),
         fetchInvoiceCount(dId),
+        fetchClaimDetails(dId),
         fetchGrowthData(dId, currentYear),
         fetchInventoryActions(dId),
         fetchPendingUpdateOrders(dId),
@@ -162,6 +170,7 @@ export default function DealerDashboard() {
         fetchDeclinedOrdersCount(dealerId);
         fetchTransactionsCount(dealerId);
         fetchInvoiceCount(dealerId);
+        fetchClaimDetails(dealerId);
         fetchInventoryActions(dealerId);
         fetchPendingUpdateOrders(dealerId);
         fetchProformaAlerts(dealerId);
@@ -258,6 +267,45 @@ export default function DealerDashboard() {
     }
   };
 
+  const fetchClaimDetails = async (dId: number) => {
+    try {
+      const response = await fetch(`/api/support/tickets?viewer=dealer&dealerId=${dId}`, {
+        cache: 'no-store'
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        setClaimTotalCount(0);
+        setClaimOpenCount(0);
+        setClaimInProgressCount(0);
+        setClaimResolvedCount(0);
+        setLatestClaimTicketNumber('');
+        return;
+      }
+
+      const tickets = data.tickets || [];
+      const openCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'open').length;
+      const inProgressCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'in_progress').length;
+      const resolvedCount = tickets.filter((ticket: any) => {
+        const status = String(ticket.status || '').toLowerCase();
+        return status === 'resolved' || status === 'closed';
+      }).length;
+
+      setClaimTotalCount(tickets.length);
+      setClaimOpenCount(openCount);
+      setClaimInProgressCount(inProgressCount);
+      setClaimResolvedCount(resolvedCount);
+      setLatestClaimTicketNumber(tickets[0]?.ticket_number || '');
+    } catch (error) {
+      console.error('Failed to fetch claim details:', error);
+      setClaimTotalCount(0);
+      setClaimOpenCount(0);
+      setClaimInProgressCount(0);
+      setClaimResolvedCount(0);
+      setLatestClaimTicketNumber('');
+    }
+  };
+
   const fetchPendingUpdateOrders = async (dId: number) => {
     try {
       // Get accepted orders
@@ -293,16 +341,29 @@ export default function DealerDashboard() {
     try {
       const response = await fetch(`/api/dealer-proformas?dealerId=${dId}`);
       const data = await response.json();
-      if (!data.success) return;
+      if (!data.success) {
+        setProformaAlertCount(0);
+        setTotalProformaCount(0);
+        setFinalizedProformaCount(0);
+        return;
+      }
 
       // Keep transaction alert active until proformas are finalized.
       const unresolvedProformas = (data.proformas || []).filter(
         (proforma: any) => String(proforma.status || '').toLowerCase() !== 'finalized'
       );
+      const finalizedProformas = (data.proformas || []).filter(
+        (proforma: any) => String(proforma.status || '').toLowerCase() === 'finalized'
+      );
 
       setProformaAlertCount(unresolvedProformas.length);
+      setTotalProformaCount((data.proformas || []).length);
+      setFinalizedProformaCount(finalizedProformas.length);
     } catch (error) {
       console.error('Failed to fetch proforma alerts:', error);
+      setProformaAlertCount(0);
+      setTotalProformaCount(0);
+      setFinalizedProformaCount(0);
     }
   };
 
@@ -474,7 +535,8 @@ export default function DealerDashboard() {
         fetchOrderRequestsCount(dealerId),
         fetchDeclinedOrdersCount(dealerId),
         fetchTransactionsCount(dealerId),
-        fetchInvoiceCount(dealerId)
+        fetchInvoiceCount(dealerId),
+        fetchClaimDetails(dealerId)
       ]);
       setLoading(false);
     }
@@ -521,13 +583,31 @@ export default function DealerDashboard() {
   const transactionLineColor = {
     total: lineNotificationFlags.totalTransaction ? 'text-red-600' : 'text-[#0f172a]',
     invoice: (proformaAlertCount > 0 || lineNotificationFlags.invoice) ? 'text-red-600' : 'text-[#0f172a]',
+    profit: 'text-green-600',
+    loss: 'text-red-600',
   };
+
+  const proformaLineColor = {
+    total: (proformaAlertCount > 0 || lineNotificationFlags.invoice) ? 'text-red-600' : 'text-[#0f172a]',
+    pending: proformaAlertCount > 0 ? 'text-red-600' : 'text-[#0f172a]',
+    finalized: (finalizedProformaCount ?? 0) > 0 ? 'text-green-600' : 'text-[#0f172a]',
+  };
+
+  const claimLineColor = {
+    total: (claimOpenCount ?? 0) > 0 ? 'text-red-600' : 'text-[#0f172a]',
+    open: (claimOpenCount ?? 0) > 0 ? 'text-red-600' : 'text-[#0f172a]',
+    inProgress: (claimInProgressCount ?? 0) > 0 ? 'text-blue-600' : 'text-[#0f172a]',
+    resolved: (claimResolvedCount ?? 0) > 0 ? 'text-green-600' : 'text-[#0f172a]',
+  };
+
+  const totalProfitAmount = growthData.reduce((sum, item) => sum + (item.profit || 0), 0);
+  const totalLossAmount = growthData.reduce((sum, item) => sum + (item.loss || 0), 0);
 
   return (
     <div className="min-h-screen pb-10">
       <div className="p-3 sm:p-4 md:p-6 lg:p-10">
         {/* Stats Grid */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mb-6 sm:mb-8">
           <Card
             className="border-none bg-white shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-100"
             onClick={() => router.push('/dealer/order-requests')}
@@ -602,7 +682,7 @@ export default function DealerDashboard() {
           >
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-xs font-bold font-poppins uppercase tracking-wider text-[#0f172a]">
-                Transaction
+                Accounts
               </CardTitle>
               <div className="p-2 bg-[#0f172a] rounded-md">
                 <DollarSign className="w-4 h-4 text-[#facc15]" />
@@ -617,6 +697,82 @@ export default function DealerDashboard() {
                 <li className="flex items-center justify-between gap-2">
                   <span className={transactionLineColor.invoice}>Invoice</span>
                   <span className={`font-bold ${transactionLineColor.invoice}`}>{invoiceCount !== null ? invoiceCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={transactionLineColor.profit}>Total Profit</span>
+                  <span className={`font-bold ${transactionLineColor.profit}`}>RS {totalProfitAmount.toLocaleString('en-IN')}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={transactionLineColor.loss}>Total Loss</span>
+                  <span className={`font-bold ${transactionLineColor.loss}`}>RS {totalLossAmount.toLocaleString('en-IN')}</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="border-none bg-white shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-100"
+            onClick={() => router.push('/dealer/proforma')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs font-bold font-poppins uppercase tracking-wider text-[#0f172a]">
+                Proforma
+              </CardTitle>
+              <div className="p-2 bg-[#0f172a] rounded-md">
+                <FileText className="w-4 h-4 text-[#facc15]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc list-inside space-y-1 text-xs font-poppins font-medium text-[#0f172a] opacity-90">
+                <li className="flex items-center justify-between gap-2">
+                  <span className={proformaLineColor.total}>Total Proforma</span>
+                  <span className={`font-bold ${proformaLineColor.total}`}>{totalProformaCount !== null ? totalProformaCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={proformaLineColor.pending}>Pending Proforma</span>
+                  <span className={`font-bold ${proformaLineColor.pending}`}>{proformaAlertCount.toString().padStart(2, '0')}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={proformaLineColor.finalized}>Finalized Proforma</span>
+                  <span className={`font-bold ${proformaLineColor.finalized}`}>{finalizedProformaCount !== null ? finalizedProformaCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="border-none bg-white shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-100"
+            onClick={() => router.push('/dealer/service-support')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs font-bold font-poppins uppercase tracking-wider text-[#0f172a]">
+                Claim
+              </CardTitle>
+              <div className="p-2 bg-[#0f172a] rounded-md">
+                <Wrench className="w-4 h-4 text-[#facc15]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc list-inside space-y-1 text-xs font-poppins font-medium text-[#0f172a] opacity-90">
+                <li className="flex items-center justify-between gap-2">
+                  <span className={claimLineColor.total}>Total Claim</span>
+                  <span className={`font-bold ${claimLineColor.total}`}>{claimTotalCount !== null ? claimTotalCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={claimLineColor.open}>Open Claim</span>
+                  <span className={`font-bold ${claimLineColor.open}`}>{claimOpenCount !== null ? claimOpenCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={claimLineColor.inProgress}>In Progress</span>
+                  <span className={`font-bold ${claimLineColor.inProgress}`}>{claimInProgressCount !== null ? claimInProgressCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={claimLineColor.resolved}>Resolved</span>
+                  <span className={`font-bold ${claimLineColor.resolved}`}>{claimResolvedCount !== null ? claimResolvedCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="pt-1 text-[10px] text-slate-600 flex items-center justify-between gap-2">
+                  <span>Latest Ticket</span>
+                  <span className="font-mono font-semibold text-[#0f172a]">{latestClaimTicketNumber || '--'}</span>
                 </li>
               </ul>
             </CardContent>
@@ -656,11 +812,11 @@ export default function DealerDashboard() {
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
               {loadingGrowth ? (
-                <div className="h-[300px] flex items-center justify-center">
+                <div className="h-75 flex items-center justify-center">
                   <RefreshCw className="w-8 h-8 animate-spin text-[#facc15]" />
                 </div>
               ) : (
-                <div className="w-full h-[300px]">
+                <div className="w-full h-75">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                       data={growthData}

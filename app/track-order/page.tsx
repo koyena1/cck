@@ -65,11 +65,18 @@ export default function TrackOrderPage() {
       pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
       "in progress": "bg-blue-100 text-blue-800 border-blue-200",
       "in-progress": "bg-blue-100 text-blue-800 border-blue-200",
+      "order packing done": "bg-orange-100 text-orange-800 border-orange-200",
+      "order dispatch": "bg-purple-100 text-purple-800 border-purple-200",
+      "order delivery done": "bg-green-100 text-green-800 border-green-200",
       completed: "bg-green-100 text-green-800 border-green-200",
       cancelled: "bg-red-100 text-red-800 border-red-200",
       delivered: "bg-green-100 text-green-800 border-green-200",
     };
     return colors[statusLower] || "bg-gray-100 text-gray-800 border-gray-200";
+  };
+
+  const getDisplayStatus = (order: any) => {
+    return order.latestProgressStatus || order.status || 'Unknown';
   };
 
   if (loading) {
@@ -139,6 +146,9 @@ export default function TrackOrderPage() {
                 ) : (
                     <div className="space-y-4">
                       {orders.map((order: any) => (
+                        (() => {
+                          const displayStatus = getDisplayStatus(order);
+                          return (
                         <div
                           key={order.order_id}
                           className="p-4 border border-slate-200 rounded-lg hover:border-[#e63946] transition-colors cursor-pointer"
@@ -155,8 +165,8 @@ export default function TrackOrderPage() {
                                 })}
                               </p>
                             </div>
-                            <Badge className={getStatusColor(order.status)}>
-                              {order.status}
+                            <Badge className={getStatusColor(displayStatus)}>
+                              {displayStatus}
                             </Badge>
                           </div>
                           <div className="flex items-center justify-between text-sm">
@@ -171,6 +181,8 @@ export default function TrackOrderPage() {
                             </span>
                           </div>
                         </div>
+                          );
+                        })()
                       ))}
                     </div>
                   )}

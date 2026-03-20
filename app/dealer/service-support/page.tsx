@@ -24,12 +24,14 @@ export default function DealerServiceSupportPage() {
   }, []);
 
   return (
-    <SupportInbox
-      viewerRole="dealer"
-      viewerName={dealerName}
-      dealerId={dealerId}
-      title="Service Support"
-      subtitle="Reply to district manager escalations for customer tickets"
-    />
+    <div className="p-3 sm:p-4 md:p-6 lg:p-10">
+      <SupportInbox
+        viewerRole="dealer"
+        viewerName={dealerName}
+        dealerId={dealerId}
+        title="Service Support"
+        subtitle="Reply to district manager escalations for customer tickets"
+      />
+    </div>
   );
 }
