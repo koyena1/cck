@@ -27,8 +27,8 @@ COMMENT ON COLUMN pincode_master.longitude IS 'Geographic longitude of pincode c
 -- Sample data for testing (West Bengal pincodes)
 INSERT INTO pincode_master (pincode, latitude, longitude, district, state, office_name, office_type)
 VALUES 
-    ('721636', 22.4200, 87.3200, 'East Medinipur', 'West Bengal', 'Tamluk', 'Sub Office'),
-    ('721939', 22.4500, 87.3500, 'East Medinipur', 'West Bengal', 'Deypara', 'Branch Office'),
+    ('721636', 22.4200, 87.3200, 'Purba Medinipur', 'West Bengal', 'Tamluk', 'Sub Office'),
+    ('721939', 22.4500, 87.3500, 'Purba Medinipur', 'West Bengal', 'Deypara', 'Branch Office'),
     ('700001', 22.5726, 88.3639, 'Kolkata', 'West Bengal', 'Kolkata GPO', 'Head Office'),
     ('700091', 22.6100, 88.4000, 'North 24 Parganas', 'West Bengal', 'Barasat', 'Sub Office'),
     ('711101', 22.5800, 88.3200, 'Howrah', 'West Bengal', 'Howrah', 'Head Office')

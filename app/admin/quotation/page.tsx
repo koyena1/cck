@@ -290,9 +290,9 @@ export default function QuotationManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quotation Settings</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quotation Settings</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Configure dropdown options for the quotation calculator - changes reflect immediately on homepage</p>
         </div>
       </div>
@@ -315,22 +315,24 @@ export default function QuotationManagementPage() {
 
       {/* Tabs for different settings */}
       <Tabs defaultValue="camera-types" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
-          <TabsTrigger value="camera-types">Camera Types</TabsTrigger>
-          <TabsTrigger value="brands">Brands</TabsTrigger>
-          <TabsTrigger value="channels">Channels</TabsTrigger>
-          <TabsTrigger value="pixels">Pixels</TabsTrigger>
-          <TabsTrigger value="tech-types">Tech Types</TabsTrigger>
-          <TabsTrigger value="storage">Storage</TabsTrigger>
-          <TabsTrigger value="cables">Cables</TabsTrigger>
-          <TabsTrigger value="accessories">Accessories</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="inline-flex h-auto min-w-max gap-1">
+            <TabsTrigger value="camera-types" className="whitespace-nowrap">Camera Types</TabsTrigger>
+            <TabsTrigger value="brands" className="whitespace-nowrap">Brands</TabsTrigger>
+            <TabsTrigger value="channels" className="whitespace-nowrap">Channels</TabsTrigger>
+            <TabsTrigger value="pixels" className="whitespace-nowrap">Pixels</TabsTrigger>
+            <TabsTrigger value="tech-types" className="whitespace-nowrap">Tech Types</TabsTrigger>
+            <TabsTrigger value="storage" className="whitespace-nowrap">Storage</TabsTrigger>
+            <TabsTrigger value="cables" className="whitespace-nowrap">Cables</TabsTrigger>
+            <TabsTrigger value="accessories" className="whitespace-nowrap">Accessories</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Camera Types Tab */}
         <TabsContent value="camera-types">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Camera className="w-5 h-5" />
@@ -338,14 +340,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>IP Camera, HD Camera options in Step 1</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('camera_types'); setFormData({ name: '', display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('camera_types'); setFormData({ name: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Camera Type
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-160">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Name</th>
@@ -371,7 +374,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -380,7 +384,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="brands">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Tag className="w-5 h-5" />
@@ -388,7 +392,7 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>Hikvision, CP Plus, Honeywell options in Step 2</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { 
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { 
                   setShowAddModal('brands'); 
                   setFormData({ name: '', display_order: 0 }); 
                   setImageFile(null);
@@ -400,7 +404,8 @@ export default function QuotationManagementPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-200">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Brand Logo</th>
@@ -452,7 +457,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -461,7 +467,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="channels">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Grid className="w-5 h-5" />
@@ -469,14 +475,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>4Ch, 8Ch, 16Ch DVR/NVR options in Step 3</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('channel_options'); setFormData({ channel_count: '', features: [''], display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('channel_options'); setFormData({ channel_count: '', features: [''], display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Channel Option
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-180">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Channels</th>
@@ -508,7 +515,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -517,7 +525,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="pixels">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Monitor className="w-5 h-5" />
@@ -525,14 +533,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>2MP, 5MP resolution options in Step 4</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('pixel_options'); setFormData({ name: '', display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('pixel_options'); setFormData({ name: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Pixel Option
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-160">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Resolution</th>
@@ -558,7 +567,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -567,7 +577,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="tech-types">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Camera className="w-5 h-5" />
@@ -575,14 +585,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>HD Non Audio, HD Audio, HD Smart Hybrid pricing in Step 5</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('camera_tech_types'); setFormData({ name: '', camera_type: 'HD', location: 'indoor', display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('camera_tech_types'); setFormData({ name: '', camera_type: 'HD', location: 'indoor', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Tech Type
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-180">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Type Name</th>
@@ -610,7 +621,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -619,7 +631,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="storage">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <HardDrive className="w-5 h-5" />
@@ -627,14 +639,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>HDD capacity options in Step 7</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('storage_options'); setFormData({ capacity: '', display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('storage_options'); setFormData({ capacity: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Storage Option
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-140">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Capacity</th>
@@ -658,7 +671,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -667,7 +681,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="cables">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Cable className="w-5 h-5" />
@@ -675,14 +689,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>Coaxial and LAN cable options in Step 9</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('cable_options'); setFormData({ name: '', cable_type: 'HD', length: '', display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('cable_options'); setFormData({ name: '', cable_type: 'HD', length: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Cable Option
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-180">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Cable Name</th>
@@ -708,7 +723,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -717,7 +733,7 @@ export default function QuotationManagementPage() {
         <TabsContent value="accessories">
           <Card className="border-2 shadow-lg">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b dark:border-slate-700">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Box className="w-5 h-5" />
@@ -725,14 +741,15 @@ export default function QuotationManagementPage() {
                   </CardTitle>
                   <CardDescription>Additional items like BNC connectors, SMPS in Step 10</CardDescription>
                 </div>
-                <Button className="font-bold" onClick={() => { setShowAddModal('accessories'); setFormData({ name: '', display_order: 0 }); }}>
+                <Button className="font-bold w-full sm:w-auto" onClick={() => { setShowAddModal('accessories'); setFormData({ name: '', display_order: 0 }); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Accessory
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-140">
                 <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-black text-slate-600 dark:text-slate-300 uppercase">Accessory Name</th>
@@ -756,7 +773,8 @@ export default function QuotationManagementPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -783,7 +801,7 @@ export default function QuotationManagementPage() {
                 <div className="space-y-2">
                   <Label>Features (one per line)</Label>
                   <textarea
-                    className="w-full px-3 py-2 border rounded-md min-h-[100px]"
+                    className="w-full px-3 py-2 border rounded-md min-h-25"
                     value={Array.isArray(editingItem?.features) ? editingItem.features.join('\n') : (typeof editingItem?.features === 'string' ? JSON.parse(editingItem.features).join('\n') : '')} 
                     onChange={(e) => setEditingItem({...editingItem, features: e.target.value.split('\n').filter((f: string) => f.trim())})}
                   />
@@ -971,7 +989,7 @@ export default function QuotationManagementPage() {
                 <div className="space-y-2">
                   <Label>Features (Optional - one per line)</Label>
                   <textarea
-                    className="w-full px-3 py-2 border rounded-md min-h-[100px]"
+                    className="w-full px-3 py-2 border rounded-md min-h-25"
                     value={Array.isArray(formData.features) ? formData.features.join('\n') : ''} 
                     onChange={(e) => setFormData({...formData, features: e.target.value.split('\n').filter((f: string) => f.trim())})}
                     placeholder="Supports up to 16 Cameras&#10;4K Resolution Support&#10;2 SATA Ports&#10;H.265+ Compression&#10;Smart Detection"

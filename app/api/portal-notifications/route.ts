@@ -74,6 +74,13 @@ export async function GET(request: Request) {
         LIMIT 100
       `;
       params = [recipientKey];
+    } else if (portal === 'bpo') {
+      query = `
+        SELECT * FROM portal_notifications
+        WHERE portal = 'bpo'
+        ORDER BY created_at DESC
+        LIMIT 100
+      `;
     } else {
       return NextResponse.json({ success: false, error: 'Unsupported portal value' }, { status: 400 });
     }

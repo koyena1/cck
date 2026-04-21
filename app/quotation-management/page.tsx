@@ -824,37 +824,16 @@ export default function HomePage() {
         return;
       }
 
-      // Development mode: Skip Razorpay and auto-verify
-      if (razorpayData.devMode) {
-        console.log('🧪 DEV MODE - Simulating successful payment...');
-        
-        const verifyResponse = await fetch('/api/razorpay/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_order_id: razorpayData.orderId,
-            razorpay_payment_id: `pay_DEV${Date.now()}`,
-            razorpay_signature: 'dev_signature',
-            order_number: orderNumberToUse,
-          }),
-        });
-
-        const verifyData = await verifyResponse.json();
-
-        if (verifyData.success) {
-          alert('✅ Payment successful (DEV MODE)! Order placed.');
-          setOrderSuccess(true);
-        } else {
-          alert('Payment verification failed');
-        }
+      // Production mode: Use real Razorpay
+      // Initialize Razorpay checkout
+      if (!razorpayData.keyId) {
+        alert('Razorpay key is missing. Please configure NEXT_PUBLIC_RAZORPAY_KEY_ID.');
         setOrderSubmitting(false);
         return;
       }
 
-      // Production mode: Use real Razorpay
-      // Initialize Razorpay checkout
       const options = {
-        key: 'rzp_test_SC7jHw0oYI68Ps', // Your Razorpay test key
+        key: razorpayData.keyId,
         amount: razorpayData.amount,
         currency: razorpayData.currency,
         name: 'CCTV Store',

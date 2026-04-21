@@ -193,12 +193,12 @@ export async function POST(request: Request) {
           // Process rewards after successful payment
           await processRewards(pool, order.order_id, order.customer_email);
           
-          // If this is a COD advance payment, send order confirmation email now
-          if (order.payment_method === 'cod' && order.customer_email) {
+          // Send post-payment confirmation email now (COD and online).
+          if (order.customer_email) {
             try {
               const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order.order_token}`;
               
-              // Calculate COD payment breakdown
+              // Calculate payment breakdown
               const totalAmount = parseFloat(order.total_amount);
               const subtotalAmount = parseFloat(order.subtotal || 0); // Products only
               const installationCharges = parseFloat(order.installation_charges || 0);
@@ -212,10 +212,7 @@ export async function POST(request: Request) {
               );
               const amcCharges = parseFloat(amcResult.rows[0]?.amc_total || 0);
 
-              // Fetch COD percentage from settings.
-              // advance_amount column is always 0 in the DB because it is never written at order creation,
-              // so we must recalculate: advance = totalAmount × cod_percentage / 100
-              // (totalAmount already includes the flat COD extra fee, matching calculateCODAdvancePayment() on the frontend)
+              // Fetch COD settings for COD payment breakdown.
               const codSettingsResult = await pool.query(
                 'SELECT cod_percentage, cod_advance_amount FROM installation_settings LIMIT 1'
               );
@@ -242,17 +239,23 @@ export async function POST(request: Request) {
               const fullOrderData = fullOrderResult.rows[0] || order;
               fullOrderData._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
               
-              // Calculate breakdown correctly
-              const productTotal = subtotalAmount; // subtotal is ALREADY just products
-              const baseAmount = subtotalAmount + installationCharges + amcCharges; // Product + Installation + AMC
-              const codExtraCharges = totalAmount - baseAmount; // flat COD extra fee (cod_advance_amount from settings)
-              const codAdvancePaid = codPercentage > 0
-                ? Math.round((totalAmount * codPercentage) / 100)
-                : parseFloat(order.advance_amount || 0);
-              const codPendingAmount = totalAmount - codAdvancePaid;
+              const taxAmountValue = parseFloat(fullOrderData.tax_amount || 0) || 0;
+              const productTotal = subtotalAmount;
+              const baseAmount = subtotalAmount + installationCharges + amcCharges;
+              const codExtraCharges = order.payment_method === 'cod'
+                ? Math.max(0, totalAmount - baseAmount - taxAmountValue)
+                : 0;
+              const codAdvancePaid = order.payment_method === 'cod'
+                ? (codPercentage > 0
+                  ? Math.round((totalAmount * codPercentage) / 100)
+                  : parseFloat(order.advance_amount || 0))
+                : 0;
+              const codPendingAmount = order.payment_method === 'cod'
+                ? totalAmount - codAdvancePaid
+                : 0;
 
               // Persist the calculated advance so it is available for admin view and future reference
-              if (codAdvancePaid > 0) {
+              if (order.payment_method === 'cod' && codAdvancePaid > 0) {
                 await pool.query(
                   'UPDATE orders SET advance_amount = $1 WHERE order_id = $2',
                   [codAdvancePaid, order.order_id]
@@ -261,11 +264,11 @@ export async function POST(request: Request) {
 
               // Fetch order items to include in invoice email
               const orderItemsResult = await pool.query(
-                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code
+                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code
                  FROM order_items oi
                  LEFT JOIN dealer_products dp ON dp.id = oi.product_id
                  WHERE oi.order_id = $1
-                 ORDER BY oi.item_id`,
+                 ORDER BY oi.id`,
                 [order.order_id]
               );
 
@@ -275,44 +278,65 @@ export async function POST(request: Request) {
                 customerName: order.customer_name,
                 customerEmail: order.customer_email,
                 totalAmount: totalAmount,
-                paymentMethod: 'cod',
-                paymentStatus: 'Advance Paid',
+                paymentMethod: order.payment_method,
+                paymentStatus: order.payment_method === 'cod' ? 'Advance Paid' : 'Paid',
                 orderDate: order.created_at || new Date().toISOString(),
                 trackingUrl,
                 orderItems: orderItemsResult.rows,
-                // COD Payment Breakdown (matching checkout page format)
+                // Payment breakdown (COD includes advance/pending split)
                 productTotal: productTotal,
                 installationCharges: installationCharges,
                 codExtraCharges: codExtraCharges,
+                taxAmount: taxAmountValue,
                 baseAmount: baseAmount,
                 codAdvancePaid: codAdvancePaid,
                 codPendingAmount: codPendingAmount,
                 fullOrderData,
               });
-              
-              // Log email attempt
+
+              const emailStatus = emailSent ? 'sent' : 'failed';
+              const emailErrorMessage = emailSent ? null : 'sendOrderConfirmationEmail returned false';
+
+              // Log email attempt (success/failure)
+              await pool.query(
+                `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, error_message, sent_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                  order.order_id,
+                  order.customer_email,
+                  'order_confirmation',
+                  `Order Confirmation - ${order.order_number}`,
+                  emailStatus,
+                  emailErrorMessage,
+                  emailSent ? new Date() : null,
+                ]
+              );
+
+              // Update tracking_link_sent flag only when mail is sent
               if (emailSent) {
-                await pool.query(
-                  `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
-                   VALUES ($1, $2, $3, $4, $5, $6)`,
-                  [
-                    order.order_id,
-                    order.customer_email,
-                    'order_confirmation',
-                    `Order Confirmation - ${order.order_number}`,
-                    'sent',
-                    new Date()
-                  ]
-                );
-                
-                // Update tracking_link_sent flag
                 await pool.query(
                   'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
                   [order.order_id]
                 );
               }
             } catch (emailError) {
-              console.error('Error sending COD confirmation email (DEV MODE):', emailError);
+              console.error('Error sending post-payment confirmation email (DEV MODE):', emailError);
+              try {
+                await pool.query(
+                  `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, error_message)
+                   VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [
+                    order.order_id,
+                    order.customer_email,
+                    'order_confirmation',
+                    `Order Confirmation - ${order.order_number}`,
+                    'failed',
+                    emailError instanceof Error ? emailError.message : String(emailError),
+                  ]
+                );
+              } catch (logError) {
+                console.error('Error logging failed email attempt (DEV MODE):', logError);
+              }
               // Don't fail the payment verification if email fails
             }
           }
@@ -361,12 +385,12 @@ export async function POST(request: Request) {
           // Process rewards after successful payment
           await processRewards(pool, order.order_id, order.customer_email);
           
-          // If this is a COD advance payment, send order confirmation email now
-          if (order.payment_method === 'cod' && order.customer_email) {
+          // Send post-payment confirmation email now (COD and online).
+          if (order.customer_email) {
             try {
               const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order.order_token}`;
               
-              // Calculate COD payment breakdown
+              // Calculate payment breakdown
               const totalAmount = parseFloat(order.total_amount);
               const subtotalAmount = parseFloat(order.subtotal || 0); // Products only
               const installationCharges = parseFloat(order.installation_charges || 0);
@@ -380,10 +404,7 @@ export async function POST(request: Request) {
               );
               const amcCharges = parseFloat(amcResult.rows[0]?.amc_total || 0);
 
-              // Fetch COD percentage from settings.
-              // advance_amount column is always 0 in the DB because it is never written at order creation,
-              // so we must recalculate: advance = totalAmount × cod_percentage / 100
-              // (totalAmount already includes the flat COD extra fee, matching calculateCODAdvancePayment() on the frontend)
+              // Fetch COD settings for COD payment breakdown.
               const codSettingsResult = await pool.query(
                 'SELECT cod_percentage, cod_advance_amount FROM installation_settings LIMIT 1'
               );
@@ -410,17 +431,23 @@ export async function POST(request: Request) {
               const fullOrderData = fullOrderResult.rows[0] || order;
               fullOrderData._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
               
-              // Calculate breakdown correctly
-              const productTotal = subtotalAmount; // subtotal is ALREADY just products
-              const baseAmount = subtotalAmount + installationCharges + amcCharges; // Product + Installation + AMC
-              const codExtraCharges = totalAmount - baseAmount; // flat COD extra fee (cod_advance_amount from settings)
-              const codAdvancePaid = codPercentage > 0
-                ? Math.round((totalAmount * codPercentage) / 100)
-                : parseFloat(order.advance_amount || 0);
-              const codPendingAmount = totalAmount - codAdvancePaid;
+              const taxAmountValue = parseFloat(fullOrderData.tax_amount || 0) || 0;
+              const productTotal = subtotalAmount;
+              const baseAmount = subtotalAmount + installationCharges + amcCharges;
+              const codExtraCharges = order.payment_method === 'cod'
+                ? Math.max(0, totalAmount - baseAmount - taxAmountValue)
+                : 0;
+              const codAdvancePaid = order.payment_method === 'cod'
+                ? (codPercentage > 0
+                  ? Math.round((totalAmount * codPercentage) / 100)
+                  : parseFloat(order.advance_amount || 0))
+                : 0;
+              const codPendingAmount = order.payment_method === 'cod'
+                ? totalAmount - codAdvancePaid
+                : 0;
 
               // Persist the calculated advance so it is available for admin view and future reference
-              if (codAdvancePaid > 0) {
+              if (order.payment_method === 'cod' && codAdvancePaid > 0) {
                 await pool.query(
                   'UPDATE orders SET advance_amount = $1 WHERE order_id = $2',
                   [codAdvancePaid, order.order_id]
@@ -429,11 +456,11 @@ export async function POST(request: Request) {
 
               // Fetch order items to include in invoice email
               const orderItemsResult = await pool.query(
-                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code
+                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code
                  FROM order_items oi
                  LEFT JOIN dealer_products dp ON dp.id = oi.product_id
                  WHERE oi.order_id = $1
-                 ORDER BY oi.item_id`,
+                 ORDER BY oi.id`,
                 [order.order_id]
               );
 
@@ -443,44 +470,65 @@ export async function POST(request: Request) {
                 customerName: order.customer_name,
                 customerEmail: order.customer_email,
                 totalAmount: totalAmount,
-                paymentMethod: 'cod',
-                paymentStatus: 'Advance Paid',
+                paymentMethod: order.payment_method,
+                paymentStatus: order.payment_method === 'cod' ? 'Advance Paid' : 'Paid',
                 orderDate: order.created_at || new Date().toISOString(),
                 trackingUrl,
                 orderItems: orderItemsResult.rows,
-                // COD Payment Breakdown (matching checkout page format)
+                // Payment breakdown (COD includes advance/pending split)
                 productTotal: productTotal,
                 installationCharges: installationCharges,
                 codExtraCharges: codExtraCharges,
+                taxAmount: taxAmountValue,
                 baseAmount: baseAmount,
                 codAdvancePaid: codAdvancePaid,
                 codPendingAmount: codPendingAmount,
                 fullOrderData,
               });
-              
-              // Log email attempt
+
+              const emailStatus = emailSent ? 'sent' : 'failed';
+              const emailErrorMessage = emailSent ? null : 'sendOrderConfirmationEmail returned false';
+
+              // Log email attempt (success/failure)
+              await pool.query(
+                `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, error_message, sent_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                  order.order_id,
+                  order.customer_email,
+                  'order_confirmation',
+                  `Order Confirmation - ${order.order_number}`,
+                  emailStatus,
+                  emailErrorMessage,
+                  emailSent ? new Date() : null,
+                ]
+              );
+
+              // Update tracking_link_sent flag only when mail is sent
               if (emailSent) {
-                await pool.query(
-                  `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
-                   VALUES ($1, $2, $3, $4, $5, $6)`,
-                  [
-                    order.order_id,
-                    order.customer_email,
-                    'order_confirmation',
-                    `Order Confirmation - ${order.order_number}`,
-                    'sent',
-                    new Date()
-                  ]
-                );
-                
-                // Update tracking_link_sent flag
                 await pool.query(
                   'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
                   [order.order_id]
                 );
               }
             } catch (emailError) {
-              console.error('Error sending COD confirmation email:', emailError);
+              console.error('Error sending post-payment confirmation email:', emailError);
+              try {
+                await pool.query(
+                  `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, error_message)
+                   VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [
+                    order.order_id,
+                    order.customer_email,
+                    'order_confirmation',
+                    `Order Confirmation - ${order.order_number}`,
+                    'failed',
+                    emailError instanceof Error ? emailError.message : String(emailError),
+                  ]
+                );
+              } catch (logError) {
+                console.error('Error logging failed email attempt:', logError);
+              }
               // Don't fail the payment verification if email fails
             }
           }

@@ -176,7 +176,7 @@ export default function CategoriesPage() {
               <span className="text-slate-500 text-2xl ml-3">({categories.length})</span>
             </h1>
             <p className="text-slate-600 text-lg">
-              Browse our comprehensive range of CCTV and security camera solutions
+              Explore high-performance CCTV cameras, recorders, and accessories.
             </p>
           </motion.div>
 
@@ -193,7 +193,7 @@ export default function CategoriesPage() {
                   Shop by Brand
                 </h2>
                 <p className="text-slate-600 text-base md:text-lg">
-                  Premium CCTV brands trusted by professionals worldwide
+                  Trusted global CCTV brands chosen by security professionals.
                 </p>
               </div>
 

@@ -24,7 +24,8 @@ import {
   Clock,
   Trash2,
   Zap,
-  Headset
+  Headset,
+  Ticket
 } from "lucide-react";
 import { DealerAuthGuard } from "./DealerAuthGuard";
 
@@ -275,6 +276,7 @@ function DealerLayoutContent({
     { icon: LayoutDashboard, label: "Dashboard", href: "/dealer/dashboard" },
     { icon: ClipboardList, label: "Order Details", href: "/dealer/order-requests" },
     { icon: FileText, label: "Proforma", href: "/dealer/proforma" },
+    { icon: Headset, label: "Services", href: "/dealer/services" },
     { icon: Trophy, label: "Rewards", href: "/dealer/rewards" },
     // { icon: MapPin, label: "Service Areas", href: "/dealer/service-areas" },
     { icon: DollarSign, label: "Pricing", href: "/dealer/pricing" },
@@ -318,7 +320,28 @@ function DealerLayoutContent({
       .slice(0, 2);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const dealerId = localStorage.getItem('dealerId');
+    const dealerName = dealerInfo?.full_name || localStorage.getItem('userName') || 'Dealer';
+
+    if (dealerId) {
+      try {
+        await fetch('/api/login-activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityType: 'dealer',
+            entityId: String(dealerId),
+            entityName: String(dealerName),
+            portal: 'dealer',
+            eventType: 'logout',
+          })
+        });
+      } catch (error) {
+        console.error('Failed to record dealer logout activity:', error);
+      }
+    }
+
     // Clear any stored auth data and redirect to login page
     localStorage.removeItem('authToken');
     localStorage.removeItem('dealerId');
@@ -439,7 +462,7 @@ function DealerLayoutContent({
           {/* Hamburger Button - Mobile only */}
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden flex items-center justify-center w-11 h-11 rounded-lg bg-gradient-to-br from-[#0f172a] to-slate-800 hover:from-slate-800 hover:to-[#0f172a] text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl relative group"
+            className="md:hidden flex items-center justify-center w-11 h-11 rounded-lg bg-linear-to-br from-[#0f172a] to-slate-800 hover:from-slate-800 hover:to-[#0f172a] text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl relative group"
             title="Toggle menu"
           >
             <div className="relative">
@@ -462,13 +485,13 @@ function DealerLayoutContent({
 
         {/* Right Side - Mobile & Desktop */}
         <div className="flex items-center gap-2">
-          {/* Service Support Shortcut - Mobile */}
+          {/* Claim Shortcut - Mobile */}
           <Link
             href="/dealer/service-support"
             className="lg:hidden relative flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            title="Service Support"
+            title="Claim"
           >
-            <Headset className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+            <Ticket className="w-5 h-5 text-slate-700 dark:text-slate-300" />
           </Link>
 
           {/* Notification Bell - Mobile (visible only on mobile) */}
@@ -529,7 +552,7 @@ function DealerLayoutContent({
                                   {notification.title}
                                 </h4>
                                 {!notification.is_read && (
-                                  <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1.5"></div>
+                                  <div className="w-2 h-2 bg-blue-600 rounded-full shrink-0 mt-1.5"></div>
                                 )}
                               </div>
                               <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
@@ -579,9 +602,9 @@ function DealerLayoutContent({
               <Link
                 href="/dealer/service-support"
                 className="relative flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
-                title="Service Support"
+                title="Claim"
               >
-                <Headset className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                <Ticket className="w-5 h-5 text-slate-700 dark:text-slate-300" />
               </Link>
 
               {/* Notification Bell */}
@@ -600,7 +623,7 @@ function DealerLayoutContent({
 
               {/* Notification Dropdown */}
               {isNotificationOpen && (
-                <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-slate-900 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-50 max-h-[500px] overflow-hidden flex flex-col">
+                <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-slate-900 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-50 max-h-125 overflow-hidden flex flex-col">
                   {/* Header */}
                   <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                     <div className="flex items-center justify-between">
@@ -642,7 +665,7 @@ function DealerLayoutContent({
                                     {notification.title}
                                   </h4>
                                   {!notification.is_read && (
-                                    <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1.5"></div>
+                                    <div className="w-2 h-2 bg-blue-600 rounded-full shrink-0 mt-1.5"></div>
                                   )}
                                 </div>
                                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
@@ -691,14 +714,14 @@ function DealerLayoutContent({
               <div className="relative" ref={profileDropdownRef}>
                 <button
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="flex items-center gap-3 px-4 py-2 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                  className="flex items-center gap-3 px-4 py-2 bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
                 >
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#facc15] to-yellow-500 flex items-center justify-center text-[#0f172a] font-bold text-sm shadow-md">
+                  <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#facc15] to-yellow-500 flex items-center justify-center text-[#0f172a] font-bold text-sm shadow-md">
                     {dealerInfo ? getInitials(dealerInfo.full_name) : 'D'}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[130px]">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-32.5">
                         {dealerInfo?.full_name || 'Loading...'}
                       </p>
                       {dealerInfo?.unique_dealer_id && (
@@ -707,7 +730,7 @@ function DealerLayoutContent({
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-37.5">
                       {dealerInfo?.business_name || 'Dealer'}
                     </p>
                   </div>
@@ -772,7 +795,7 @@ function DealerLayoutContent({
 
                   {/* Right active indicator bar */}
                   {isActive && (
-                    <span className="absolute right-0 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-white rounded-l-full z-10" />
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.75 h-7 bg-white rounded-l-full z-10" />
                   )}
 
                   {/* Tooltip */}
@@ -792,7 +815,7 @@ function DealerLayoutContent({
               className="relative flex items-center justify-center w-full h-12 group"
             >
               <span className="absolute inset-x-2 inset-y-1 rounded-xl group-hover:bg-slate-800/50 transition-all duration-200" />
-              <div className="relative z-10 w-8 h-8 rounded-full bg-gradient-to-br from-[#facc15] to-yellow-500 flex items-center justify-center text-[#0f172a] font-bold text-xs shadow-md border-2 border-slate-700 group-hover:border-yellow-400/60 transition-all">
+              <div className="relative z-10 w-8 h-8 rounded-full bg-linear-to-br from-[#facc15] to-yellow-500 flex items-center justify-center text-[#0f172a] font-bold text-xs shadow-md border-2 border-slate-700 group-hover:border-yellow-400/60 transition-all">
                 {dealerInfo ? getInitials(dealerInfo.full_name) : 'D'}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow">

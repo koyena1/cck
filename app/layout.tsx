@@ -1,8 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Poppins, Orbitron } from "next/font/google"
-import { WhatsAppFloat } from "@/components/whatsapp-float"
-import Chatbot from "@/components/chatbot"
+import { Roboto } from "next/font/google"
+// import Chatbot from "@/components/chatbot"
 import { CookieConsent } from "@/components/cookie-consent"
 import { SmoothScroll } from "@/components/smooth-scroll"
 import { CartProvider } from "@/components/cart-context"
@@ -10,26 +9,20 @@ import { CartSidebar } from "@/components/cart-sidebar"
 import { ClientOnly } from "@/components/client-only"
 import "./globals.css"
 
-const poppins = Poppins({
-  weight: ["300", "400", "500", "600", "700"],
+const roboto = Roboto({
+  weight: ["100", "300", "400", "500", "700", "900"],
   subsets: ["latin"],
-  variable: "--font-poppins",
-})
-
-const orbitron = Orbitron({
-  weight: ["600", "700", "800", "900"],
-  subsets: ["latin"],
-  variable: "--font-orbitron",
+  variable: "--font-roboto",
 })
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://yourdomain.com'),
   title: {
-    default: "Manika Order Supplier",
-    template: "%s | Manika Order Supplier"
+    default: "Protechtur",
+    template: "%s | Protechtur"
   },
   description:
-    "Leading IT solutions provider offering web development, mobile apps, UI/UX design, cloud solutions, AI automation, and maintenance services for startups and enterprises.",
+    "Protechtur offers CCTV products, installation support, and security solutions.",
   keywords: [
     "IT solutions",
     "web development",
@@ -42,9 +35,9 @@ export const metadata: Metadata = {
     "custom software development",
     "technology consulting"
   ],
-  authors: [{ name: "Cygnatrix IT Solutions" }],
-  creator: "Cygnatrix IT Solutions",
-  publisher: "Cygnatrix IT Solutions",
+  authors: [{ name: "Protechtur" }],
+  creator: "Protechtur",
+  publisher: "Protechtur",
   robots: {
     index: true,
     follow: true,
@@ -60,24 +53,24 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://yourdomain.com',
-    siteName: 'Cygnatrix IT Solutions',
-    title: 'Cygnatrix IT Solutions | Building Smart Digital Solutions',
-    description: 'Leading IT solutions provider offering web development, mobile apps, UI/UX design, cloud solutions, AI automation, and maintenance services.',
+    siteName: 'Protechtur',
+    title: 'Protechtur',
+    description: 'Protechtur offers CCTV products, installation support, and security solutions.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Cygnatrix IT Solutions',
+        alt: 'Protechtur',
       }
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Cygnatrix IT Solutions | Building Smart Digital Solutions',
-    description: 'Leading IT solutions provider offering web development, mobile apps, UI/UX design, cloud solutions, and AI automation.',
+    title: 'Protechtur | Building Smart Digital Solutions',
+    description: 'Protechtur offers CCTV products, installation support, and security solutions.',
     images: ['/og-image.png'],
-    creator: '@cygnatrix',
+    creator: '@Protechtur',
   },
   verification: {
     google: 'your-google-verification-code',
@@ -101,14 +94,14 @@ export default function RootLayout({
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Cygnatrix IT Solutions",
+    "name": "Protechtur",
     "url": "https://yourdomain.com",
     "logo": "https://yourdomain.com/logo.png",
-    "description": "Leading IT solutions provider offering web development, mobile apps, UI/UX design, cloud solutions, AI automation, and maintenance services.",
+    "description": "Protechtur offers CCTV products, installation support, and security solutions.",
     "sameAs": [
-      "https://www.facebook.com/cygnatrix",
-      "https://www.linkedin.com/company/cygnatrix",
-      "https://twitter.com/cygnatrix"
+      "https://www.facebook.com/Protechtur",
+      "https://www.linkedin.com/company/Protechtur",
+      "https://twitter.com/Protechtur"
     ],
     "contactPoint": {
       "@type": "ContactPoint",
@@ -130,7 +123,7 @@ export default function RootLayout({
   const websiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "Cygnatrix IT Solutions",
+    "name": "Protechtur",
     "url": "https://yourdomain.com",
     "potentialAction": {
       "@type": "SearchAction",
@@ -151,15 +144,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
       </head>
-      <body className={`${poppins.variable} ${orbitron.variable} font-sans antialiased`}>
+      <body className={`${roboto.variable} font-sans antialiased`}>
         <CartProvider>
           <SmoothScroll />
           {children}
           <CartSidebar />
-          <ClientOnly>
+          {/* <ClientOnly>
             <Chatbot />
-          </ClientOnly>
-          <WhatsAppFloat />
+          </ClientOnly> */}
           <CookieConsent />
         </CartProvider>
       </body>

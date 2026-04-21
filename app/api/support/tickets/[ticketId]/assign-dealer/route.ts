@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { ensureSupportTicketTables } from '@/lib/support-ticket';
 import { sendSupportTicketBellNotifications } from '@/lib/support-ticket-notifications';
+import { normalizeDistrictName } from '@/lib/district-normalization';
 
 export async function POST(
   request: NextRequest,
@@ -16,9 +17,15 @@ export async function POST(
     }
 
     const body = await request.json();
+    const assignAllDistrict = Boolean(body?.assignAllDistrict);
     const parsedDealerId = Number(body?.dealerId);
+    const requestedDistrict = normalizeDistrictName(typeof body?.district === 'string' ? body.district.trim() : '');
+    const actorRole = body?.senderRole === 'admin' ? 'admin' : body?.senderRole === 'district' ? 'district' : 'bpo';
+    const actorName = String(
+      body?.senderName || (actorRole === 'admin' ? 'Admin(Protechtur)' : actorRole === 'district' ? 'District Manager' : 'BPO Agent')
+    );
 
-    if (!Number.isFinite(parsedDealerId) || parsedDealerId <= 0) {
+    if (!assignAllDistrict && (!Number.isFinite(parsedDealerId) || parsedDealerId <= 0)) {
       return NextResponse.json({ success: false, error: 'Valid dealerId is required' }, { status: 400 });
     }
 
@@ -40,6 +47,110 @@ export async function POST(
     }
     const existingTicket = ticketCheck.rows[0];
     const referenceOrderId = existingTicket.reference_order_id as number | null;
+    const noteText = String(body?.note || '').trim();
+
+    if (actorRole === 'bpo' && !noteText) {
+      await pool.query('ROLLBACK');
+      return NextResponse.json({ success: false, error: 'Service details note is required for BPO assignment' }, { status: 400 });
+    }
+
+    if (assignAllDistrict) {
+      const targetDistrict = requestedDistrict || normalizeDistrictName(String(existingTicket.district || '').trim());
+
+      if (!targetDistrict) {
+        await pool.query('ROLLBACK');
+        return NextResponse.json({ success: false, error: 'District is required to assign all dealers' }, { status: 400 });
+      }
+
+      const dealersResult = await pool.query(
+        `SELECT dealer_id, full_name, district, unique_dealer_id
+         FROM dealers
+         WHERE LOWER(TRIM(COALESCE(district, ''))) = LOWER(TRIM($1))
+         ORDER BY dealer_id ASC`,
+        [targetDistrict]
+      );
+
+      if (dealersResult.rows.length === 0) {
+        await pool.query('ROLLBACK');
+        return NextResponse.json({ success: false, error: 'No dealers found in the ticket district' }, { status: 404 });
+      }
+
+      const updateResult = await pool.query(
+        `UPDATE support_tickets
+         SET district = COALESCE($2, district),
+             status = 'in_progress',
+             updated_at = CURRENT_TIMESTAMP,
+             last_message_at = CURRENT_TIMESTAMP
+         WHERE ticket_id = $1
+         RETURNING *`,
+        [parsedTicketId, targetDistrict]
+      );
+
+      for (const d of dealersResult.rows) {
+        await pool.query(
+          `INSERT INTO support_ticket_dealer_assignments (
+            ticket_id,
+            dealer_id,
+            assign_mode,
+            assigned_by_role,
+            assigned_by_name,
+            response_status,
+            response_note,
+            responded_at,
+            response_deadline_at,
+            created_at
+          ) VALUES ($1, $2, 'district_broadcast', $3, $4, 'pending', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '9 hours', CURRENT_TIMESTAMP)
+          ON CONFLICT (ticket_id, dealer_id) DO UPDATE
+          SET assign_mode = EXCLUDED.assign_mode,
+              assigned_by_role = EXCLUDED.assigned_by_role,
+              assigned_by_name = EXCLUDED.assigned_by_name,
+              response_status = 'pending',
+              response_note = NULL,
+              responded_at = NULL,
+              response_deadline_at = CURRENT_TIMESTAMP + INTERVAL '9 hours',
+              created_at = CURRENT_TIMESTAMP`,
+          [parsedTicketId, d.dealer_id, actorRole, actorName]
+        );
+      }
+
+      const messageText = noteText || `Ticket broadcasted to all dealers in district: ${targetDistrict}.`;
+      await pool.query(
+        `INSERT INTO support_ticket_messages (
+          ticket_id,
+          channel,
+          sender_role,
+          sender_name,
+          message_text,
+          is_internal,
+          created_at
+        ) VALUES ($1,'dealer',$2,$3,$4,false,CURRENT_TIMESTAMP)`,
+        [parsedTicketId, actorRole, actorName, messageText]
+      );
+
+      await sendSupportTicketBellNotifications({
+        ticketId: updateResult.rows[0].ticket_id,
+        ticketNumber: updateResult.rows[0].ticket_number || existingTicket.ticket_number,
+        customerName: updateResult.rows[0].customer_name || existingTicket.customer_name,
+        category: updateResult.rows[0].category || existingTicket.category,
+        subCategory: updateResult.rows[0].sub_category || existingTicket.sub_category,
+        district: updateResult.rows[0].district || existingTicket.district,
+        dealerId: null,
+        event: 'assigned',
+        actorRole,
+        actorName,
+        messagePreview: messageText,
+        status: updateResult.rows[0].status,
+      });
+
+      await pool.query('COMMIT');
+
+      return NextResponse.json({
+        success: true,
+        ticket: updateResult.rows[0],
+        dealers: dealersResult.rows,
+        assignedCount: dealersResult.rows.length,
+      });
+    }
 
     const dealerResult = await pool.query(
       `SELECT dealer_id, full_name, district, unique_dealer_id
@@ -55,90 +166,51 @@ export async function POST(
     }
 
     const dealer = dealerResult.rows[0];
+    const ticketDistrict = normalizeDistrictName(String(requestedDistrict || existingTicket.district || '').trim());
+    const dealerDistrict = normalizeDistrictName(String(dealer.district || '').trim());
+
+    if (ticketDistrict && (!dealerDistrict || dealerDistrict.toLowerCase() !== ticketDistrict.toLowerCase())) {
+      await pool.query('ROLLBACK');
+      return NextResponse.json({ success: false, error: 'Selected dealer is not in the same district as the customer request' }, { status: 400 });
+    }
 
     const updateResult = await pool.query(
       `UPDATE support_tickets
-       SET dealer_id = $2,
-           district = COALESCE($3, district),
+       SET dealer_id = NULL,
+           district = COALESCE($3, $4, district),
            status = 'in_progress',
            updated_at = CURRENT_TIMESTAMP,
            last_message_at = CURRENT_TIMESTAMP
        WHERE ticket_id = $1
        RETURNING *`,
-      [parsedTicketId, parsedDealerId, dealer.district || null]
+      [parsedTicketId, dealer.district || null, ticketDistrict || null]
     );
 
-    // If ticket is linked to an order, reassign that order to the selected dealer.
-    if (referenceOrderId) {
-      const settingsResult = await pool.query(
-        `SELECT setting_value FROM order_allocation_settings WHERE setting_key = 'dealer_response_timeout_hours' LIMIT 1`
-      );
-      const timeoutHours = parseInt(settingsResult.rows[0]?.setting_value || '6', 10);
-      const responseDeadline = new Date();
-      responseDeadline.setHours(responseDeadline.getHours() + timeoutHours);
+    await pool.query(
+      `INSERT INTO support_ticket_dealer_assignments (
+        ticket_id,
+        dealer_id,
+        assign_mode,
+        assigned_by_role,
+        assigned_by_name,
+        response_status,
+        response_note,
+        responded_at,
+        response_deadline_at,
+        created_at
+      ) VALUES ($1, $2, 'single', $3, $4, 'pending', NULL, NULL, CURRENT_TIMESTAMP + INTERVAL '9 hours', CURRENT_TIMESTAMP)
+      ON CONFLICT (ticket_id, dealer_id) DO UPDATE
+      SET assign_mode = EXCLUDED.assign_mode,
+          assigned_by_role = EXCLUDED.assigned_by_role,
+          assigned_by_name = EXCLUDED.assigned_by_name,
+          response_status = 'pending',
+          response_note = NULL,
+          responded_at = NULL,
+          response_deadline_at = CURRENT_TIMESTAMP + INTERVAL '9 hours',
+          created_at = CURRENT_TIMESTAMP`,
+      [parsedTicketId, parsedDealerId, actorRole, actorName]
+    );
 
-      const seqResult = await pool.query(
-        `SELECT COALESCE(MAX(request_sequence), 0) + 1 AS next_seq
-         FROM dealer_order_requests
-         WHERE order_id = $1`,
-        [referenceOrderId]
-      );
-      const nextSeq = Number(seqResult.rows[0]?.next_seq || 1);
-
-      await pool.query(
-        `UPDATE dealer_order_requests
-         SET request_status = 'reassigned'
-         WHERE order_id = $1
-           AND request_status = 'accepted'
-           AND dealer_id != $2`,
-        [referenceOrderId, parsedDealerId]
-      );
-
-      await pool.query(
-        `INSERT INTO dealer_order_requests (
-          order_id,
-          dealer_id,
-          request_sequence,
-          stock_verified,
-          stock_available,
-          response_deadline
-        ) VALUES ($1, $2, $3, false, false, $4)
-        ON CONFLICT (order_id, dealer_id) DO NOTHING`,
-        [referenceOrderId, parsedDealerId, nextSeq, responseDeadline]
-      );
-
-      await pool.query(
-        `UPDATE orders
-         SET assigned_dealer_id = $1,
-             assigned_at = CURRENT_TIMESTAMP,
-             status = 'Awaiting Dealer Confirmation',
-             updated_at = CURRENT_TIMESTAMP
-         WHERE order_id = $2`,
-        [parsedDealerId, referenceOrderId]
-      );
-
-      if (dealer.unique_dealer_id) {
-        await pool.query(
-          `UPDATE orders
-           SET order_number = CASE
-             WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-               THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-             ELSE order_number || '-' || $1
-           END
-           WHERE order_id = $2
-             AND order_number NOT LIKE '%-' || $1`,
-          [dealer.unique_dealer_id, referenceOrderId]
-        );
-      }
-
-      await pool.query(
-        `INSERT INTO order_status_history (order_id, status, remarks, created_at)
-         VALUES ($1, 'Awaiting Dealer Confirmation', $2, CURRENT_TIMESTAMP)`,
-        [referenceOrderId, 'Reassigned from service ticket dealer assignment']
-      );
-    }
-
-    const noteText = String(body?.note || '').trim();
     if (noteText) {
       await pool.query(
         `INSERT INTO support_ticket_messages (
@@ -152,15 +224,12 @@ export async function POST(
         ) VALUES ($1,'dealer',$2,$3,$4,false,CURRENT_TIMESTAMP)`,
         [
           parsedTicketId,
-          body?.senderRole === 'admin' ? 'admin' : 'district',
-          String(body?.senderName || 'District Manager'),
+          actorRole,
+          actorName,
           noteText
         ]
       );
     }
-
-    const actorRole = body?.senderRole === 'admin' ? 'admin' : 'district';
-    const actorName = String(body?.senderName || (actorRole === 'admin' ? 'Admin(Protechtur)' : 'District Manager'));
 
     await sendSupportTicketBellNotifications({
       ticketId: updateResult.rows[0].ticket_id,

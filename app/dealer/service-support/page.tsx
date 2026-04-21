@@ -29,8 +29,9 @@ export default function DealerServiceSupportPage() {
         viewerRole="dealer"
         viewerName={dealerName}
         dealerId={dealerId}
-        title="Service Support"
-        subtitle="Reply to district manager escalations for customer tickets"
+        sourceFilter="general_support"
+        title="Claim"
+        subtitle="View and reply to claim/support tickets"
       />
     </div>
   );

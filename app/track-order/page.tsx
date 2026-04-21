@@ -63,6 +63,7 @@ export default function TrackOrderPage() {
     const statusLower = status?.toLowerCase() || '';
     const colors: Record<string, string> = {
       pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "order placed": "bg-blue-100 text-blue-800 border-blue-200",
       "in progress": "bg-blue-100 text-blue-800 border-blue-200",
       "in-progress": "bg-blue-100 text-blue-800 border-blue-200",
       "order packing done": "bg-orange-100 text-orange-800 border-orange-200",
@@ -76,7 +77,22 @@ export default function TrackOrderPage() {
   };
 
   const getDisplayStatus = (order: any) => {
-    return order.latestProgressStatus || order.status || 'Unknown';
+    const rawStatus = order.latestProgressStatus || order.status || 'Unknown';
+    const statusLower = String(rawStatus).toLowerCase();
+
+    if (statusLower === 'awaiting dealer confirmation' || statusLower === 'pending admin review') {
+      return 'Order Placed';
+    }
+
+    if (statusLower === 'accepted') {
+      return 'In Progress';
+    }
+
+    if (statusLower === 'declined') {
+      return 'Cancelled';
+    }
+
+    return rawStatus;
   };
 
   if (loading) {
@@ -191,7 +207,6 @@ export default function TrackOrderPage() {
           </div>
         </div>
       </section>
-
       <Footer />
     </div>
   );

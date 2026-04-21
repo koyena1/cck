@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
+import { ensureDistrictUserUniqueIdSetup } from '@/lib/district-user';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -9,9 +10,12 @@ const pool = new Pool({
 // GET: Fetch all district users
 export async function GET(req: NextRequest) {
   try {
+    await ensureDistrictUserUniqueIdSetup(pool);
+
     const result = await pool.query(`
       SELECT 
         district_user_id,
+        district_unique_id,
         username,
         email,
         full_name,
@@ -45,6 +49,8 @@ export async function GET(req: NextRequest) {
 // POST: Create new district user
 export async function POST(req: NextRequest) {
   try {
+    await ensureDistrictUserUniqueIdSetup(pool);
+
     const body = await req.json();
     const {
       username,
@@ -100,7 +106,7 @@ export async function POST(req: NextRequest) {
         can_contact_dealers
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING district_user_id, username, email, full_name, district, state, pincodes
+      RETURNING district_user_id, district_unique_id, username, email, full_name, district, state, pincodes
     `, [
       username,
       email,
@@ -132,6 +138,8 @@ export async function POST(req: NextRequest) {
 // PATCH: Update district user (activate/deactivate or update permissions)
 export async function PATCH(req: NextRequest) {
   try {
+    await ensureDistrictUserUniqueIdSetup(pool);
+
     const body = await req.json();
     const { district_user_id, is_active, can_view_dealers, can_view_orders, can_contact_dealers } = body;
 
@@ -204,6 +212,8 @@ export async function PATCH(req: NextRequest) {
 // DELETE: Remove district user
 export async function DELETE(req: NextRequest) {
   try {
+    await ensureDistrictUserUniqueIdSetup(pool);
+
     const body = await req.json();
     const { district_user_id } = body;
 

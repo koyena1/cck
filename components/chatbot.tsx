@@ -17,7 +17,7 @@ export default function Chatbot() {
       setMessages([
         { 
           role: 'bot', 
-          content: "Hello! Welcome to Monika Order & Suppliers. Are you looking for security products (Retail), technical support, or interested in our B2B dealer program?" 
+          content: "Hello! Welcome to Protechtur. I can help with products, technical support, dealer inquiries, and any customer questions. How can I help you today?" 
         }
       ])
     }
@@ -48,7 +48,7 @@ export default function Chatbot() {
       ) : (
         <Card className="w-80 md:w-96 shadow-2xl border-none">
           <CardHeader className="bg-blue-600 text-white flex flex-row items-center justify-between p-4 rounded-t-lg">
-            <CardTitle className="text-sm font-bold">Safety Zone Assistant</CardTitle>
+            <CardTitle className="text-sm font-bold">Protechtur Assistant</CardTitle>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="text-white hover:bg-blue-500">
               <X size={18} />
             </Button>

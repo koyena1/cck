@@ -20,6 +20,7 @@ import {
   Truck,
   Activity,
   Bell,
+  Headset,
 } from "lucide-react"
 import { 
   Card, 
@@ -87,6 +88,11 @@ export default function DealerDashboard() {
   const [claimInProgressCount, setClaimInProgressCount] = useState<number | null>(null);
   const [claimResolvedCount, setClaimResolvedCount] = useState<number | null>(null);
   const [latestClaimTicketNumber, setLatestClaimTicketNumber] = useState<string>('');
+  const [servicesTotalCount, setServicesTotalCount] = useState<number | null>(null);
+  const [servicesOpenCount, setServicesOpenCount] = useState<number | null>(null);
+  const [servicesInProgressCount, setServicesInProgressCount] = useState<number | null>(null);
+  const [servicesResolvedCount, setServicesResolvedCount] = useState<number | null>(null);
+  const [latestServicesTicketNumber, setLatestServicesTicketNumber] = useState<string>('');
 
   // Growth data
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -148,6 +154,7 @@ export default function DealerDashboard() {
         fetchTransactionsCount(dId),
         fetchInvoiceCount(dId),
         fetchClaimDetails(dId),
+        fetchServicesDetails(dId),
         fetchGrowthData(dId, currentYear),
         fetchInventoryActions(dId),
         fetchPendingUpdateOrders(dId),
@@ -171,6 +178,7 @@ export default function DealerDashboard() {
         fetchTransactionsCount(dealerId);
         fetchInvoiceCount(dealerId);
         fetchClaimDetails(dealerId);
+        fetchServicesDetails(dealerId);
         fetchInventoryActions(dealerId);
         fetchPendingUpdateOrders(dealerId);
         fetchProformaAlerts(dealerId);
@@ -303,6 +311,45 @@ export default function DealerDashboard() {
       setClaimInProgressCount(0);
       setClaimResolvedCount(0);
       setLatestClaimTicketNumber('');
+    }
+  };
+
+  const fetchServicesDetails = async (dId: number) => {
+    try {
+      const response = await fetch(`/api/support/tickets?viewer=dealer&dealerId=${dId}&source=services_portal`, {
+        cache: 'no-store'
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        setServicesTotalCount(0);
+        setServicesOpenCount(0);
+        setServicesInProgressCount(0);
+        setServicesResolvedCount(0);
+        setLatestServicesTicketNumber('');
+        return;
+      }
+
+      const tickets = data.tickets || [];
+      const openCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'open').length;
+      const inProgressCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'in_progress').length;
+      const resolvedCount = tickets.filter((ticket: any) => {
+        const status = String(ticket.status || '').toLowerCase();
+        return status === 'resolved' || status === 'closed';
+      }).length;
+
+      setServicesTotalCount(tickets.length);
+      setServicesOpenCount(openCount);
+      setServicesInProgressCount(inProgressCount);
+      setServicesResolvedCount(resolvedCount);
+      setLatestServicesTicketNumber(tickets[0]?.ticket_number || '');
+    } catch (error) {
+      console.error('Failed to fetch services details:', error);
+      setServicesTotalCount(0);
+      setServicesOpenCount(0);
+      setServicesInProgressCount(0);
+      setServicesResolvedCount(0);
+      setLatestServicesTicketNumber('');
     }
   };
 
@@ -536,7 +583,8 @@ export default function DealerDashboard() {
         fetchDeclinedOrdersCount(dealerId),
         fetchTransactionsCount(dealerId),
         fetchInvoiceCount(dealerId),
-        fetchClaimDetails(dealerId)
+        fetchClaimDetails(dealerId),
+        fetchServicesDetails(dealerId)
       ]);
       setLoading(false);
     }
@@ -600,6 +648,13 @@ export default function DealerDashboard() {
     resolved: (claimResolvedCount ?? 0) > 0 ? 'text-green-600' : 'text-[#0f172a]',
   };
 
+  const servicesLineColor = {
+    total: (servicesOpenCount ?? 0) > 0 ? 'text-red-600' : 'text-[#0f172a]',
+    open: (servicesOpenCount ?? 0) > 0 ? 'text-red-600' : 'text-[#0f172a]',
+    inProgress: (servicesInProgressCount ?? 0) > 0 ? 'text-blue-600' : 'text-[#0f172a]',
+    resolved: (servicesResolvedCount ?? 0) > 0 ? 'text-green-600' : 'text-[#0f172a]',
+  };
+
   const totalProfitAmount = growthData.reduce((sum, item) => sum + (item.profit || 0), 0);
   const totalLossAmount = growthData.reduce((sum, item) => sum + (item.loss || 0), 0);
 
@@ -607,7 +662,7 @@ export default function DealerDashboard() {
     <div className="min-h-screen pb-10">
       <div className="p-3 sm:p-4 md:p-6 lg:p-10">
         {/* Stats Grid */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mb-6 sm:mb-8">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8">
           <Card
             className="border-none bg-white shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-100"
             onClick={() => router.push('/dealer/order-requests')}
@@ -773,6 +828,44 @@ export default function DealerDashboard() {
                 <li className="pt-1 text-[10px] text-slate-600 flex items-center justify-between gap-2">
                   <span>Latest Ticket</span>
                   <span className="font-mono font-semibold text-[#0f172a]">{latestClaimTicketNumber || '--'}</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="border-none bg-white shadow-lg cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-100"
+            onClick={() => router.push('/dealer/services')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs font-bold font-poppins uppercase tracking-wider text-[#0f172a]">
+                Services
+              </CardTitle>
+              <div className="p-2 bg-[#0f172a] rounded-md">
+                <Headset className="w-4 h-4 text-[#facc15]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc list-inside space-y-1 text-xs font-poppins font-medium text-[#0f172a] opacity-90">
+                <li className="flex items-center justify-between gap-2">
+                  <span className={servicesLineColor.total}>Total Services</span>
+                  <span className={`font-bold ${servicesLineColor.total}`}>{servicesTotalCount !== null ? servicesTotalCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={servicesLineColor.open}>Open Services</span>
+                  <span className={`font-bold ${servicesLineColor.open}`}>{servicesOpenCount !== null ? servicesOpenCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={servicesLineColor.inProgress}>In Progress</span>
+                  <span className={`font-bold ${servicesLineColor.inProgress}`}>{servicesInProgressCount !== null ? servicesInProgressCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="flex items-center justify-between gap-2">
+                  <span className={servicesLineColor.resolved}>Resolved</span>
+                  <span className={`font-bold ${servicesLineColor.resolved}`}>{servicesResolvedCount !== null ? servicesResolvedCount.toString().padStart(2, '0') : '--'}</span>
+                </li>
+                <li className="pt-1 text-[10px] text-slate-600 flex items-center justify-between gap-2">
+                  <span>Latest Ticket</span>
+                  <span className="font-mono font-semibold text-[#0f172a]">{latestServicesTicketNumber || '--'}</span>
                 </li>
               </ul>
             </CardContent>

@@ -651,6 +651,18 @@ export default function DistrictPortalDashboard() {
   const [approvalError, setApprovalError] = useState('');
   const [approvingDealer, setApprovingDealer] = useState(false);
   const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+  const [stockSummary, setStockSummary] = useState({
+    totalStockValue: 0,
+    outOfStockCount: 0,
+    lowStockCount: 0,
+    flaggedCount: 0,
+  });
+  const [supportSummary, setSupportSummary] = useState({
+    total: 0,
+    open: 0,
+    inProgress: 0,
+    resolved: 0,
+  });
   useEffect(() => {
     // Check if user is logged in
     const userData = localStorage.getItem('district_user');
@@ -685,19 +697,57 @@ export default function DistrictPortalDashboard() {
         'Authorization': `Bearer ${token}`
       };
 
-      const [dealersRes, ordersRes, requestsRes] = await Promise.all([
+      const [dealersRes, ordersRes, requestsRes, stockRes, supportRes] = await Promise.all([
         fetch(`/api/district-portal/dealers?district=${encodeURIComponent(district)}`, { headers }),
         fetch(`/api/district-portal/orders?district=${encodeURIComponent(district)}`, { headers }),
-        fetch(`/api/district-portal/dealer-requests?district=${encodeURIComponent(district)}`, { headers })
+        fetch(`/api/district-portal/dealer-requests?district=${encodeURIComponent(district)}`, { headers }),
+        fetch(`/api/district-portal/stock?district=${encodeURIComponent(district)}`, { headers }),
+        fetch(`/api/support/tickets?viewer=district&district=${encodeURIComponent(district)}&source=general_support`, { headers })
       ]);
 
       const dealersData = await dealersRes.json();
       const ordersData = await ordersRes.json();
       const requestsData = await requestsRes.json();
+      const stockData = await stockRes.json();
+      const supportData = await supportRes.json();
 
       if (dealersData.success) setDealers(dealersData.dealers);
       if (ordersData.success) setOrders(ordersData.orders);
       if (requestsData.success) setDealerRequests(requestsData.requests);
+
+      if (stockData.success) {
+        const districtDealers = stockData.dealers || [];
+        const nextStockSummary = districtDealers.reduce(
+          (acc: any, dealer: any) => {
+            acc.totalStockValue += Number(dealer.stockValue || 0);
+            acc.outOfStockCount += Number(dealer.outOfStockCount || 0);
+            acc.lowStockCount += Number(dealer.lowStockCount || 0);
+            acc.flaggedCount += Number(dealer.flaggedCount || 0);
+            return acc;
+          },
+          { totalStockValue: 0, outOfStockCount: 0, lowStockCount: 0, flaggedCount: 0 }
+        );
+        setStockSummary(nextStockSummary);
+      } else {
+        setStockSummary({ totalStockValue: 0, outOfStockCount: 0, lowStockCount: 0, flaggedCount: 0 });
+      }
+
+      if (supportData.success) {
+        const tickets = supportData.tickets || [];
+        const nextSupportSummary = tickets.reduce(
+          (acc: any, ticket: any) => {
+            const normalizedStatus = String(ticket.status || '').toLowerCase();
+            if (normalizedStatus === 'open') acc.open += 1;
+            if (normalizedStatus === 'in_progress') acc.inProgress += 1;
+            if (normalizedStatus === 'resolved' || normalizedStatus === 'closed') acc.resolved += 1;
+            return acc;
+          },
+          { total: tickets.length, open: 0, inProgress: 0, resolved: 0 }
+        );
+        setSupportSummary(nextSupportSummary);
+      } else {
+        setSupportSummary({ total: 0, open: 0, inProgress: 0, resolved: 0 });
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -989,9 +1039,18 @@ export default function DistrictPortalDashboard() {
     activeDealers: dealers.filter(d => d.status === 'Active').length,
     pendingDealers: dealers.filter(d => d.status === 'Pending Approval').length,
     totalOrders: orders.length,
-    pendingOrders: orders.filter(o => o.status === 'Pending').length,
-    completedOrders: orders.filter(o => o.status === 'Completed').length,
-    totalRevenue: orders.reduce((sum, o) => sum + parseFloat(o.total_amount?.toString() || '0'), 0)
+    pendingOrders: orders.filter(o => String(o.status || '').toLowerCase() === 'pending').length,
+    inProgressOrders: orders.filter(o => {
+      const status = String(o.status || '').toLowerCase();
+      return status === 'allocated' || status === 'in progress' || status === 'in_progress' || status === 'scheduled';
+    }).length,
+    completedOrders: orders.filter(o => {
+      const status = String(o.status || '').toLowerCase();
+      return status === 'completed' || status === 'delivered' || status === 'cancelled';
+    }).length,
+    totalRevenue: orders.reduce((sum, o) => sum + parseFloat(o.total_amount?.toString() || '0'), 0),
+    totalDealerRequests: dealerRequests.length,
+    pendingDealerRequests: dealerRequests.filter(r => String(r.request_status || '').toLowerCase() === 'pending').length,
   };
 
   return (
@@ -1015,80 +1074,84 @@ export default function DistrictPortalDashboard() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setDashboardTab('dealers')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Store className="h-4 w-4 text-blue-500" />
-                Total Dealers
-              </CardTitle>
+        <Card className="mb-6 border-slate-200 bg-white/95 dark:border-slate-700 dark:bg-slate-900/90">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-bold">Quick Actions</CardTitle>
+            <CardDescription>Fast access to daily district operations.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <Button onClick={() => router.push('/district-portal/orders')} className="justify-start gap-2">
+                <Package className="h-4 w-4" /> Orders
+              </Button>
+              <Button onClick={() => router.push('/district-portal/stock')} variant="outline" className="justify-start gap-2">
+                <Store className="h-4 w-4" /> Stock
+              </Button>
+              <Button onClick={() => router.push('/district-portal/service-support')} variant="outline" className="justify-start gap-2">
+                <Wrench className="h-4 w-4" /> Support
+              </Button>
+              <Button onClick={() => setDashboardTab('dealers')} variant="outline" className="justify-start gap-2">
+                <Users className="h-4 w-4" /> Dealers
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 mb-6">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/district-portal/orders')}>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold">Orders</CardTitle>
+              <Package className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-blue-600">{stats.totalDealers}</p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-slate-300">
-                {stats.activeDealers} active, {stats.pendingDealers} pending
-              </p>
+              <ul className="space-y-1 text-sm">
+                <li className="flex items-center justify-between"><span>Total Orders</span><span className="font-bold">{String(stats.totalOrders).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Pending</span><span className="font-bold text-amber-600">{String(stats.pendingOrders).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>In Progress</span><span className="font-bold text-blue-600">{String(stats.inProgressOrders).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Closed</span><span className="font-bold text-green-600">{String(stats.completedOrders).padStart(2, '0')}</span></li>
+              </ul>
             </CardContent>
           </Card>
 
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => router.push('/district-portal/orders')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Package className="h-4 w-4 text-green-500" />
-                Total Orders
-              </CardTitle>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/district-portal/stock')}>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold">Stock</CardTitle>
+              <Store className="h-4 w-4 text-indigo-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-green-600">{stats.totalOrders}</p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-slate-300">
-                {stats.pendingOrders} pending, {stats.completedOrders} completed
-              </p>
+              <ul className="space-y-1 text-sm">
+                <li className="flex items-center justify-between"><span>Total Stock</span><span className="font-bold">RS {Math.round(stockSummary.totalStockValue).toLocaleString('en-IN')}</span></li>
+              </ul>
             </CardContent>
           </Card>
 
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => router.push('/district-portal/orders')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-purple-500" />
-                Total Revenue
-              </CardTitle>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/district-portal/service-support')}>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold">Support</CardTitle>
+              <Wrench className="h-4 w-4 text-rose-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-purple-600">
-                RS {stats.totalRevenue.toLocaleString('en-IN')}
-              </p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-slate-300">From all orders</p>
+              <ul className="space-y-1 text-sm">
+                <li className="flex items-center justify-between"><span>Total Tickets</span><span className="font-bold">{String(supportSummary.total).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Open</span><span className="font-bold text-red-600">{String(supportSummary.open).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>In Progress</span><span className="font-bold text-blue-600">{String(supportSummary.inProgress).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Resolved</span><span className="font-bold text-green-600">{String(supportSummary.resolved).padStart(2, '0')}</span></li>
+              </ul>
             </CardContent>
           </Card>
 
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setDashboardTab('dealers')}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Activity className="h-4 w-4 text-orange-500" />
-                Avg Rating
-              </CardTitle>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDashboardTab('requests')}>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold">Dealer</CardTitle>
+              <Users className="h-4 w-4 text-emerald-600" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-orange-600">
-                {dealers.length > 0 
-                  ? (dealers.reduce((sum, d) => sum + parseFloat(d.rating?.toString() || '0'), 0) / dealers.length).toFixed(1)
-                  : 'N/A'
-                }
-              </p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-slate-300">Dealer average</p>
+              <ul className="space-y-1 text-sm">
+                <li className="flex items-center justify-between"><span>Dealer Requests</span><span className="font-bold text-amber-600">{String(stats.pendingDealerRequests).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Total Dealer Count</span><span className="font-bold">{String(stats.totalDealers).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Active Dealers</span><span className="font-bold text-green-600">{String(stats.activeDealers).padStart(2, '0')}</span></li>
+                <li className="flex items-center justify-between"><span>Pending Approval</span><span className="font-bold text-blue-600">{String(stats.pendingDealers).padStart(2, '0')}</span></li>
+              </ul>
             </CardContent>
           </Card>
         </div>
@@ -1130,107 +1193,38 @@ export default function DistrictPortalDashboard() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>District Overview</CardTitle>
-                <CardDescription>Summary of dealers and orders in {user.district}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <p className="mb-1 text-sm text-gray-600 dark:text-slate-300">Active Dealers</p>
-                      <p className="text-2xl font-bold text-blue-600">{stats.activeDealers}</p>
-                    </div>
-                    <div className="p-4 bg-yellow-50 rounded-lg">
-                      <p className="mb-1 text-sm text-gray-600 dark:text-slate-300">Pending Approval</p>
-                      <p className="text-2xl font-bold text-yellow-600">{stats.pendingDealers}</p>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <p className="mb-1 text-sm text-gray-600 dark:text-slate-300">Completed Orders</p>
-                      <p className="text-2xl font-bold text-green-600">{stats.completedOrders}</p>
-                    </div>
-                    <div className="p-4 bg-orange-50 rounded-lg">
-                      <p className="mb-1 text-sm text-gray-600 dark:text-slate-300">Pending Orders</p>
-                      <p className="text-2xl font-bold text-orange-600">{stats.pendingOrders}</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <h3 className="font-semibold mb-3">Your Permissions</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {user.can_view_dealers && (
-                        <Badge variant="outline" className="bg-blue-50">View Dealers</Badge>
-                      )}
-                      {user.can_view_orders && (
-                        <Badge variant="outline" className="bg-green-50">View Orders</Badge>
-                      )}
-                      {user.can_contact_dealers && (
-                        <Badge variant="outline" className="bg-purple-50">Contact Dealers</Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {user.can_view_dealers && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Recent Dealers
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {dealers.slice(0, 5).map((dealer) => (
-                        <div key={dealer.dealer_id} className="flex items-center justify-between rounded bg-gray-50 p-3 dark:bg-slate-800/60">
-                          <div>
-                            <p className="font-medium">{dealer.business_name}</p>
-                            <p className="text-xs text-gray-600 dark:text-slate-300">{dealer.full_name}</p>
-                          </div>
-                          <Badge variant={dealer.status === 'Active' ? 'default' : 'secondary'}>
-                            {dealer.status}
-                          </Badge>
-                        </div>
-                      ))}
-                      {dealers.length === 0 && <p className="py-4 text-center text-gray-500 dark:text-slate-400">No dealers in this district</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {user.can_view_orders && (
-                <Card>
-                  <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
                       Recent Orders
                     </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {orders.slice(0, 5).map((order) => (
-                        <div key={order.order_id} className="flex items-center justify-between rounded bg-gray-50 p-3 dark:bg-slate-800/60">
-                          <div>
-                            <p className="font-medium text-sm">{order.order_number}</p>
-                            <p className="text-xs text-gray-600 dark:text-slate-300">{order.customer_name}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-sm">RS {parseFloat(order.total_amount?.toString() || '0').toLocaleString('en-IN')}</p>
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {order.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                      {orders.length === 0 && <p className="py-4 text-center text-gray-500 dark:text-slate-400">No orders yet</p>}
+                    <CardDescription>Latest orders for {user.district}</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => router.push('/district-portal/orders')}>
+                    View All Orders
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {orders.slice(0, 6).map((order) => (
+                    <div key={order.order_id} className="flex items-center justify-between rounded bg-gray-50 p-3 dark:bg-slate-800/60">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{order.order_number}</p>
+                        <p className="text-xs text-gray-600 dark:text-slate-300 truncate">{order.customer_name} · {order.customer_phone}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-semibold text-sm">RS {parseFloat(order.total_amount?.toString() || '0').toLocaleString('en-IN')}</p>
+                        <Badge variant="outline" className="text-xs mt-1">{order.status}</Badge>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                  ))}
+                  {orders.length === 0 && <p className="py-4 text-center text-gray-500 dark:text-slate-400">No orders yet</p>}
+                </div>
+              </CardContent>
+            </Card>
+
           </div>
         )}
 

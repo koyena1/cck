@@ -19,14 +19,14 @@ async function run() {
   // Insert West Bengal pincodes (add more as needed)
   await pool.query(`
     INSERT INTO pincode_master (pincode, latitude, longitude, district, state, office_name) VALUES
-      ('721636', 22.4200, 87.3200, 'East Medinipur', 'West Bengal', 'Tamluk'),
-      ('721939', 22.4500, 87.3500, 'East Medinipur', 'West Bengal', 'Deypara'),
+      ('721636', 22.4200, 87.3200, 'Purba Medinipur', 'West Bengal', 'Tamluk'),
+      ('721939', 22.4500, 87.3500, 'Purba Medinipur', 'West Bengal', 'Deypara'),
       ('700001', 22.5726, 88.3639, 'Kolkata', 'West Bengal', 'Kolkata GPO'),
       ('700135', 22.5200, 88.3700, 'Kolkata', 'West Bengal', 'Kolkata South'),
       ('700160', 22.5400, 88.3900, 'Kolkata', 'West Bengal', 'Kolkata North'),
       ('711101', 22.5800, 88.3200, 'Howrah', 'West Bengal', 'Howrah'),
       ('721152', 22.3200, 87.2100, 'Paschim Medinipur', 'West Bengal', 'Midnapore'),
-      ('721301', 22.4700, 87.4200, 'East Medinipur', 'West Bengal', 'Haldia')
+      ('721301', 22.4700, 87.4200, 'Purba Medinipur', 'West Bengal', 'Haldia')
     ON CONFLICT (pincode) DO UPDATE SET
       latitude = EXCLUDED.latitude,
       longitude = EXCLUDED.longitude

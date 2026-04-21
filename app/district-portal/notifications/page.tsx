@@ -131,7 +131,7 @@ export default function DistrictNotificationsPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-slate-100">
             <Bell className="w-6 h-6 text-blue-600" />
@@ -142,18 +142,18 @@ export default function DistrictNotificationsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => fetchNotifications(true)} disabled={refreshing}>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => fetchNotifications(true)} disabled={refreshing}>
             {refreshing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Refresh
           </Button>
-          <Button size="sm" onClick={markAllRead} disabled={unreadCount === 0}>
+          <Button size="sm" className="w-full sm:w-auto" onClick={markAllRead} disabled={unreadCount === 0}>
             <CheckCheck className="w-4 h-4 mr-1" /> Mark All Read
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           className={`px-3 py-1 rounded-full text-xs font-bold border ${filter === "all" ? "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" : "bg-white text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600"}`}
           onClick={() => setFilter("all")}
@@ -182,12 +182,12 @@ export default function DistrictNotificationsPage() {
                 key={notification.id}
                 className={`rounded-xl border p-3 ${notification.is_read ? "bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-700" : "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800"}`}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex items-start gap-2 min-w-0">
                     <div className="mt-0.5">{iconForType(notification.type)}</div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{notification.title}</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 wrap-break-word">{notification.title}</p>
                         {!notification.is_read && (
                           <Badge className="bg-blue-600 text-white text-[10px]">Unread</Badge>
                         )}
@@ -202,9 +202,9 @@ export default function DistrictNotificationsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex w-full flex-wrap items-center gap-1 shrink-0 sm:w-auto sm:justify-end">
                     {!notification.is_read && (
-                      <Button variant="outline" size="sm" onClick={() => markRead(notification.id)}>
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => markRead(notification.id)}>
                         Read
                       </Button>
                     )}
@@ -212,6 +212,7 @@ export default function DistrictNotificationsPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => {
                           if (!notification.is_read) markRead(notification.id);
                           router.push(notification.action_url as string);
@@ -223,7 +224,7 @@ export default function DistrictNotificationsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/30"
+                      className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/30 w-full sm:w-auto"
                       onClick={() => deleteNotification(notification.id)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

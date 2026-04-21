@@ -116,7 +116,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
     if (!customerEmail) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/support/tickets?viewer=customer&customerEmail=${encodeURIComponent(customerEmail)}`, {
+      const response = await fetch(`/api/support/tickets?viewer=customer&customerEmail=${encodeURIComponent(customerEmail)}&source=general_support`, {
         cache: "no-store"
       });
       const data = await response.json();
@@ -192,6 +192,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
         body: JSON.stringify({
           customerName,
           customerEmail,
+          ticketSource: "general_support",
           category,
           subCategory,
           referenceOrderId: referenceOrderId.trim() || null,

@@ -103,7 +103,7 @@ export default function HomePage() {
     {
       title: "Transforming Business Through Technology", // Added title field
       quote:
-        "Working with Cygnatrix has been transformative for our business. They delivered a complex enterprise solution on time and exceeded all expectations with their technical expertise.",
+        "Working with Protechtur has been transformative for our business. They delivered a complex enterprise solution on time and exceeded all expectations with their technical expertise.",
       author: "Sarah Johnson",
       role: "CEO",
       company: "TechStart Inc.",
@@ -112,7 +112,7 @@ export default function HomePage() {
     {
       title: "Cloud Migration Success", // Added title field
       quote:
-        "The team at Cygnatrix demonstrated exceptional professionalism and technical prowess. Their cloud migration saved us 60% in infrastructure costs while improving performance.",
+        "The team at Protechtur demonstrated exceptional professionalism and technical prowess. Their cloud migration saved us 60% in infrastructure costs while improving performance.",
       author: "Michael Chen",
       role: "CTO",
       company: "InnovateCo",
@@ -121,7 +121,7 @@ export default function HomePage() {
     {
       title: "World-Class Mobile Experience", // Added title field
       quote:
-        "From initial consultation to final deployment, Cygnatrix provided world-class service. The mobile app they built has become our primary customer engagement channel.",
+        "From initial consultation to final deployment, Protechtur provided world-class service. The mobile app they built has become our primary customer engagement channel.",
       author: "Emily Rodriguez",
       role: "Director of Technology",
       company: "GlobalTech Solutions",

@@ -30,7 +30,8 @@ export default function DistrictServiceSupportPage() {
       viewerRole="district"
       viewerName={districtUser?.full_name || "District Manager"}
       district={districtUser?.district || ""}
-      title="Service Support"
+      sourceFilter="general_support"
+      title="Support"
       subtitle="Reply to customer tickets and coordinate with dealers"
     />
   );

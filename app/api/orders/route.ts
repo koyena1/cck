@@ -305,8 +305,8 @@ export async function POST(request: Request) {
         console.error('Failed to send new-order portal notifications:', notifyErr);
       }
 
-      // Send order confirmation email for ALL orders (COD and online) immediately on creation.
-      // For COD: verify-payment will additionally send a payment-received email once advance is paid.
+      // Send order confirmation email only after successful payment.
+      // For pending online/COD flows, verify-payment route sends post-payment confirmation.
       if (email) {
         try {
           // Re-fetch full order row with dealer details — allocation may have renamed the order_number to include dealer UID
@@ -351,32 +351,38 @@ export async function POST(request: Request) {
             : actualOrderNumber;
 
           const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${actualOrderToken}`;
+          const normalizedPaymentStatus = String(refreshedOrder.payment_status || '').toLowerCase();
+          const canSendPostPaymentEmail = normalizedPaymentStatus === 'paid' || normalizedPaymentStatus === 'advance paid';
 
-          const emailSent = await sendOrderConfirmationEmail({
-            orderNumber: customerOrderNumber,
-            orderToken: actualOrderToken,
-            customerName,
-            customerEmail: email,
-            totalAmount,
-            paymentMethod,
-            paymentStatus: refreshedOrder.payment_status || 'Pending',
-            orderDate: refreshedOrder.created_at || new Date().toISOString(),
-            trackingUrl,
-            orderItems: orderItemsResult.rows,
-            fullOrderData: refreshedOrder,
-          });
+          if (!canSendPostPaymentEmail) {
+            console.log(`⏭️ Skipping pre-payment confirmation email for order ${customerOrderNumber}; current payment status: ${refreshedOrder.payment_status}`);
+          } else {
+            const emailSent = await sendOrderConfirmationEmail({
+              orderNumber: customerOrderNumber,
+              orderToken: actualOrderToken,
+              customerName,
+              customerEmail: email,
+              totalAmount,
+              paymentMethod,
+              paymentStatus: refreshedOrder.payment_status || 'Pending',
+              orderDate: refreshedOrder.created_at || new Date().toISOString(),
+              trackingUrl,
+              orderItems: orderItemsResult.rows,
+              fullOrderData: refreshedOrder,
+            });
 
-          if (emailSent) {
-            const pool2 = getPool();
-            await pool2.query(
-              `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
-               VALUES ($1, $2, $3, $4, $5, $6)`,
-              [createdOrder.order_id, email, 'order_confirmation', `Order Confirmation - ${customerOrderNumber}`, 'sent', new Date()]
-            );
-            await pool2.query(
-              'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
-              [createdOrder.order_id]
-            );
+            if (emailSent) {
+              const pool2 = getPool();
+              await pool2.query(
+                `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [createdOrder.order_id, email, 'order_confirmation', `Order Confirmation - ${customerOrderNumber}`, 'sent', new Date()]
+              );
+              await pool2.query(
+                'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
+                [createdOrder.order_id]
+              );
+            }
           }
         } catch (emailError) {
           console.error('Order confirmation email error (non-blocking):', emailError);

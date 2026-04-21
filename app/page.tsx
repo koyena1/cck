@@ -1,18 +1,17 @@
 "use client";
-import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { useCart } from "@/components/cart-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import ThumbnailCarousel from "@/components/ui/thumbnail-carousel";
+import { SplineSceneBasic } from "@/components/ui/demo";
 import Image from "next/image";
 import {
   motion,
-  useMotionValue,
-  useSpring,
-  useTransform,
   type Variants,
 } from "framer-motion";
 
@@ -29,6 +28,7 @@ import {
   HardDrive,
   MessageSquare,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Info,
   Plus,
@@ -42,7 +42,6 @@ import {
   Check,
   Wrench,
   Calendar,
-  LayoutGrid,
   Zap
 } from "lucide-react";
 
@@ -110,8 +109,28 @@ const BlinkingDot = () => (
   </span>
 );
 
+type BestsellerProduct = {
+  id: number;
+  product_name: string;
+  brand_name: string;
+  base_price: number;
+  original_price: number | null;
+  image: string | null;
+  product_description: string;
+  product_specifications: string;
+  segment: string;
+  sold: number;
+};
+
+type BusinessBestsellerSection = {
+  business_key: string;
+  business_name: string;
+  products: BestsellerProduct[];
+};
+
 export default function HomePage() {
   const router = useRouter();
+  const { addToCart, setIsCartOpen } = useCart();
 
   // --- NEW STATE: BOOKING TYPE ---
   const [bookingType, setBookingType] = useState<string | null>(null);
@@ -268,6 +287,14 @@ export default function HomePage() {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [createdOrderNumber, setCreatedOrderNumber] = useState("");
 
+  // Bestseller products state
+  const [businessBestsellerSections, setBusinessBestsellerSections] = useState<BusinessBestsellerSection[]>([]);
+  const [loadingBestsellers, setLoadingBestsellers] = useState(true);
+  const [canScrollCategoryLeft, setCanScrollCategoryLeft] = useState(false);
+  const [canScrollCategoryRight, setCanScrollCategoryRight] = useState(false);
+  const bestsellerScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [bestsellerArrowState, setBestsellerArrowState] = useState<Record<string, { left: boolean; right: boolean }>>({});
+
   // Initialize with fallback tech types
   const getInitialTechTypes = () => {
     const types = Object.keys(TECH_TYPE_PRICES);
@@ -369,6 +396,164 @@ export default function HomePage() {
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString());
   }, []);
+
+  useEffect(() => {
+    const fetchBestsellers = async () => {
+      try {
+        setLoadingBestsellers(true);
+        const response = await fetch('/api/bestseller-products?grouped=true&limit=10', {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch bestsellers');
+        }
+
+        const data = await response.json();
+        if (data.success && Array.isArray(data.sections)) {
+          const mappedSections: BusinessBestsellerSection[] = data.sections.map((section: any) => ({
+            business_key: section.business_key || '',
+            business_name: section.business_name || 'Bestseller',
+            products: Array.isArray(section.products)
+              ? section.products.map((product: any) => ({
+                  id: Number(product.id) || 0,
+                  product_name: product.product_name || '',
+                  brand_name: product.brand_name || '',
+                  base_price: Number(product.base_price) || 0,
+                  original_price: product.original_price !== null ? Number(product.original_price) || null : null,
+                  image: product.image || '/pdt.png',
+                  product_description: product.product_description || '',
+                  product_specifications: product.product_specifications || '',
+                  segment: product.segment || 'CCTV',
+                  sold: Number(product.sold) || 0,
+                }))
+              : [],
+          }));
+
+          setBusinessBestsellerSections(mappedSections);
+        } else {
+          setBusinessBestsellerSections([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch bestseller products:', error);
+        setBusinessBestsellerSections([]);
+      } finally {
+        setLoadingBestsellers(false);
+      }
+    };
+
+    fetchBestsellers();
+  }, []);
+
+  useEffect(() => {
+    const container = document.getElementById('categoryScroll');
+    if (!container) {
+      setCanScrollCategoryLeft(false);
+      setCanScrollCategoryRight(false);
+      return;
+    }
+
+    const updateArrowState = () => {
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+      setCanScrollCategoryLeft(container.scrollLeft > 2);
+      setCanScrollCategoryRight(maxScrollLeft - container.scrollLeft > 2);
+    };
+
+    updateArrowState();
+    container.addEventListener('scroll', updateArrowState, { passive: true });
+    window.addEventListener('resize', updateArrowState);
+
+    return () => {
+      container.removeEventListener('scroll', updateArrowState);
+      window.removeEventListener('resize', updateArrowState);
+    };
+  }, []);
+
+  const updateBestsellerArrowState = (rowKey: string) => {
+    const container = bestsellerScrollRefs.current[rowKey];
+    if (!container) {
+      return;
+    }
+
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    const next = {
+      left: container.scrollLeft > 2,
+      right: maxScrollLeft - container.scrollLeft > 2,
+    };
+
+    setBestsellerArrowState((prev) => {
+      const current = prev[rowKey];
+      if (current && current.left === next.left && current.right === next.right) {
+        return prev;
+      }
+      return { ...prev, [rowKey]: next };
+    });
+  };
+
+  const scrollBestsellerRow = (rowKey: string, direction: 'left' | 'right') => {
+    const container = bestsellerScrollRefs.current[rowKey];
+    if (!container) {
+      return;
+    }
+
+    container.scrollBy({
+      left: direction === 'left' ? -360 : 360,
+      behavior: 'smooth',
+    });
+  };
+
+  const handleAddBestsellerToCart = (product: BestsellerProduct) => {
+    addToCart({
+      id: String(product.id),
+      name: product.product_name,
+      price: Number(product.base_price) || 0,
+      image: product.image || '/pdt.png',
+      category: product.segment || 'CCTV',
+    });
+    setIsCartOpen(true);
+  };
+
+  const handleBestsellerBuyNow = (product: BestsellerProduct) => {
+    router.push(
+      `/buy-now?productId=${product.id}&productName=${encodeURIComponent(product.product_name)}&price=${Number(product.base_price) || 0}`
+    );
+  };
+
+  useEffect(() => {
+    const listeners: Array<{ rowKey: string; handler: () => void }> = [];
+
+    businessBestsellerSections.forEach((section, index) => {
+      const rowKey = `${section.business_key || 'best-seller'}-${index}`;
+      const container = bestsellerScrollRefs.current[rowKey];
+      if (!container || section.products.length === 0) {
+        return;
+      }
+
+      const handler = () => updateBestsellerArrowState(rowKey);
+      handler();
+      container.addEventListener('scroll', handler, { passive: true });
+      listeners.push({ rowKey, handler });
+    });
+
+    const handleResize = () => {
+      businessBestsellerSections.forEach((section, index) => {
+        const rowKey = `${section.business_key || 'best-seller'}-${index}`;
+        updateBestsellerArrowState(rowKey);
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      listeners.forEach(({ rowKey, handler }) => {
+        const container = bestsellerScrollRefs.current[rowKey];
+        if (container) {
+          container.removeEventListener('scroll', handler);
+        }
+      });
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [businessBestsellerSections]);
 
   // --- PRICING LOGIC - Uses Database Prices from Admin Panel ---
   const totalPrice = useMemo(() => {
@@ -531,12 +716,29 @@ export default function HomePage() {
     setter({ ...empty, [firstType]: { ...empty[firstType], ["2MP"]: total } });
   };
 
-  const checkAvailability = () => {
-    if (pincode.length === 6) {
-      setAvailabilityMessage("Searching for top-rated dealers in your area...");
-      setTimeout(() => setAvailabilityMessage("Success! Verified installers are available."), 1500);
-    } else {
+  const checkAvailability = async () => {
+    const normalizedPincode = pincode.trim();
+
+    if (!/^\d{6}$/.test(normalizedPincode)) {
       setAvailabilityMessage("Please enter a valid 6-digit PIN code.");
+      return;
+    }
+
+    try {
+      setAvailabilityMessage("Checking availability...");
+      const response = await fetch(`/api/pincode-availability?pincode=${encodeURIComponent(normalizedPincode)}`, {
+        cache: 'no-store',
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Failed to check availability');
+      }
+
+      setAvailabilityMessage(data.available ? 'Available' : 'Not Available for this pincode.');
+    } catch (error) {
+      console.error('Availability check failed:', error);
+      setAvailabilityMessage('Unable to check availability right now. Please try again.');
     }
   };
 
@@ -707,13 +909,6 @@ export default function HomePage() {
   const handleCOD = () => submitOrder('cod');
   const handleRazorpay = () => submitOrder('razorpay');
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [constraints, setConstraints] = useState(0);
-  const scrollProgress = useMotionValue(0);
-  const smoothProgress = useSpring(scrollProgress, { stiffness: 100, damping: 20 });
-  useEffect(() => { if (containerRef.current) setConstraints(containerRef.current.scrollWidth - containerRef.current.offsetWidth); }, []);
-  const x = useTransform(smoothProgress, [0, 100], [0, -constraints]);
-
   return (
     <div className="bg-white min-h-screen">
       <Suspense fallback={<div className="h-16" />}>
@@ -776,111 +971,247 @@ export default function HomePage() {
       )}
 
       {/* Category Section - Exact replica of screenshot */}
-      <section className="bg-white py-6 border-b border-slate-200 print:hidden mt-24">
+      <section className="bg-white py-5 sm:py-6 border-b border-slate-200 print:hidden mt-20 sm:mt-24">
         <div className="container mx-auto px-4">
           <div className="relative">
-            <div id="categoryScroll" className="flex items-center justify-between gap-6 overflow-x-auto scrollbar-hide scroll-smooth px-16 md:px-0">
+            <div id="categoryScroll" className="flex items-center justify-start md:justify-between gap-4 sm:gap-6 overflow-x-auto scrollbar-hide scroll-smooth px-10 sm:px-12 md:px-0">
               {[
-                { icon: Zap, label: "24 hrs", sublabel: "Delivery", highlight: true, useIcon: true },
-                { image: "/ct.png", label: "CCTV", link: "/categories" },
-                { image: "/biometric.png", label: "BIOMETRIC ACCESS" },
-                { image: "/gps.png", label: "GPS SYSTEM"},
-                { image: "/system.png", label: "SYSTEM" },
-                { image: "/fire.jpg", label: "FIRE ALARM" },
-                { image: "/intercom.png", label: "INTERCOM SYSTEM"},
-                { image: "/motion.png", label: "MOTION DETECTION", },
-                { image: "/pasys.png", label: "PA SYSTEM" }
+                { icon: Camera, label: "CCTV", link: "/categories" },
+                { icon: Lock, label: "BIOMETRIC ACCESS" },
+                { icon: MapPin, label: "GPS SYSTEM" },
+                { icon: Settings, label: "SYSTEM" },
+                { icon: Wrench, label: "FIRE ALARM" },
+                { icon: MessageSquare, label: "INTERCOM SYSTEM" },
+                { icon: Network, label: "MOTION DETECTION" },
+                { icon: Monitor, label: "PA SYSTEM" }
               ].map((item, i) => (
                 <div 
                   key={i} 
                   onClick={() => item.link && router.push(item.link)}
-                  className="flex flex-col items-center min-w-25 p-3 rounded-lg hover:bg-slate-50 transition-all cursor-pointer group"
+                  className="flex flex-col items-center min-w-24 sm:min-w-25 p-2.5 sm:p-3 rounded-xl hover:bg-slate-50 transition-all cursor-pointer group"
                 >
-                  <div className={`w-14 h-14 flex items-center justify-center mb-2 rounded-full ${item.highlight ? 'bg-red-50' : 'bg-slate-50'} group-hover:scale-110 transition-transform overflow-hidden`}>
-                    {item.useIcon && item.icon ? (
-                      <item.icon className={`w-7 h-7 ${item.highlight ? 'text-[#e63946]' : 'text-slate-600'}`} />
-                    ) : (
-                      <div className="relative w-10 h-10">
-                        <Image 
-                          src={item.image || '/placeholder.png'} 
-                          alt={item.label}
-                          fill
-                          className="object-contain"
-                        />
-                      </div>
-                    )}
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center mb-2 rounded-full bg-white border border-slate-300 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all overflow-hidden">
+                    <item.icon className="w-6 h-6 sm:w-7 sm:h-7 text-black" strokeWidth={2.2} />
                   </div>
                   <div className="text-center">
-                    <p className="text-xs font-semibold text-[#e63946] leading-tight">{item.label}</p>
-                    {item.sublabel && <p className="text-xs font-semibold text-[#e63946] leading-tight">{item.sublabel}</p>}
+                    <p className="text-[11px] sm:text-xs font-semibold text-black leading-tight tracking-wide">{item.label}</p>
                   </div>
                 </div>
               ))}
             </div>
             {/* Left Scroll Arrow Button for Mobile */}
-            <button 
-              onClick={() => {
-                const container = document.getElementById('categoryScroll');
-                if (container) {
-                  container.scrollBy({ left: -200, behavior: 'smooth' });
-                }
-              }}
-              className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg flex items-center justify-center text-[#e63946] hover:bg-[#e63946] hover:text-white transition-all active:scale-95 z-10 border border-slate-200"
-              aria-label="Scroll left"
-            >
-              <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+            {canScrollCategoryLeft && (
+              <button 
+                onClick={() => {
+                  const container = document.getElementById('categoryScroll');
+                  if (container) {
+                    container.scrollBy({ left: -200, behavior: 'smooth' });
+                  }
+                }}
+                className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg flex items-center justify-center text-[#e63946] hover:bg-[#e63946] hover:text-white transition-all active:scale-95 z-10 border border-slate-200"
+                aria-label="Scroll left"
+              >
+                <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
             {/* Right Scroll Arrow Button for Mobile */}
-            <button 
-              onClick={() => {
-                const container = document.getElementById('categoryScroll');
-                if (container) {
-                  container.scrollBy({ left: 200, behavior: 'smooth' });
-                }
-              }}
-              className="md:hidden absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg flex items-center justify-center text-[#e63946] hover:bg-[#e63946] hover:text-white transition-all active:scale-95 z-10 border border-slate-200"
-              aria-label="Scroll right"
-            >
-              <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            {canScrollCategoryRight && (
+              <button 
+                onClick={() => {
+                  const container = document.getElementById('categoryScroll');
+                  if (container) {
+                    container.scrollBy({ left: 200, behavior: 'smooth' });
+                  }
+                }}
+                className="md:hidden absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/95 shadow-lg flex items-center justify-center text-[#e63946] hover:bg-[#e63946] hover:text-white transition-all active:scale-95 z-10 border border-slate-200"
+                aria-label="Scroll right"
+              >
+                <svg className="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      <section className="relative bg-gradient-to-b from-slate-950 via-slate-900 to-white print:hidden overflow-hidden">
+      <section className="relative print:hidden overflow-hidden">
         <ThumbnailCarousel />
       </section>
 
-      {/* Maintain How It Works, Trust, Availability and Footer sections */}
-      <section className="py-24 bg-white overflow-hidden">
+      {/* Bestseller Section */}
+      <section className="py-16 bg-white border-t border-slate-100">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-center mb-4">
-            <BlinkingDot /> <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase">Our process, simplified</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-wide">Best Sellers</h2>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/bestsellers')}
+              className="w-full sm:w-auto"
+            >
+              View All
+            </Button>
           </div>
-          <motion.h2 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 100 }} className="text-4xl font-black text-slate-900 uppercase mb-16 text-center">How It Works</motion.h2>
-          <div className="relative overflow-hidden">
-            <motion.div ref={containerRef} style={{ x }} className="flex gap-12">
-              {[
-                { step: 1, title: "Automated Quote", desc: "Select hardware and get mixed resolution estimates tailored to you.", color: "#e63946" },
-                { step: 2, title: "Admin Verification", desc: "Our team performs a manual confirmation call to verify mixed specs.", color: "#7700ff" },
-                { step: 3, title: "Dealer Assignment", desc: "We assign the job to the top-rated dealer within a 5-10km radius.", color: "#00ccff" }
-              ].map((item, i) => (
-                <motion.div key={i} whileHover={{ y: -15, scale: 1.02 }} className="min-w-75 md:min-w-100 group relative p-10 rounded-[2rem] bg-slate-50 border border-slate-200 hover:border-[#e63946]/50 transition-colors">
-                  <div className="w-16 h-16 bg-[#e63946] rounded-full flex items-center justify-center text-white font-bold text-2xl mb-8 shadow-lg">{item.step}</div>
-                  <h4 className="text-2xl font-bold text-slate-900 uppercase mb-4 tracking-tight">{item.title}</h4>
-                  <p className="text-slate-600 text-base leading-relaxed">{item.desc}</p>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
+
+          {loadingBestsellers ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#e63946]"></div>
+            </div>
+          ) : businessBestsellerSections.some((section) => section.products.length > 0) ? (
+            <div className="space-y-10">
+              {businessBestsellerSections.map((section, index) => {
+                const rowKey = `${section.business_key || 'best-seller'}-${index}`;
+                const arrows = bestsellerArrowState[rowKey] || { left: false, right: false };
+
+                return (
+                <div key={rowKey}>
+                  {section.business_key !== 'best-seller' && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-wide">
+                        {section.business_name}
+                      </h3>
+                      <Button
+                        variant="outline"
+                        onClick={() => router.push(`/bestsellers?business=${section.business_key}`)}
+                        className="w-full sm:w-auto"
+                      >
+                        View All
+                      </Button>
+                    </div>
+                  )}
+
+                  {section.products.length === 0 ? (
+                    <div className="text-sm text-slate-500 border border-dashed border-slate-300 rounded-xl px-4 py-6">
+                      No products selected yet for {section.business_name}.
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {arrows.left && (
+                        <button
+                          type="button"
+                          onClick={() => scrollBestsellerRow(rowKey, 'left')}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/95 border border-slate-200 shadow-md flex items-center justify-center text-slate-700 hover:text-[#e63946] hover:border-[#e63946] transition-colors"
+                          aria-label="Scroll bestsellers left"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      <div
+                        ref={(node) => {
+                          bestsellerScrollRefs.current[rowKey] = node;
+                        }}
+                        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-hide px-1 py-1"
+                      >
+                      {section.products.map((product) => (
+                        <div
+                          key={`${section.business_key}-${product.id}`}
+                          className="min-w-72 max-w-72 sm:min-w-80 sm:max-w-80 shrink-0 snap-start border border-slate-200 rounded-xl bg-white overflow-hidden hover:shadow-md transition-shadow"
+                        >
+                          <div className="relative h-48 bg-slate-50">
+                            <img
+                              src={product.image || '/pdt.png'}
+                              alt={product.product_name}
+                              className="h-full w-full object-contain p-3"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = '/pdt.png';
+                              }}
+                            />
+                          </div>
+
+                          <div className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs text-slate-500">Brand: {product.brand_name}</p>
+                              <span className="text-xs font-bold text-[#e63946]">{product.sold} sold</span>
+                            </div>
+
+                            <p className="text-xs text-slate-500 mb-1">{product.segment}</p>
+                            <h3 className="text-[1.05rem] font-semibold text-slate-900 leading-snug line-clamp-2 min-h-12">
+                              {product.product_name}
+                            </h3>
+                            <p className="text-xs text-slate-500 line-clamp-2 min-h-10">
+                              {product.product_description || 'No description available'}
+                            </p>
+
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="text-3xl font-black text-slate-900">RS {product.base_price.toLocaleString()}</span>
+                              {product.original_price !== null && product.original_price > product.base_price && (
+                                <span className="text-sm text-slate-500 line-through">RS {Number(product.original_price).toLocaleString()}</span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-slate-500 mt-2 line-clamp-2">
+                              Specs: {product.product_specifications || 'N/A'}
+                            </p>
+
+                            <div className="mt-4 grid grid-cols-1 gap-2">
+                              <Button
+                                type="button"
+                                onClick={() => router.push(`/products/${product.id}`)}
+                                className="w-full bg-[#e63946] hover:bg-[#d62839] text-white font-bold"
+                              >
+                                View Details
+                              </Button>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={() => handleAddBestsellerToCart(product)}
+                                >
+                                  Add to Cart
+                                </Button>
+                                <Button
+                                  type="button"
+                                  className="w-full bg-slate-800 hover:bg-slate-900 text-white"
+                                  onClick={() => handleBestsellerBuyNow(product)}
+                                >
+                                  Buy Now
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      </div>
+
+                      {arrows.right && (
+                        <button
+                          type="button"
+                          onClick={() => scrollBestsellerRow(rowKey, 'right')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/95 border border-slate-200 shadow-md flex items-center justify-center text-slate-700 hover:text-[#e63946] hover:border-[#e63946] transition-colors"
+                          aria-label="Scroll bestsellers right"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )})}
+            </div>
+          ) : (
+            <div className="text-center py-8 border border-dashed border-slate-300 rounded-xl">
+              <p className="text-slate-500">No bestseller products available right now.</p>
+            </div>
+          )}
         </div>
       </section>
 
+      {/* Interactive 3D Section (disabled) */}
+      {/*
+      <section className="bg-white py-24 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <SplineSceneBasic />
+        </div>
+      </section>
+      */}
+
       {/* Why Choose Us Section */}
+      {/*
       <section className="py-24 bg-slate-50">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center mb-4">
@@ -903,13 +1234,57 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      */}
+
+      {/* Security Systems Showcase */}
+      {/* <section className="py-20 bg-slate-200">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <span className="h-px w-14 bg-slate-400" />
+              <Camera className="w-5 h-5 text-black" />
+              <span className="h-px w-14 bg-slate-400" />
+            </div>
+            <p className="text-black text-3xl md:text-4xl font-medium mb-2">360 total Security Services</p>
+            <h2 className="text-5xl md:text-6xl font-semibold text-[#e63946]">CCTV Surveillance Systems</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
+            {[
+              { image: "/imga.jpg", alt: "Door access security" },
+              { image: "/imgd.jpg", alt: "Mobile controlled smart lock" },
+              { image: "/imgp.jpg", alt: "Bullet camera surveillance" }
+            ].map((item, i) => (
+              <div key={i} className="relative h-146 overflow-hidden group cursor-pointer">
+                <Image
+                  src={item.image}
+                  alt={item.alt}
+                  fill
+                  className="object-cover brightness-110 contrast-105 saturate-110 transition-transform duration-500 ease-out group-hover:scale-105 group-active:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/20" />
+                <div className="absolute inset-0 bg-black/45 translate-x-full transition-transform duration-500 ease-out group-hover:translate-x-0 group-active:translate-x-0" />
+                <div className="absolute inset-0 flex items-center justify-center px-8 text-center translate-x-full transition-transform duration-500 ease-out group-hover:translate-x-0 group-active:translate-x-0">
+                  <p className="text-white font-extrabold text-3xl leading-snug">
+                    Suspendisse urna nibh, viverra non, semper suscipit, posuere a, pede. Donec nec justo eget felis facilisis fermentum.
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section> */}
 
       {/* Availability Check */}
-      <section className="py-24 bg-white border-t border-slate-100">
-        <div className="container mx-auto px-4 max-w-3xl text-center">
-          <p className="text-[#e63946] text-xs font-bold tracking-[0.3em] uppercase mb-4"><BlinkingDot />Availability</p>
-          <h2 className="text-4xl font-black text-slate-900 uppercase mb-6">Check Availability</h2>
-          <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+      <section
+        className="relative py-50 md:py-60 min-h-175 border-t border-slate-100 bg-center bg-no-repeat flex items-center"
+        style={{ backgroundImage: "url('/allbusiness.jpg')", backgroundSize: 'contain', backgroundPosition: 'center center' }}
+      >
+        <div className="absolute inset-0 bg-slate-900/45" aria-hidden="true" />
+        <div className="relative z-10 container mx-auto px-4 max-w-5xl text-center">
+          <p className="text-[#ff8b94] text-xs font-bold tracking-[0.3em] uppercase mb-4"><BlinkingDot />Availability</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white uppercase mb-6">Check Availability</h2>
+          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 justify-center items-center max-w-xl mx-auto">
             <div className="relative w-full md:w-64">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
               <input type="text" maxLength={6} placeholder="Enter PIN Code" className="w-full bg-slate-50 border border-slate-200 p-4 pl-12 rounded-xl text-slate-900 focus:border-[#e63946] outline-none transition-all shadow-inner" onChange={(e) => setPincode(e.target.value)} />
@@ -919,7 +1294,7 @@ export default function HomePage() {
             </Button>
           </div>
           {availabilityMessage && (
-            <div className={`mt-6 p-4 rounded-xl text-sm font-bold shadow-sm ${availabilityMessage.includes('Success') ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+            <div className={`mt-6 p-4 rounded-xl text-sm font-bold shadow-sm ${availabilityMessage === 'Available' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
               {availabilityMessage}
             </div>
           )}

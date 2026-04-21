@@ -14,7 +14,8 @@ interface CartItem {
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (id: string) => void;
+  removeFromCart: (id: string, category?: string) => void;
+  updateCartQuantity: (id: string, category: string | undefined, quantity: number) => void;
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
@@ -77,8 +78,33 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter(item => item.id !== id));
+  const removeFromCart = (id: string, category?: string) => {
+    setCart((prev) =>
+      prev.filter((item) => {
+        if (category !== undefined) {
+          return !(item.id === id && item.category === category);
+        }
+        return item.id !== id;
+      })
+    );
+  };
+
+  const updateCartQuantity = (id: string, category: string | undefined, quantity: number) => {
+    const normalizedQty = Math.floor(quantity);
+    setCart((prev) => {
+      if (!Number.isFinite(normalizedQty)) return prev;
+
+      if (normalizedQty <= 0) {
+        return prev.filter((item) => !(item.id === id && item.category === category));
+      }
+
+      return prev.map((item) => {
+        if (item.id === id && item.category === category) {
+          return { ...item, quantity: normalizedQty };
+        }
+        return item;
+      });
+    });
   };
 
   const clearCart = () => {
@@ -96,6 +122,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cart,
         addToCart,
         removeFromCart,
+        updateCartQuantity,
         clearCart,
         cartTotal,
         cartCount,

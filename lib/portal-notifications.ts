@@ -1,7 +1,7 @@
 import { getPool } from '@/lib/db';
 
 export interface PortalNotificationInput {
-  portal: 'admin' | 'district' | 'dealer';
+  portal: 'admin' | 'district' | 'dealer' | 'bpo';
   recipientKey?: string | null;
   title: string;
   message: string;
@@ -97,6 +97,21 @@ export async function notifyNewOrderPlaced(payload: {
     type: 'new_order',
     priority: 'high',
     actionUrl: '/district-portal/dashboard',
+    createdBy: 'system',
+    metadata: {
+      orderId: payload.orderId,
+      orderNumber: payload.orderNumber,
+      district: districtKey,
+    },
+  });
+
+  await createPortalNotification({
+    portal: 'bpo',
+    title: `New Order ${payload.orderNumber}`,
+    message: `${payload.customerName} placed a new order${payload.city ? ` from ${payload.city}` : ''}${payload.pincode ? ` (${payload.pincode})` : ''}. Amount: ${amountText}`,
+    type: 'new_order',
+    priority: 'high',
+    actionUrl: '/bpo-portal/orders',
     createdBy: 'system',
     metadata: {
       orderId: payload.orderId,

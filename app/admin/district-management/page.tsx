@@ -9,10 +9,8 @@ import {
   EyeOff,
   Edit,
   Trash2,
-  CheckCircle,
   XCircle,
-  Clock,
-  Activity
+  Clock
 } from "lucide-react";
 import { stateDistrictMapping } from "@/lib/state-district-mapping";
 import {
@@ -27,6 +25,7 @@ import { Button } from "@/components/ui/button";
 
 interface DistrictUser {
   district_user_id: number;
+  district_unique_id?: string;
   username: string;
   email: string;
   full_name: string;
@@ -57,6 +56,8 @@ export default function DistrictManagementPage() {
   const [districtStats, setDistrictStats] = useState<DistrictStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -73,6 +74,24 @@ export default function DistrictManagementPage() {
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
 
   const indianStates = Object.keys(stateDistrictMapping).sort();
+
+  const filteredDistrictUsers = districtUsers.filter((user) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+
+    const bag = [
+      user.full_name,
+      user.username,
+      user.email,
+      user.district,
+      user.state,
+      user.district_unique_id || ""
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return bag.includes(q);
+  });
 
   // Update available districts when state changes
   useEffect(() => {
@@ -233,63 +252,6 @@ export default function DistrictManagementPage() {
           <UserPlus className="h-4 w-4 shrink-0" />
           <span className="truncate">Create District Manager</span>
         </Button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-2">
-              <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="truncate">Total Users</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold">{districtUsers.length}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-2">
-              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
-              <span className="truncate">Active Users</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-600">
-              {districtUsers.filter(u => u.is_active).length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-2">
-              <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="truncate">Districts Covered</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold">
-              {new Set(districtUsers.map(u => u.district)).size}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1 sm:gap-2">
-              <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="truncate">Total Dealers</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600">
-              {districtStats.reduce((sum, stat) => sum + stat.total_dealers, 0)}
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Create User Form */}
@@ -465,15 +427,49 @@ export default function DistrictManagementPage() {
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-            District Users ({districtUsers.length})
+            District Users ({filteredDistrictUsers.length})
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             Manage users with district-level access
           </CardDescription>
         </CardHeader>
         <CardContent className="p-3 sm:p-4 md:p-6">
+          <div className="mb-4 flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setSearchQuery(searchInput.trim());
+                }
+              }}
+              placeholder="Search by name, username, unique ID, district"
+              className="w-full sm:max-w-md rounded-md border border-gray-300 dark:border-slate-700 px-3 py-2 text-sm bg-white dark:bg-slate-900"
+            />
+            <Button
+              type="button"
+              onClick={() => setSearchQuery(searchInput.trim())}
+              className="w-full sm:w-auto"
+            >
+              Search
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSearchInput("");
+                setSearchQuery("");
+              }}
+              className="w-full sm:w-auto"
+            >
+              Clear
+            </Button>
+          </div>
+
           <div className="space-y-3 sm:space-y-4">
-            {districtUsers.map((user) => (
+            {filteredDistrictUsers.map((user) => (
               <div
                 key={user.district_user_id}
                 className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow"
@@ -482,6 +478,11 @@ export default function DistrictManagementPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <h3 className="font-semibold text-base sm:text-lg truncate text-gray-900 dark:text-white">{user.full_name}</h3>
+                      {user.district_unique_id && (
+                        <Badge variant="outline" className="text-[10px] sm:text-xs px-2 py-0.5">
+                          {user.district_unique_id}
+                        </Badge>
+                      )}
                       <Badge variant={user.is_active ? "default" : "destructive"} className="text-xs">
                         {user.is_active ? "Active" : "Inactive"}
                       </Badge>
@@ -537,11 +538,13 @@ export default function DistrictManagementPage() {
               </div>
             ))}
 
-            {districtUsers.length === 0 && (
+            {filteredDistrictUsers.length === 0 && (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No district managers created yet</p>
-                <p className="text-sm">Click "Create District Manager" to add your first manager</p>
+                <p>{districtUsers.length === 0 ? "No district managers created yet" : "No district managers match your search"}</p>
+                {districtUsers.length === 0 && (
+                  <p className="text-sm">Click "Create District Manager" to add your first manager</p>
+                )}
               </div>
             )}
           </div>
@@ -561,7 +564,7 @@ export default function DistrictManagementPage() {
         </CardHeader>
         <CardContent className="p-3 sm:p-4 md:p-6">
           <div className="overflow-x-auto -mx-3 sm:mx-0">
-            <table className="w-full min-w-[640px]">
+            <table className="w-full min-w-160">
               <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700">
                 <tr>
                   <th className="px-2 sm:px-4 py-2 text-left text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-semibold">District</th>

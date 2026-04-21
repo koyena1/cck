@@ -35,6 +35,7 @@ type TicketItem = {
   customer_phone: string | null;
   category: string;
   sub_category: string;
+  description: string;
   reference_order_id: number | null;
   reference_order_number: string | null;
   district: string | null;
@@ -44,8 +45,21 @@ type TicketItem = {
   dealer_business_name: string | null;
   status: string;
   priority: string;
+  ticket_source?: string;
   created_at: string;
   last_message_at: string;
+  dealer_assignment?: {
+    response_status: string;
+    response_note: string | null;
+    responded_at: string | null;
+    response_deadline_at: string | null;
+  } | null;
+  accepted_by_dealer?: {
+    dealer_id: number;
+    full_name: string | null;
+    unique_dealer_id: string | null;
+    responded_at: string | null;
+  } | null;
   messages: TicketMessage[];
 };
 
@@ -58,6 +72,7 @@ type DealerOption = {
 
 const roleLabelBySenderRole: Record<string, string> = {
   admin: "Admin(Protechtur)",
+  bpo: "BPO Team",
   district: "District Manager",
   dealer: "Dealer",
   customer: "Customer",
@@ -86,6 +101,7 @@ interface SupportInboxProps {
   viewerName: string;
   district?: string;
   dealerId?: number;
+  sourceFilter?: string;
   title?: string;
   subtitle?: string;
 }
@@ -95,7 +111,8 @@ export function SupportInbox({
   viewerName,
   district,
   dealerId,
-  title = "Service Support",
+  sourceFilter,
+  title = "Support",
   subtitle = "Track, reply, and resolve support tickets"
 }: SupportInboxProps) {
   const [loading, setLoading] = useState(true);
@@ -186,6 +203,9 @@ export function SupportInbox({
       if (viewerRole === "dealer" && dealerId) {
         params.set("dealerId", String(dealerId));
       }
+      if (sourceFilter) {
+        params.set("source", sourceFilter);
+      }
 
       const response = await fetch(`/api/support/tickets?${params.toString()}`, {
         cache: "no-store"
@@ -262,7 +282,7 @@ export function SupportInbox({
 
   useEffect(() => {
     loadTickets();
-  }, [viewerRole, district, dealerId]);
+  }, [viewerRole, district, dealerId, sourceFilter]);
 
   // Keep inbox synced so admin and district can see each other's latest replies automatically.
   useEffect(() => {
@@ -270,7 +290,7 @@ export function SupportInbox({
       loadTickets();
     }, 10000);
     return () => clearInterval(interval);
-  }, [viewerRole, district, dealerId]);
+  }, [viewerRole, district, dealerId, sourceFilter]);
 
   useEffect(() => {
     loadDealerOptions();
@@ -416,6 +436,7 @@ export function SupportInbox({
   };
 
   const statusColor = (status: string) => {
+    if (status === "accepted") return "bg-emerald-100 text-emerald-700";
     if (status === "resolved" || status === "closed") return "bg-green-100 text-green-700";
     if (status === "in_progress") return "bg-blue-100 text-blue-700";
     if (status === "awaiting_customer") return "bg-amber-100 text-amber-700";
@@ -433,6 +454,34 @@ export function SupportInbox({
 
   const handleDealerSearch = () => {
     setDealerSearchQuery(dealerSearchInput);
+  };
+
+  const submitDealerResponse = async (action: "accept" | "reject") => {
+    if (viewerRole !== "dealer" || !selectedTicket || !dealerId) return;
+
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/support/tickets/${selectedTicket.ticket_id}/dealer-response`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dealerId,
+          dealerName: viewerName,
+          action,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to submit response");
+      }
+
+      await loadTickets();
+    } catch (error: any) {
+      alert(error?.message || "Failed to submit response");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -505,14 +554,45 @@ export function SupportInbox({
             ) : (
               <div className="space-y-4">
                 <div className="rounded-lg border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Ticket:</span> {selectedTicket.ticket_number}</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer:</span> {selectedTicket.customer_name}</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Category:</span> {selectedTicket.category} / {selectedTicket.sub_category}</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Order Ref:</span> {selectedTicket.reference_order_id || selectedTicket.reference_order_number || "-"}</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">District:</span> {selectedTicket.district || "-"}</p>
-                    <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Dealer:</span> {selectedTicket.dealer_name ? `#${selectedTicket.dealer_unique_id || selectedTicket.dealer_id || ""} ${selectedTicket.dealer_name}` : "-"}</p>
-                  </div>
+                  {viewerRole === "dealer" && selectedTicket.ticket_source === "services_portal" ? (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Ticket:</span> {selectedTicket.ticket_number}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer:</span> {selectedTicket.customer_name}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer Email:</span> {selectedTicket.customer_email || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer Phone:</span> {selectedTicket.customer_phone || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Category:</span> {selectedTicket.category} / {selectedTicket.sub_category}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Order Ref:</span> {selectedTicket.reference_order_id || selectedTicket.reference_order_number || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Location:</span> {selectedTicket.district || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Dealer:</span> {selectedTicket.dealer_name ? `#${selectedTicket.dealer_unique_id || selectedTicket.dealer_id || ""} ${selectedTicket.dealer_name}` : "-"}</p>
+                      </div>
+                      <div className="mt-3 rounded-md bg-white p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span className="font-semibold">BPO Service Details:</span>{" "}
+                        {
+                          [...(selectedTicket.messages || [])]
+                            .reverse()
+                            .find((message) => String(message.sender_role || "").toLowerCase() === "bpo" && String(message.message_text || "").trim())
+                            ?.message_text || "No BPO service details shared yet."
+                        }
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Ticket:</span> {selectedTicket.ticket_number}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer:</span> {selectedTicket.customer_name}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer Email:</span> {selectedTicket.customer_email || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Customer Phone:</span> {selectedTicket.customer_phone || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Category:</span> {selectedTicket.category} / {selectedTicket.sub_category}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Order Ref:</span> {selectedTicket.reference_order_id || selectedTicket.reference_order_number || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Location:</span> {selectedTicket.district || "-"}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">Dealer:</span> {selectedTicket.dealer_name ? `#${selectedTicket.dealer_unique_id || selectedTicket.dealer_id || ""} ${selectedTicket.dealer_name}` : "-"}</p>
+                      </div>
+                      <div className="mt-3 rounded-md bg-white p-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span className="font-semibold">Service Details:</span> {selectedTicket.description || "-"}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {(viewerRole === "admin" || viewerRole === "district") && (
@@ -523,6 +603,7 @@ export function SupportInbox({
                       </SelectTrigger>
                       <SelectContent className={selectContentClass}>
                         <SelectItem value="open" className={selectItemClass}>Open</SelectItem>
+                        <SelectItem value="accepted" className={selectItemClass}>Accepted</SelectItem>
                         <SelectItem value="in_progress" className={selectItemClass}>In Progress</SelectItem>
                         <SelectItem value="awaiting_customer" className={selectItemClass}>Awaiting Customer</SelectItem>
                         <SelectItem value="resolved" className={selectItemClass}>Resolved</SelectItem>
@@ -609,29 +690,106 @@ export function SupportInbox({
                   </div>
                 )}
 
-                <div className="max-h-90 space-y-2 overflow-y-auto rounded-lg border p-3 bg-white dark:border-slate-700 dark:bg-slate-900/60">
-                  {selectedTicket.messages.length === 0 ? (
-                    <p className="text-sm text-slate-500">No messages yet.</p>
-                  ) : (
-                    selectedTicket.messages.map((message) => (
-                      <div key={message.message_id} className="rounded-md bg-slate-50 p-2 dark:bg-slate-800/70">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                            {getSenderDisplayText(message)}
-                          </p>
-                          <p className="text-[11px] text-slate-400">{new Date(message.created_at).toLocaleString("en-IN")}</p>
+                {!(viewerRole === "dealer" && selectedTicket.ticket_source === "services_portal") && (
+                  <div className="max-h-90 space-y-2 overflow-y-auto rounded-lg border p-3 bg-white dark:border-slate-700 dark:bg-slate-900/60">
+                    {selectedTicket.messages.length === 0 ? (
+                      <p className="text-sm text-slate-500">No messages yet.</p>
+                    ) : (
+                      selectedTicket.messages.map((message) => (
+                        <div key={message.message_id} className="rounded-md bg-slate-50 p-2 dark:bg-slate-800/70">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                              {getSenderDisplayText(message)}
+                            </p>
+                            <p className="text-[11px] text-slate-400">{new Date(message.created_at).toLocaleString("en-IN")}</p>
+                          </div>
+                          {message.message_text && <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{message.message_text}</p>}
+                          {message.attachment_url && (
+                            <a href={message.attachment_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-blue-600 underline">
+                              Open attachment
+                            </a>
+                          )}
                         </div>
-                        {message.message_text && <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{message.message_text}</p>}
-                        {message.attachment_url && (
-                          <a href={message.attachment_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-blue-600 underline">
-                            Open attachment
-                          </a>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
+                      ))
+                    )}
+                  </div>
+                )}
 
+                {viewerRole === "dealer" && selectedTicket.ticket_source === "services_portal" && (() => {
+                  const assignment = selectedTicket.dealer_assignment;
+                  const acceptedBy = selectedTicket.accepted_by_dealer;
+                  const parsedDealerId = Number(dealerId);
+                  const hasDealerIdentity = Number.isFinite(parsedDealerId) && parsedDealerId > 0;
+                  const isAcceptedByCurrentDealer = Boolean(acceptedBy && hasDealerIdentity && acceptedBy.dealer_id === parsedDealerId);
+                  const acceptedByOther = Boolean(acceptedBy && !isAcceptedByCurrentDealer);
+                  const assignmentStatus = String(assignment?.response_status || "pending").toLowerCase();
+                  const deadlineAt = assignment?.response_deadline_at ? new Date(assignment.response_deadline_at) : null;
+                  const isExpired = Boolean(deadlineAt && deadlineAt.getTime() <= Date.now());
+                  const hasAssignment = Boolean(assignment);
+                  const canRespond = hasAssignment && hasDealerIdentity && !acceptedByOther && assignmentStatus === "pending" && !isExpired;
+
+                  return (
+                    <div className="rounded-lg border p-3 bg-white dark:border-slate-700 dark:bg-slate-900/60 space-y-2">
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Dealer Response</p>
+                      {deadlineAt ? (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Accept option available till: {deadlineAt.toLocaleString("en-IN")}
+                        </p>
+                      ) : null}
+
+                      {!hasAssignment ? (
+                        <p className="rounded-md bg-slate-100 px-2 py-2 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          Awaiting assignment from BPO/Admin/District Manager.
+                        </p>
+                      ) : null}
+
+                      {acceptedByOther ? (
+                        <p className="rounded-md bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          Accepted by another dealer{acceptedBy?.full_name ? `: ${acceptedBy.full_name}` : ""}
+                        </p>
+                      ) : null}
+
+                      {assignmentStatus === "accepted" ? (
+                        <p className="rounded-md bg-emerald-50 px-2 py-2 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          You accepted this service request.
+                        </p>
+                      ) : null}
+
+                      {assignmentStatus === "rejected" ? (
+                        <p className="rounded-md bg-rose-50 px-2 py-2 text-xs font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+                          You rejected this service request.
+                        </p>
+                      ) : null}
+
+                      {isExpired && assignmentStatus === "pending" ? (
+                        <p className="rounded-md bg-slate-100 px-2 py-2 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          Response window expired (9 hours).
+                        </p>
+                      ) : null}
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => submitDealerResponse("accept")}
+                          disabled={!canRespond || submitting}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-70"
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => submitDealerResponse("reject")}
+                          disabled={!canRespond || submitting}
+                          className="bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-70"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {viewerRole !== "dealer" && (
                 <div className="space-y-2 rounded-lg border p-3 bg-white dark:border-slate-700 dark:bg-slate-900/60">
                   {(viewerRole === "admin" || viewerRole === "district") && (
                     <div className="flex items-center gap-2 flex-wrap">
@@ -668,7 +826,7 @@ export function SupportInbox({
                     className={surfaceInputClass}
                     value={replyText}
                     onChange={(event) => setReplyText(event.target.value)}
-                    placeholder={viewerRole === "dealer" ? "Reply to district manager" : "Write your reply"}
+                    placeholder="Write your reply"
                   />
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
@@ -692,6 +850,7 @@ export function SupportInbox({
                     </a>
                   )}
                 </div>
+                )}
               </div>
             )}
           </CardContent>

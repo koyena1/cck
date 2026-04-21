@@ -1,21 +1,27 @@
 // lib/email.ts
 import nodemailer from 'nodemailer';
 import { generateInvoicePDFBuffer } from './generate-invoice-pdf';
+import { buildPaymentBreakdown } from './payment-breakdown';
+
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS_RAW = process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '';
+const SMTP_PASS = SMTP_PASS_RAW.replace(/\s+/g, '');
 
 // Email configuration
 const EMAIL_CONFIG = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
+  port: SMTP_PORT,
+  secure: SMTP_PORT === 465,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: SMTP_USER,
+    pass: SMTP_PASS,
   },
 };
 
 const DEV_MODE = process.env.EMAIL_DEV_MODE === 'true';
 const FROM_EMAIL = process.env.SMTP_FROM || process.env.SMTP_USER || 'protechtur@gmail.com';
-const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME || 'CCTV Store';
+const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME || process.env.COMPANY_NAME || 'Protechtur';
 const WEBSITE_URL = process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://protechtur.com';
 
 // Create reusable transporter
@@ -68,6 +74,7 @@ interface OrderEmailData {
   baseAmount?: number;
   codAdvancePaid?: number;
   codPendingAmount?: number;
+  taxAmount?: number;
 }
 
 function buildInvoiceNumber(order: Record<string, any>): string {
@@ -88,6 +95,8 @@ function buildInvoiceNumber(order: Record<string, any>): string {
  */
 export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<boolean> {
   try {
+    const roundTo2 = (value: number) => Math.round(value * 100) / 100;
+
     const {
       orderNumber,
       orderToken,
@@ -102,6 +111,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
       productTotal,
       installationCharges,
       codExtraCharges,
+      taxAmount,
       baseAmount,
       codAdvancePaid,
       codPendingAmount,
@@ -110,7 +120,39 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
     } = data;
 
     const isCOD = paymentMethod === 'cod';
-    const hasCODBreakdown = isCOD && productTotal !== undefined && baseAmount !== undefined && codAdvancePaid !== undefined;
+    const resolvedCodAdvancePaid = isCOD
+      ? parseFloat(String(
+          codAdvancePaid
+          ?? orderDetails?.advance_amount
+          ?? fullOrderData?.advance_amount
+          ?? 0
+        )) || 0
+      : 0;
+    const resolvedCodPendingAmount = isCOD
+      ? Math.max(0, totalAmount - resolvedCodAdvancePaid)
+      : 0;
+
+    const paymentBreakdown = buildPaymentBreakdown({
+      productsTotal: productTotal ?? fullOrderData?.products_total,
+      subtotal: orderDetails?.subtotal ?? fullOrderData?.subtotal ?? baseAmount,
+      installationCharges: installationCharges ?? orderDetails?.installation_charges ?? fullOrderData?.installation_charges,
+      amcCharges: orderDetails?.amc_cost ?? fullOrderData?.amc_cost,
+      deliveryCharges: orderDetails?.delivery_charges ?? fullOrderData?.delivery_charges,
+      taxAmount: taxAmount ?? orderDetails?.tax_amount ?? fullOrderData?.tax_amount,
+      totalAmount,
+      paymentMethod,
+      codFlatAmount: codExtraCharges ?? fullOrderData?._codFlatAmount,
+      discountAmount: orderDetails?.discount_amount ?? fullOrderData?.discount_amount,
+      referralDiscount: orderDetails?.referral_discount ?? fullOrderData?.referral_discount,
+      pointsRedeemed: orderDetails?.points_redeemed ?? fullOrderData?.points_redeemed,
+    });
+
+    const resolvedTaxAmount = roundTo2(paymentBreakdown.gstAmount);
+    const resolvedCodExtraCharges = roundTo2(paymentBreakdown.codExtraCharges);
+    const actualProductPrice = roundTo2(paymentBreakdown.actualProductPrice);
+    const resolvedInstallationCharges = roundTo2(paymentBreakdown.installationCharges);
+    const resolvedAmcCharges = roundTo2(paymentBreakdown.amcCharges);
+    const resolvedDeliveryCharges = roundTo2(paymentBreakdown.deliveryCharges);
 
     const subject = `Order Confirmation - ${orderNumber} | ${COMPANY_NAME}`;
     
@@ -214,6 +256,48 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         </div>
       </div>
 
+      <div class="payment-breakdown">
+        <h3>Payment Breakdown</h3>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Actual Product Price:</span>
+          <span class="breakdown-value">RS ${actualProductPrice.toLocaleString('en-IN')}</span>
+        </div>
+        ${resolvedInstallationCharges > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">Installation Charges:</span>
+          <span class="breakdown-value">RS ${resolvedInstallationCharges.toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        ${resolvedAmcCharges > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">AMC Charges:</span>
+          <span class="breakdown-value">RS ${resolvedAmcCharges.toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        ${resolvedDeliveryCharges > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">Delivery Charges:</span>
+          <span class="breakdown-value">RS ${resolvedDeliveryCharges.toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        ${resolvedTaxAmount > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">GST (18%):</span>
+          <span class="breakdown-value">RS ${resolvedTaxAmount.toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        ${isCOD && resolvedCodExtraCharges > 0 ? `
+        <div class="breakdown-row">
+          <span class="breakdown-label">COD Extra Charges:</span>
+          <span class="breakdown-value">RS ${resolvedCodExtraCharges.toLocaleString('en-IN')}</span>
+        </div>
+        ` : ''}
+        <div class="breakdown-row" style="background: linear-gradient(to right, #eff6ff, #dbeafe); padding: 15px; border-radius: 8px; margin-top: 12px; border: 2px solid #0ea5e9;">
+          <span class="breakdown-label" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">Grand Total:</span>
+          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">RS ${totalAmount.toLocaleString('en-IN')}</span>
+        </div>
+      </div>
+
       ${orderItems && orderItems.length > 0 ? `
       <div style="margin: 20px 0; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
         <div style="background: #e63946; padding: 12px 16px;">
@@ -242,65 +326,21 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
       </div>
       ` : ''}
 
-      ${hasCODBreakdown ? `
+      ${isCOD ? `
       <div class="payment-breakdown">
-        <h3>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-            <line x1="1" y1="10" x2="23" y2="10"></line>
-          </svg>
-          � Order Breakdown
-        </h3>
-        
-        <p style="margin: 10px 0; font-size: 13px; color: #64748b;">
-          Your order includes the following:
-        </p>
-        
-        <div class="breakdown-row">
-          <span class="breakdown-label">📦 Products:</span>
-          <span class="breakdown-value">RS ${(productTotal || 0).toLocaleString('en-IN')}</span>
-        </div>
-        
-        ${(installationCharges || 0) > 0 ? `
-        <div class="breakdown-row">
-          <span class="breakdown-label">🏠 Installation Service:</span>
-          <span class="breakdown-value">RS ${(installationCharges || 0).toLocaleString('en-IN')}</span>
-        </div>
-        ` : ''}
-        
-        ${(codExtraCharges || 0) > 0 ? `
-        <div class="breakdown-row">
-          <span class="breakdown-label">🔥 COD Service Charges:</span>
-          <span class="breakdown-value">RS ${(codExtraCharges || 0).toLocaleString('en-IN')}</span>
-        </div>
-        ` : ''}
-        
-        <div style="border-bottom: 2px solid #0ea5e9; margin: 15px 0;"></div>
-        
-        <div class="breakdown-row" style="background: linear-gradient(to right, #eff6ff, #dbeafe); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #0ea5e9;">
-          <span class="breakdown-label" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">📋 Total Amount:</span>
-          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">RS ${totalAmount.toLocaleString('en-IN')}</span>
-        </div>
-        
-        <h3 style="margin: 20px 0 10px; font-size: 16px; color: #1e293b;">
-          💳 Payment Status
-        </h3>
-        
-        <p style="margin: 10px 0 15px; font-size: 13px; color: #64748b;">
-          From the total amount of <strong>RS ${totalAmount.toLocaleString('en-IN')}</strong>:
-        </p>
+        <h3>COD Payment Status</h3>
         
         <div class="breakdown-highlight">
           <div class="breakdown-row" style="border: none; padding: 0;">
             <span class="breakdown-label">✅ Already Paid (Advance):</span>
-            <span class="breakdown-value">RS ${codAdvancePaid.toLocaleString('en-IN')}</span>
+            <span class="breakdown-value">RS ${resolvedCodAdvancePaid.toLocaleString('en-IN')}</span>
           </div>
         </div>
         
         <div class="breakdown-pending">
           <div class="breakdown-row" style="border: none; padding: 0;">
             <span class="breakdown-label">⏳ Pending (Pay on Delivery):</span>
-            <span class="breakdown-value">RS ${(codPendingAmount || 0).toLocaleString('en-IN')}</span>
+            <span class="breakdown-value">RS ${resolvedCodPendingAmount.toLocaleString('en-IN')}</span>
           </div>
         </div>
         
@@ -309,8 +349,8 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
             ⚠️ Important: Payment Pending
           </p>
           <p style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5;">
-            You have already paid <strong>RS ${codAdvancePaid.toLocaleString('en-IN')}</strong> as advance. <br>
-            The remaining <strong>RS ${(codPendingAmount || 0).toLocaleString('en-IN')}</strong> must be paid in cash at the time of delivery.
+            You have already paid <strong>RS ${resolvedCodAdvancePaid.toLocaleString('en-IN')}</strong> as advance. <br>
+            The remaining <strong>RS ${resolvedCodPendingAmount.toLocaleString('en-IN')}</strong> must be paid in cash at the time of delivery.
           </p>
         </div>
       </div>
@@ -378,34 +418,27 @@ Order Details:
 - Payment Method: ${paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
 - Payment Status: ${paymentStatus}
 
-${hasCODBreakdown ? `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 ORDER BREAKDOWN
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Your order includes:
-📦 Products: RS ${(productTotal || 0).toLocaleString('en-IN')}
-${(installationCharges || 0) > 0 ? `🏠 Installation Service: RS ${(installationCharges || 0).toLocaleString('en-IN')}
-` : ''}${(codExtraCharges || 0) > 0 ? `🔥 COD Service Charges: RS ${(codExtraCharges || 0).toLocaleString('en-IN')}
-` : ''}
------------------------------------
-📋 TOTAL AMOUNT: RS ${totalAmount.toLocaleString('en-IN')}
+📊 PAYMENT BREAKDOWN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💳 PAYMENT STATUS
+Actual Product Price: RS ${actualProductPrice.toLocaleString('en-IN')}
+${resolvedInstallationCharges > 0 ? `Installation Charges: RS ${resolvedInstallationCharges.toLocaleString('en-IN')}
+` : ''}${resolvedAmcCharges > 0 ? `AMC Charges: RS ${resolvedAmcCharges.toLocaleString('en-IN')}
+` : ''}${resolvedDeliveryCharges > 0 ? `Delivery Charges: RS ${resolvedDeliveryCharges.toLocaleString('en-IN')}
+` : ''}${resolvedTaxAmount > 0 ? `GST (18%): RS ${resolvedTaxAmount.toLocaleString('en-IN')}
+` : ''}${isCOD && resolvedCodExtraCharges > 0 ? `COD Extra Charges: RS ${resolvedCodExtraCharges.toLocaleString('en-IN')}
+` : ''}Grand Total: RS ${totalAmount.toLocaleString('en-IN')}
+
+${isCOD ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💳 COD PAYMENT STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-From the total amount of RS ${totalAmount.toLocaleString('en-IN')}:
+✅ Already Paid (Advance): RS ${resolvedCodAdvancePaid.toLocaleString('en-IN')}
+⏳ Pending (Pay on Delivery): RS ${resolvedCodPendingAmount.toLocaleString('en-IN')}
 
-✅ Already Paid (Advance): RS ${codAdvancePaid.toLocaleString('en-IN')}
-⏳ Pending (Pay on Delivery): RS ${(codPendingAmount || 0).toLocaleString('en-IN')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ Important: Payment Pending
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-You have already paid RS ${codAdvancePaid.toLocaleString('en-IN')} as advance.
-The remaining RS ${(codPendingAmount || 0).toLocaleString('en-IN')} must be paid in cash at the time of delivery.
+The remaining RS ${resolvedCodPendingAmount.toLocaleString('en-IN')} must be paid in cash at the time of delivery.
 ` : ''}
 
 ${orderItems && orderItems.length > 0 ? `

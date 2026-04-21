@@ -1,359 +1,405 @@
 'use client'
 
-import { Suspense } from "react"
-import { Navbar } from "@/components/navbar"
-import { Footer } from "@/components/footer"
-import { Button } from "@/components/ui/button"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
-import Image from "next/image"
-import { motion, type Variants } from "framer-motion"
-import { 
-  Settings, 
-  ArrowRight, Phone, Lock 
-} from "lucide-react"
+import { Suspense, useEffect, useState } from 'react'
+import { PlusCircle, Wrench, ShieldCheck, Settings2 } from 'lucide-react'
+import { Navbar } from '@/components/navbar'
+import { Footer } from '@/components/footer'
 
-// --- ANIMATION VARIANTS (Maintained) ---
-const fadeInUp: Variants = {
-  hidden: { opacity: 0, y: 60 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
-  },
-};
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.2 },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-  },
-};
-
-const heroVariants: Variants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
-  },
-};
-
-// Blinking Red Dot Component
-const BlinkingDot = () => (
-  <span className="inline-flex items-center mr-3">
-    <span className="relative flex h-3 w-3">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e63946] opacity-75"></span>
-      <span className="relative inline-flex rounded-full h-3 w-3 bg-[#e63946]"></span>
-    </span>
-  </span>
-);
+type ServiceCategory = 'Installations' | 'AMC' | 'Services'
 
 export default function ServicesPage() {
+  const [showCategories, setShowCategories] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null)
+
+  const [customerName, setCustomerName] = useState('Service Request Customer')
+  const [customerEmail, setCustomerEmail] = useState('')
+
+  const [installationType, setInstallationType] = useState('')
+  const [registeredMobileOrOrderId, setRegisteredMobileOrOrderId] = useState('')
+  const [installationDescription, setInstallationDescription] = useState('')
+
+  const [othersLocation, setOthersLocation] = useState('')
+  const [othersMobile, setOthersMobile] = useState('')
+  const [othersDescription, setOthersDescription] = useState('')
+
+  const [amcType, setAmcType] = useState('')
+  const [amcDetails, setAmcDetails] = useState('')
+
+  const [serviceMobile, setServiceMobile] = useState('')
+  const [serviceDetails, setServiceDetails] = useState('')
+
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('customerName')
+    const storedEmail = localStorage.getItem('customerEmail')
+
+    if (storedName?.trim()) {
+      setCustomerName(storedName.trim())
+    }
+    if (storedEmail?.trim()) {
+      setCustomerEmail(storedEmail.trim())
+    }
+  }, [])
+
+  const resetCurrentForm = () => {
+    setInstallationType('')
+    setRegisteredMobileOrOrderId('')
+    setInstallationDescription('')
+    setOthersLocation('')
+    setOthersMobile('')
+    setOthersDescription('')
+    setAmcType('')
+    setAmcDetails('')
+    setServiceMobile('')
+    setServiceDetails('')
+  }
+
+  const onCategorySelect = (category: ServiceCategory) => {
+    setSelectedCategory(category)
+    setErrorMessage('')
+    setSuccessMessage('')
+    resetCurrentForm()
+  }
+
+  const submitRequest = async () => {
+    if (!selectedCategory) {
+      setErrorMessage('Please choose a category first.')
+      return
+    }
+
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    let payload: any = {
+      customerName,
+      customerEmail: customerEmail || null,
+      ticketSource: 'services_portal',
+      category: selectedCategory,
+      subCategory: '',
+      explanation: '',
+      customerPhone: null,
+      location: null,
+      referenceOrderId: null,
+      referenceOrderNumber: null,
+    }
+
+    if (selectedCategory === 'Installations') {
+      if (!installationType) {
+        setErrorMessage('Please select Installation type.')
+        return
+      }
+
+      if (installationType === 'Purchase from Protechtur') {
+        if (!registeredMobileOrOrderId.trim() || !installationDescription.trim()) {
+          setErrorMessage('Please enter Registered Mobile Number / Order ID and description.')
+          return
+        }
+
+        const rawRef = registeredMobileOrOrderId.trim()
+        const digitsOnly = rawRef.replace(/\D/g, '')
+
+        if (/^\d+$/.test(rawRef) && rawRef.length <= 8) {
+          payload.referenceOrderId = Number(rawRef)
+        } else {
+          payload.referenceOrderNumber = rawRef
+        }
+
+        if (digitsOnly.length >= 10) {
+          payload.customerPhone = digitsOnly.slice(-10)
+        }
+
+        payload.subCategory = 'Purchase from Protechtur'
+        payload.explanation = installationDescription.trim()
+      } else {
+        if (!othersLocation.trim() || !othersMobile.trim() || !othersDescription.trim()) {
+          setErrorMessage('Please enter location, mobile number, and issue details.')
+          return
+        }
+
+        payload.subCategory = 'Purchase from Others'
+        payload.customerPhone = othersMobile.trim()
+        payload.location = othersLocation.trim()
+        payload.explanation = othersDescription.trim()
+      }
+    }
+
+    if (selectedCategory === 'AMC') {
+      if (!amcType) {
+        setErrorMessage('Please select AMC type.')
+        return
+      }
+
+      payload.subCategory = amcType
+      payload.explanation = amcDetails.trim() || `AMC request raised under ${amcType}.`
+    }
+
+    if (selectedCategory === 'Services') {
+      if (!serviceMobile.trim() || !serviceDetails.trim()) {
+        setErrorMessage('Please enter mobile number and service details.')
+        return
+      }
+
+      payload.subCategory = 'General Service Request'
+      payload.customerPhone = serviceMobile.trim()
+      payload.explanation = serviceDetails.trim()
+    }
+
+    setSubmitting(true)
+    try {
+      const response = await fetch('/api/support/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to submit service request')
+      }
+
+      setSuccessMessage(`Request submitted successfully. Ticket: ${data.ticket?.ticket_number || 'Created'}`)
+      setErrorMessage('')
+      resetCurrentForm()
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Failed to submit request.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <div className="bg-white min-h-screen">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_18%_20%,#fee2e2_0%,#fff1f2_22%,#f8fafc_60%,#ffffff_100%)]">
       <Suspense fallback={<div className="h-16" />}>
         <Navbar />
       </Suspense>
 
-      {/* Hero Section - Light Refactor */}
-      <section className="relative min-h-[90vh] flex items-center justify-center pt-16 md:pt-24 lg:pt-32 pb-12 md:pb-16 lg:pb-20 overflow-hidden bg-slate-50">
-        {/* Photo Background */}
-        <div className="absolute inset-0 w-full h-full">
-          <img
-            src="/ser.jpg" 
-            alt="Services Background"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {/* Light Overlay for readability */}
-          <div className="absolute inset-0 bg-white/70"></div>
-        </div>
-        
-        <motion.div 
-          initial="hidden"
-          animate="visible"
-          variants={heroVariants}
-          className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 lg:py-16 relative z-10 text-center"
-        >
-          <div className="flex items-center justify-center mb-6 md:mb-8">
-            <BlinkingDot />
-            <span className="text-[#e63946] text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">Professional Security Services</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black uppercase tracking-wider text-slate-900 mb-4 md:mb-6 leading-tight">
-            Expert Security & <br/><span className="text-[#e63946]">Surveillance</span> Solutions
-          </h1>
-          
-          <p className="text-slate-600 text-sm sm:text-base md:text-lg max-w-2xl md:max-w-3xl mx-auto mb-6 md:mb-8 px-4 sm:px-0">
-            Comprehensive security solutions tailored to protect your business and residential spaces with 24/7 reliability and cutting-edge technology.
-          </p>
-
-          <nav className="flex items-center justify-center space-x-2 text-base font-bold uppercase tracking-widest">
-            <Link 
-              href="/" 
-              className="text-[#e63946] hover:text-slate-900 transition-colors"
-            >
-              Home
-            </Link>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-400">Services</span>
-          </nav>
-        </motion.div>
-      </section>
-
-      {/* Services Grid Section - Light Background */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-16">
-              <div className="flex items-center justify-center mb-6">
-                <BlinkingDot />
-                <span className="text-[#e63946] text-sm font-bold uppercase tracking-[0.3em]">
-                  // OUR SERVICES
-                </span>
-              </div>
-              
-              <h2 className="text-4xl md:text-6xl font-black uppercase tracking-wider mb-4 text-slate-900">
-                Complete{" "}
-                <span className="text-[#e63946]">CCTV</span>{" "}
-                Services
-                <br />
-                For Businesses
-              </h2>
-            </div>
-
-            {/* Services Grid */}
-            <motion.div 
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-1 md:grid-cols-2 gap-8"
-            >
-              {[
-                { img: "/prod2.jpg", title: "Support And Maintenance", tag1: "GUARDIAN VISION", tag2: "SAFE VISION", desc: "Reliable upkeep ensuring seamless security operations." },
-                { img: "/prod4.jpg", title: "Expert Camera Installation", tag1: "SMART GUARD", tag2: "SECURE NET", desc: "Seamless installation with guaranteed system reliability." },
-                { img: "/ae.png", title: "Weatherproof Cameras", tag1: "WATCH PRO", tag2: "CAM SHIELD", desc: "Durable surveillance for all weather conditions." },
-                { img: "/cc.jpg", title: "Access Control Systems", tag1: "VIEW SAFE", tag2: "EYE TRACK", desc: "Advanced security with controlled entry management." }
-              ].map((service, index) => (
-                <motion.div 
-                  key={index}
-                  variants={itemVariants}
-                  className="group relative overflow-hidden rounded-[2rem] h-100 cursor-pointer border border-slate-200 shadow-sm hover:shadow-xl transition-all"
-                >
-                  <Image
-                    src={service.img}
-                    alt={service.title}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  {/* Light Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
-                  
-                  {/* Tags */}
-                  <div className="absolute top-6 left-6 flex gap-2">
-                    <Badge className="bg-white/80 backdrop-blur-md text-[#e63946] border-slate-200 rounded-none px-4 py-1 font-bold">
-                      {service.tag1}
-                    </Badge>
-                    <Badge className="bg-slate-900 text-white rounded-none px-4 py-1 font-bold">
-                      {service.tag2}
-                    </Badge>
-                  </div>
-
-                  {/* Content */}
-                  <div className="absolute bottom-8 left-8 right-8">
-                    <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">
-                      {service.title}
-                    </h3>
-                    <p className="text-slate-600 group-hover:text-slate-900 transition-colors text-sm font-medium">
-                      {service.desc}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* 24/7 Support Section - Light Mode */}
-      <section className="py-24 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 max-w-7xl mx-auto items-center">
-            {/* Left Content */}
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeInUp}
-            >
-              <div className="flex items-center mb-6">
-                <BlinkingDot />
-                <span className="text-[#e63946] text-sm font-bold uppercase tracking-[0.3em]">
-                  // OUR SUPPORT
-                </span>
-              </div>
-              
-              <h2 className="text-4xl md:text-5xl font-black uppercase mb-6 leading-tight text-slate-900">
-                Citive{" "}
-                <span className="text-[#e63946]">24/7</span>{" "}
-                Reliable Technical Support
-              </h2>
-
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed font-medium">
-                Our dedicated team delivers 24/7 technical assistance, ensuring your CCTV systems remain secure, fully functional, and continuously supported for uninterrupted protection.
+      <main className="px-4 pb-16 pt-32 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl">
+          <section className="overflow-hidden rounded-[28px] border border-rose-100 bg-white/95 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+            <div className="border-b border-rose-100 bg-linear-to-r from-rose-50 via-orange-50 to-slate-50 px-6 py-7 sm:px-10">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-500">Service Request Desk</p>
+              <h1 className="mt-3 text-3xl font-black text-slate-900 sm:text-4xl">Create Your Services</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                Submit service requests directly to BPO Portal, Admin Panel, and District Manager workflow.
               </p>
-
-              {/* Features */}
-              <div className="space-y-8 mb-10">
-                <div className="flex items-start gap-6 group">
-                  <div className="w-16 h-16 bg-[#e63946] rounded-full flex items-center justify-center shrink-0 shadow-lg transition-transform group-hover:scale-110">
-                    <Settings className="text-white" size={28} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 uppercase mb-2 tracking-wide">
-                      CCTV Installation
-                    </h3>
-                    <p className="text-slate-500 font-medium">
-                      Expert installation of advanced surveillance and monitoring systems.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-6 group">
-                  <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center shrink-0 shadow-lg transition-transform group-hover:scale-110">
-                    <Lock className="text-white" size={28} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 uppercase mb-2 tracking-wide">
-                      Confidential Access
-                    </h3>
-                    <p className="text-slate-500 font-medium">
-                      Restricted entry ensuring privacy, security, and authorized data access.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <Button 
-                asChild 
-                size="lg" 
-                className="bg-[#e63946] hover:bg-red-700 text-white rounded-none px-10 h-16 font-black uppercase tracking-widest shadow-xl transition-all"
-              >
-                <Link href="/contact" className="flex items-center gap-2">
-                  Contact Now
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
-            </motion.div>
-
-            {/* Right Image */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="relative"
-            >
-              <div className="relative rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl">
-                <Image
-                  src="/ser1.jpg"
-                  alt="24/7 Technical Support"
-                  width={800}
-                  height={600}
-                  className="w-full h-auto object-cover"
-                />
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section - Light Mode */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 max-w-7xl mx-auto items-start">
-            {/* Left Side */}
-            <div className="lg:sticky lg:top-32">
-              <div className="flex items-center mb-6">
-                <BlinkingDot />
-                <span className="text-[#e63946] text-sm font-bold uppercase tracking-[0.3em]">
-                  // FAQ
-                </span>
-              </div>
-              
-              <h2 className="text-4xl md:text-5xl font-black uppercase mb-10 text-slate-900 tracking-wider leading-tight">
-                Answers To Regular{" "}
-                <span className="text-[#e63946]">Customer</span>{" "}
-                Questions
-              </h2>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-10 shadow-sm">
-                <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-[#e63946] rounded-full flex items-center justify-center shadow-lg">
-                    <Phone className="text-white" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">
-                      24/7 Emergency Support
-                    </p>
-                    <a 
-                      href="tel:+0123456789" 
-                      className="text-3xl font-black text-slate-900 hover:text-[#e63946] transition-colors"
-                    >
-                      +0123456789
-                    </a>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* Right Side - FAQ Accordion */}
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-            >
-              <Accordion type="single" collapsible className="space-y-4">
-                {[
-                  { id: "item-1", q: "01. How Many Days Can CCTV Cameras Record?", a: "Recording time depends on storage capacity, resolution, and number of cameras. Typically, systems store footage for 15-30 days." },
-                  { id: "item-2", q: "02. Can CCTV Cameras Record At Night?", a: "Yes, most modern CCTV cameras come equipped with infrared (IR) night vision technology, typically up to 20-30 meters." },
-                  { id: "item-3", q: "03. Do CCTV Cameras Work Without Internet?", a: "Yes, CCTV cameras can work without internet by recording locally to a DVR/NVR. Internet is required for remote viewing." },
-                  { id: "item-4", q: "04. Do CCTV Cameras Record Audio?", a: "Some CCTV cameras have built-in microphones. This feature must be specifically selected and checked for local legal compliance." },
-                  { id: "item-5", q: "05. Can CCTV Cameras Work Without Power?", a: "No, CCTV cameras require power. However, battery backup systems (UPS) or solar-powered solutions can ensure operation during outages." }
-                ].map((faq) => (
-                  <AccordionItem 
-                    key={faq.id}
-                    value={faq.id} 
-                    className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden px-2 shadow-sm"
+            <div className="space-y-6 p-6 sm:p-10">
+              <button
+                type="button"
+                onClick={() => setShowCategories((prev) => !prev)}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left transition hover:border-rose-300 hover:bg-rose-50"
+              >
+                <div className="flex items-center gap-3">
+                  <PlusCircle className="h-7 w-7 text-rose-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Create Your Services</p>
+                    <p className="text-xs text-slate-500">Click to view Installations, AMC, and Services</p>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  {showCategories ? 'Hide' : 'Show'}
+                </span>
+              </button>
+
+              {showCategories && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => onCategorySelect('Installations')}
+                    className={`rounded-2xl border px-4 py-4 text-left transition ${
+                      selectedCategory === 'Installations'
+                        ? 'border-rose-400 bg-rose-50'
+                        : 'border-slate-200 bg-white hover:border-rose-200'
+                    }`}
                   >
-                    <AccordionTrigger className="px-6 py-6 text-slate-900 hover:no-underline text-left font-black text-lg uppercase tracking-wide group">
-                      <span className="group-data-[state=open]:text-[#e63946] transition-colors">
-                        {faq.q}
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-6 text-slate-600 text-base leading-relaxed font-medium">
-                      {faq.a}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </motion.div>
-          </div>
+                    <Wrench className="mb-2 h-5 w-5 text-rose-500" />
+                    <p className="text-sm font-bold text-slate-900">Installations</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onCategorySelect('AMC')}
+                    className={`rounded-2xl border px-4 py-4 text-left transition ${
+                      selectedCategory === 'AMC'
+                        ? 'border-rose-400 bg-rose-50'
+                        : 'border-slate-200 bg-white hover:border-rose-200'
+                    }`}
+                  >
+                    <ShieldCheck className="mb-2 h-5 w-5 text-rose-500" />
+                    <p className="text-sm font-bold text-slate-900">AMC</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onCategorySelect('Services')}
+                    className={`rounded-2xl border px-4 py-4 text-left transition ${
+                      selectedCategory === 'Services'
+                        ? 'border-rose-400 bg-rose-50'
+                        : 'border-slate-200 bg-white hover:border-rose-200'
+                    }`}
+                  >
+                    <Settings2 className="mb-2 h-5 w-5 text-rose-500" />
+                    <p className="text-sm font-bold text-slate-900">Services</p>
+                  </button>
+                </div>
+              )}
+
+              {selectedCategory === 'Installations' && (
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                  <h2 className="text-lg font-black text-slate-900">Installations</h2>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Purchase Type</label>
+                    <select
+                      value={installationType}
+                      onChange={(event) => setInstallationType(event.target.value)}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Select</option>
+                      <option value="Purchase from Protechtur">Purchase from Protechtur</option>
+                      <option value="Purchase from Others">Purchase from Others</option>
+                    </select>
+                  </div>
+
+                  {installationType === 'Purchase from Protechtur' && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Registered Mobile Number / Order ID</label>
+                        <input
+                          value={registeredMobileOrOrderId}
+                          onChange={(event) => setRegisteredMobileOrOrderId(event.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          placeholder="Enter registered mobile or order id"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Description of Service Required</label>
+                        <textarea
+                          value={installationDescription}
+                          onChange={(event) => setInstallationDescription(event.target.value)}
+                          className="min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          placeholder="Describe the service requirement"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {installationType === 'Purchase from Others' && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Location</label>
+                        <input
+                          value={othersLocation}
+                          onChange={(event) => setOthersLocation(event.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          placeholder="District / area / pincode"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Mobile Number</label>
+                        <input
+                          value={othersMobile}
+                          onChange={(event) => setOthersMobile(event.target.value)}
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          placeholder="Enter mobile number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Description of Service/Issue (All Details)</label>
+                        <textarea
+                          value={othersDescription}
+                          onChange={(event) => setOthersDescription(event.target.value)}
+                          className="min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          placeholder="Describe the issue in detail"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {selectedCategory === 'AMC' && (
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                  <h2 className="text-lg font-black text-slate-900">AMC</h2>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">AMC Type</label>
+                    <select
+                      value={amcType}
+                      onChange={(event) => setAmcType(event.target.value)}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Select</option>
+                      <option value="Comprehensive">Comprehensive</option>
+                      <option value="Non-Comprehensive">Non-Comprehensive</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Service Details (Optional)</label>
+                    <textarea
+                      value={amcDetails}
+                      onChange={(event) => setAmcDetails(event.target.value)}
+                      className="min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                      placeholder="Add any details if available"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {selectedCategory === 'Services' && (
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                  <h2 className="text-lg font-black text-slate-900">Services</h2>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Mobile Number</label>
+                    <input
+                      value={serviceMobile}
+                      onChange={(event) => setServiceMobile(event.target.value)}
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                      placeholder="Enter mobile number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Service Details / Issue Description</label>
+                    <textarea
+                      value={serviceDetails}
+                      onChange={(event) => setServiceDetails(event.target.value)}
+                      className="min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                      placeholder="Describe your issue"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {errorMessage}
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {successMessage}
+                </div>
+              )}
+
+              {selectedCategory && (
+                <button
+                  type="button"
+                  onClick={submitRequest}
+                  disabled={submitting}
+                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[#e63946] px-8 text-sm font-black uppercase tracking-[0.14em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitting ? 'Submitting...' : 'Submit'}
+                </button>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
+      </main>
 
       <Footer />
     </div>

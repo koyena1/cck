@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -36,6 +36,38 @@ export default function TrackOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const fetchOrder = useCallback(async (email: string, showLoader = false) => {
+    if (!orderId) return;
+
+    if (showLoader) {
+      setLoading(true);
+    }
+    setError("");
+
+    try {
+      const response = await fetch(`/api/track-order/by-email/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setOrder(data.order);
+      } else {
+        setError(data.error || "Order not found");
+      }
+    } catch (err) {
+      console.error("Order detail fetch error:", err);
+      setError("Failed to load order details. Please try again.");
+    } finally {
+      if (showLoader) {
+        setLoading(false);
+      }
+    }
+  }, [orderId]);
+
   useEffect(() => {
     const email = localStorage.getItem("customerEmail");
     const token = localStorage.getItem("customerToken");
@@ -45,41 +77,21 @@ export default function TrackOrderDetailPage() {
       return;
     }
 
-    if (!orderId) return;
+    fetchOrder(email, true);
 
-    const fetchOrder = async () => {
-      setLoading(true);
-      setError("");
+    // Keep status and progress in sync with backend changes.
+    const intervalId = setInterval(() => {
+      fetchOrder(email, false);
+    }, 15000);
 
-      try {
-        const response = await fetch(`/api/track-order/by-email/${orderId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          setOrder(data.order);
-        } else {
-          setError(data.error || "Order not found");
-        }
-      } catch (err) {
-        console.error("Order detail fetch error:", err);
-        setError("Failed to load order details. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrder();
-  }, [orderId, router]);
+    return () => clearInterval(intervalId);
+  }, [fetchOrder, router]);
 
   const getStatusColor = (status: string) => {
     const statusLower = status?.toLowerCase() || "";
     const colors: Record<string, string> = {
       pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "order placed": "bg-blue-100 text-blue-800 border-blue-200",
       "in progress": "bg-blue-100 text-blue-800 border-blue-200",
       "in-progress": "bg-blue-100 text-blue-800 border-blue-200",
       "order packing done": "bg-orange-100 text-orange-800 border-orange-200",
@@ -101,13 +113,44 @@ export default function TrackOrderDetailPage() {
 
   const formatStatus = (status: string) => status?.replace(/_/g, " ") || "Unknown";
 
+  const getCustomerFacingStatus = (status: string) => {
+    const statusLower = status?.toLowerCase() || "";
+
+    if (statusLower === "awaiting dealer confirmation" || statusLower === "pending admin review") {
+      return "Order Placed";
+    }
+
+    if (statusLower === "declined") {
+      return "Cancelled";
+    }
+
+    if (statusLower === "accepted") {
+      return "In Progress";
+    }
+
+    return status;
+  };
+
   const getDisplayStatus = (orderData: any) => {
+    const latestHistoryStatus = orderData?.statusHistory?.[0]?.status;
+    if (latestHistoryStatus) {
+      return getCustomerFacingStatus(latestHistoryStatus);
+    }
+
     const updates = orderData?.progressUpdates || [];
     if (updates.length > 0) {
-      return updates[updates.length - 1].status_label;
+      return getCustomerFacingStatus(updates[updates.length - 1].status_label);
     }
-    return orderData?.status || "Unknown";
+
+    return getCustomerFacingStatus(orderData?.status || "Unknown");
   };
+
+  const toAmount = (value: any) => {
+    const parsed = parseFloat(String(value ?? 0));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const formatAmount = (value: any) => `RS ${toAmount(value).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -225,12 +268,23 @@ export default function TrackOrderDetailPage() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Activity className="w-5 h-5 text-[#e63946]" />
-                        Order Progress
+                        Order Progress & Payment Details
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       {(() => {
                         const updates = order.progressUpdates || [];
+                        const paymentSummary = order.paymentSummary || {};
+                        const actualPrice = toAmount(paymentSummary.actual_price || order.products_total || order.subtotal);
+                        const installationCharges = toAmount(paymentSummary.installation_charges || order.installation_charges);
+                        const amcCharges = toAmount(paymentSummary.amc_charges || order.amc_cost);
+                        const deliveryCharges = toAmount(paymentSummary.delivery_charges || order.delivery_charges);
+                        const gstAmount = toAmount(paymentSummary.gst_amount || order.tax_amount);
+                        const codExtraCharges = toAmount(paymentSummary.cod_extra_charges);
+                        const amountAlreadyPaid = toAmount(paymentSummary.amount_already_paid || order.advance_amount);
+                        const pendingOnDelivery = toAmount(paymentSummary.amount_pending_on_delivery);
+                        const totalPayment = toAmount(paymentSummary.total_amount || order.total_amount);
+                        const isCOD = String(order.payment_method || '').toLowerCase() === 'cod';
                         const latestLabel = updates.length > 0
                           ? updates[updates.length - 1].status_label
                           : '';
@@ -242,51 +296,104 @@ export default function TrackOrderDetailPage() {
                           (u: any) => u.is_delivery_done || u.status_label === 'Order Delivery Done'
                         );
 
-                        if (updates.length === 0) {
-                          return (
-                            <div className="text-sm text-slate-500 flex items-center gap-2">
-                              <RefreshCw className="w-4 h-4" />
-                              Waiting for dealer to post progress updates.
-                            </div>
-                          );
-                        }
-
                         return (
                           <div className="space-y-3">
-                            <div className="overflow-x-auto pb-2">
-                              <div className="min-w-140 px-2">
-                                <div className="relative">
-                                  <div className="absolute left-6 right-6 top-4 h-1 rounded-full bg-slate-300" />
-                                  <div
-                                    className="absolute left-6 top-4 h-1 rounded-full bg-green-500 transition-all duration-300"
-                                    style={{
-                                      width: `${Math.max(0, (latestIndex / (PROGRESS_STATUS_OPTIONS.length - 1)) * 100)}%`,
-                                      right: 'auto'
-                                    }}
-                                  />
-                                  <div className="relative flex items-start justify-between gap-2">
-                                    {PROGRESS_STATUS_OPTIONS.map((opt, idx) => {
-                                      const isDone = idx <= latestIndex;
-                                      const isCurrent = idx === latestIndex && !isDeliveryDone;
-                                      return (
-                                        <div key={opt.value} className="w-28 shrink-0 text-center">
-                                          <div
-                                            className={`mx-auto w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
-                                              isDone
-                                                ? 'bg-green-500 border-green-600 text-white'
-                                                : 'bg-slate-100 border-slate-400 text-slate-500'
-                                            } ${isCurrent ? 'ring-2 ring-green-200' : ''}`}
-                                          >
-                                            {isDone ? '✓' : idx + 1}
+                            {updates.length > 0 && (
+                              <div className="overflow-x-auto pb-2">
+                                <div className="min-w-140 px-2">
+                                  <div className="relative">
+                                    <div className="absolute left-6 right-6 top-4 h-1 rounded-full bg-slate-300" />
+                                    <div
+                                      className="absolute left-6 top-4 h-1 rounded-full bg-green-500 transition-all duration-300"
+                                      style={{
+                                        width: `${Math.max(0, (latestIndex / (PROGRESS_STATUS_OPTIONS.length - 1)) * 100)}%`,
+                                        right: 'auto'
+                                      }}
+                                    />
+                                    <div className="relative flex items-start justify-between gap-2">
+                                      {PROGRESS_STATUS_OPTIONS.map((opt, idx) => {
+                                        const isDone = idx <= latestIndex;
+                                        const isCurrent = idx === latestIndex && !isDeliveryDone;
+                                        return (
+                                          <div key={opt.value} className="w-28 shrink-0 text-center">
+                                            <div
+                                              className={`mx-auto w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
+                                                isDone
+                                                  ? 'bg-green-500 border-green-600 text-white'
+                                                  : 'bg-slate-100 border-slate-400 text-slate-500'
+                                              } ${isCurrent ? 'ring-2 ring-green-200' : ''}`}
+                                            >
+                                              {isDone ? '✓' : idx + 1}
+                                            </div>
+                                            <p className={`mt-1 text-[11px] font-semibold leading-tight ${isDone ? 'text-green-700' : 'text-slate-500'}`}>
+                                              {opt.value}
+                                            </p>
                                           </div>
-                                          <p className={`mt-1 text-[11px] font-semibold leading-tight ${isDone ? 'text-green-700' : 'text-slate-500'}`}>
-                                            {opt.value}
-                                          </p>
-                                        </div>
-                                      );
-                                    })}
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 </div>
+                              </div>
+                            )}
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-xs font-bold uppercase text-slate-600 mb-3">Payment Breakdown</p>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-slate-600">Actual Product Price</span>
+                                  <span className="font-semibold text-slate-900">{formatAmount(actualPrice)}</span>
+                                </div>
+                                {installationCharges > 0 && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600">Installation Charges</span>
+                                    <span className="font-semibold text-slate-900">{formatAmount(installationCharges)}</span>
+                                  </div>
+                                )}
+                                {amcCharges > 0 && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600">AMC Charges</span>
+                                    <span className="font-semibold text-slate-900">{formatAmount(amcCharges)}</span>
+                                  </div>
+                                )}
+                                {deliveryCharges > 0 && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600">Delivery Charges</span>
+                                    <span className="font-semibold text-slate-900">{formatAmount(deliveryCharges)}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-slate-600">GST (18%)</span>
+                                  <span className="font-semibold text-slate-900">{formatAmount(gstAmount)}</span>
+                                </div>
+                                {isCOD && codExtraCharges > 0 && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600">COD Extra Charges</span>
+                                    <span className="font-semibold text-slate-900">{formatAmount(codExtraCharges)}</span>
+                                  </div>
+                                )}
+                                <div className="border-t pt-2 mt-2 flex items-center justify-between text-sm">
+                                  <span className="font-bold text-slate-800">Total Payment</span>
+                                  <span className="font-black text-[#e63946]">{formatAmount(totalPayment)}</span>
+                                </div>
+
+                                {isCOD ? (
+                                  <>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-slate-600">Advance Paid</span>
+                                      <span className="font-semibold text-slate-900">{formatAmount(amountAlreadyPaid)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-slate-600">Pending on Delivery</span>
+                                      <span className="font-semibold text-slate-900">{formatAmount(pendingOnDelivery)}</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600">Payment Status</span>
+                                    <span className="font-semibold text-green-700">Paid</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 

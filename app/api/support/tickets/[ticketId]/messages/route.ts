@@ -9,7 +9,7 @@ import {
 import { sendSupportTicketBellNotifications } from '@/lib/support-ticket-notifications';
 
 function parseRole(value: unknown): TicketViewerRole {
-  if (value === 'customer' || value === 'district' || value === 'dealer') return value;
+  if (value === 'customer' || value === 'district' || value === 'dealer' || value === 'bpo') return value;
   return 'admin';
 }
 

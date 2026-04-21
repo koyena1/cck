@@ -27,13 +27,13 @@ export default function TermsPage() {
               <CardContent className="p-8 prose prose-lg max-w-none">
                 <h2 className="text-2xl font-bold mb-4">Agreement to Terms</h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  By accessing or using the services provided by Cygnatrix IT Solutions, you agree to be bound by these
+                  By accessing or using the services provided by Protechtur, you agree to be bound by these
                   Terms of Service. If you disagree with any part of these terms, you may not access our services.
                 </p>
 
                 <h2 className="text-2xl font-bold mb-4 mt-8">Services</h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Cygnatrix IT Solutions provides various IT services including web development, mobile app development,
+                  Protechtur provides various IT services including web development, mobile app development,
                   UI/UX design, cloud solutions, AI & automation, and maintenance & support. The specific terms for each
                   service will be outlined in individual service agreements.
                 </p>
@@ -49,19 +49,19 @@ export default function TermsPage() {
 
                 <h2 className="text-2xl font-bold mb-4 mt-8">Intellectual Property</h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  All content, features, and functionality of our services are owned by Cygnatrix IT Solutions and are
+                  All content, features, and functionality of our services are owned by Protechtur and are
                   protected by international copyright, trademark, and other intellectual property laws.
                 </p>
 
                 <h2 className="text-2xl font-bold mb-4 mt-8">Limitation of Liability</h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Cygnatrix IT Solutions shall not be liable for any indirect, incidental, special, consequential, or
+                  Protechtur shall not be liable for any indirect, incidental, special, consequential, or
                   punitive damages resulting from your use of or inability to use our services.
                 </p>
 
                 <h2 className="text-2xl font-bold mb-4 mt-8">Contact Information</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  For questions about these Terms of Service, please contact us at legal@cygnatrix.com
+                  For questions about these Terms of Service, please contact us at legal@Protechtur.com
                 </p>
               </CardContent>
             </Card>

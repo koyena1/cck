@@ -26,6 +26,16 @@ async function parseApiResponse(response: Response) {
   }
 
   const rawBody = await response.text()
+
+  if (contentType.includes('text/html')) {
+    return {
+      success: false,
+      message: response.status === 404
+        ? 'Login API endpoint was not found. Please restart the server and try again.'
+        : 'Unexpected HTML response received from server.'
+    }
+  }
+
   try {
     return JSON.parse(rawBody)
   } catch {

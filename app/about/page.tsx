@@ -73,14 +73,14 @@ export default function AboutPage() {
       name: "Rajesh Kumar",
       role: "CEO, TechVision Solutions",
       image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop",
-      content: "Cygnatrix transformed our business with their innovative CCTV solutions. The system is robust, user-friendly, and the support team is incredibly responsive. Highly recommended!",
+      content: "Protechtur transformed our business with their innovative CCTV solutions. The system is robust, user-friendly, and the support team is incredibly responsive. Highly recommended!",
       rating: 5
     },
     {
       name: "Priya Sharma",
       role: "Operations Manager, SafeGuard Retail",
       image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop",
-      content: "Working with Cygnatrix has been an absolute pleasure. They delivered our security system ahead of schedule and the quality exceeded our expectations. True professionals!",
+      content: "Working with Protechtur has been an absolute pleasure. They delivered our security system ahead of schedule and the quality exceeded our expectations. True professionals!",
       rating: 5
     },
     {
@@ -94,7 +94,7 @@ export default function AboutPage() {
       name: "Sneha Reddy",
       role: "Facility Head, MedCare Hospital",
       image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop",
-      content: "Cygnatrix provided us with a state-of-the-art surveillance system that has significantly improved our facility's security. Their after-sales support is outstanding!",
+      content: "Protechtur provided us with a state-of-the-art surveillance system that has significantly improved our facility's security. Their after-sales support is outstanding!",
       rating: 5
     }
   ]
@@ -178,7 +178,7 @@ export default function AboutPage() {
             </h2>
             <div className="space-y-4 md:space-y-6 text-slate-600 leading-relaxed text-base sm:text-lg font-medium">
               <p className="px-2 sm:px-0">
-                Cygnatrix was born from a simple yet powerful vision — to deliver reliable, innovative, and affordable IT solutions that truly make a difference.
+                Protechtur was born from a simple yet powerful vision — to deliver reliable, innovative, and affordable IT solutions that truly make a difference.
               </p>
               <p className="font-bold text-[#e63946] text-lg sm:text-xl md:text-2xl mt-6 md:mt-8">
                 This is just the beginning of our story.

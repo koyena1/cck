@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
-import { ShoppingBag, ChevronRight } from 'lucide-react';
+import { ShoppingBag, ChevronRight, Minus, Plus } from 'lucide-react';
 
 interface CartItem {
   id: string;
@@ -29,6 +29,28 @@ export default function CartCheckoutPage() {
     }
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    localStorage.setItem('cartCheckout', JSON.stringify(cartItems));
+    localStorage.setItem('cart', JSON.stringify(cartItems));
+  }, [cartItems, loading]);
+
+  const updateItemQuantity = (id: string, category: string | undefined, nextQuantity: number) => {
+    const normalizedQty = Math.floor(nextQuantity);
+    setCartItems((prev) => {
+      if (!Number.isFinite(normalizedQty)) return prev;
+      if (normalizedQty <= 0) {
+        return prev.filter((item) => !(item.id === id && item.category === category));
+      }
+      return prev.map((item) => {
+        if (item.id === id && item.category === category) {
+          return { ...item, quantity: normalizedQty };
+        }
+        return item;
+      });
+    });
+  };
 
   const handleBuyNow = () => {
     if (cartItems.length === 0) return;
@@ -103,9 +125,25 @@ export default function CartCheckoutPage() {
                       {item.category && (
                         <p className="text-sm text-slate-500 mt-1">{item.category}</p>
                       )}
-                      {item.quantity && item.quantity > 1 && (
-                        <p className="text-xs text-slate-600 mt-1">Quantity: {item.quantity}</p>
-                      )}
+                      <div className="mt-2 inline-flex items-center rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => updateItemQuantity(item.id, item.category, (item.quantity || 1) - 1)}
+                          className="p-1.5 hover:bg-slate-100"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="min-w-8 text-center text-sm font-semibold text-slate-900">{item.quantity || 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateItemQuantity(item.id, item.category, (item.quantity || 1) + 1)}
+                          className="p-1.5 hover:bg-slate-100"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-[#e63946]">
@@ -125,7 +163,7 @@ export default function CartCheckoutPage() {
 
           {/* Total Summary */}
           {cartItems.length > 0 && (
-            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg shadow-lg p-6">
+            <div className="bg-linear-to-r from-slate-800 to-slate-900 rounded-lg shadow-lg p-6">
               <div className="space-y-3 text-white">
                 <div className="flex justify-between text-lg">
                   <span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>

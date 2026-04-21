@@ -6,7 +6,7 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronRight, ShoppingCart, Package, LogIn, UserCircle2 } from 'lucide-react';
+import { ChevronRight, ShoppingCart, Package, LogIn, UserCircle2, Minus, Plus } from 'lucide-react';
 import { CODAdvanceDialog } from '@/components/CODAdvanceDialog';
 import { CustomerAuthModal } from '@/components/customer-auth-modal';
 
@@ -47,7 +47,6 @@ function BuyNowContent() {
   const [amcDuration, setAmcDuration] = useState<'1year' | '2year' | null>(null);
   const [settings, setSettings] = useState<InstallationSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
   const [showCODDialog, setShowCODDialog] = useState(false);
   const [pendingOrderNumber, setPendingOrderNumber] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -72,6 +71,36 @@ function BuyNowContent() {
     if (/^PIC\d+$/i.test(item.id || '')) return String(item.id).toUpperCase();
     if (/^\d+$/.test(item.id || '')) return `PIC${String(item.id).padStart(3, '0')}`;
     return null;
+  };
+
+  const normalizeItems = (items: CartItem[]) => {
+    return items.map((item) => ({
+      ...item,
+      quantity: Math.max(1, Number(item.quantity) || 1),
+    }));
+  };
+
+  const updateItemQuantity = (id: string, category: string | undefined, nextQuantity: number) => {
+    const normalizedQty = Math.floor(nextQuantity);
+    setCartItems((prev) => {
+      if (!Number.isFinite(normalizedQty)) return prev;
+      if (normalizedQty <= 0) {
+        return prev.filter((item) => !(item.id === id && item.category === category));
+      }
+
+      const updated = prev.map((item) => {
+        if (item.id === id && item.category === category) {
+          return { ...item, quantity: normalizedQty };
+        }
+        return item;
+      });
+
+      localStorage.setItem('buyNowCart', JSON.stringify(updated));
+      localStorage.setItem('cartCheckout', JSON.stringify(updated));
+      localStorage.setItem('cart', JSON.stringify(updated));
+
+      return updated;
+    });
   };
 
   // Check if user is logged in and fetch rewards info
@@ -257,7 +286,7 @@ function BuyNowContent() {
     if (buyNowCart) {
       try {
         const items = JSON.parse(buyNowCart);
-        setCartItems(items);
+        setCartItems(normalizeItems(items));
         // Clear after loading
         localStorage.removeItem('buyNowCart');
       } catch (error) {
@@ -268,7 +297,7 @@ function BuyNowContent() {
     else if (itemsParam) {
       try {
         const items = JSON.parse(itemsParam);
-        setCartItems(items);
+        setCartItems(normalizeItems(items));
       } catch (error) {
         console.error('Error parsing cart items:', error);
       }
@@ -279,6 +308,7 @@ function BuyNowContent() {
         id: productId,
         name: productName,
         price: parseFloat(productPrice),
+        quantity: 1,
       }]);
     }
     // Priority 4: Load from regular cart if nothing else
@@ -287,7 +317,7 @@ function BuyNowContent() {
       if (savedCart) {
         try {
           const items = JSON.parse(savedCart);
-          setCartItems(items);
+          setCartItems(normalizeItems(items));
         } catch (error) {
           console.error('Error loading cart:', error);
         }
@@ -397,6 +427,23 @@ function BuyNowContent() {
     return Math.max(0, total);
   };
 
+  const roundTo2 = (value: number) => Math.round(value * 100) / 100;
+
+  const calculateGST = (amount: number) => {
+    return roundTo2(Math.max(0, amount) * 0.18);
+  };
+
+  const calculateTotalWithGST = () => {
+    const subtotal = calculateTotal();
+    return roundTo2(subtotal + calculateGST(subtotal));
+  };
+
+  const calculateCODTotalWithGST = () => {
+    const baseWithGST = calculateTotalWithGST();
+    if (!settings) return baseWithGST;
+    return roundTo2(baseWithGST + settings.codAdvanceAmount);
+  };
+
   const getProductsTotal = () => {
     return cartItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
   };
@@ -408,26 +455,12 @@ function BuyNowContent() {
   const calculateCODAdvancePayment = () => {
     if (!settings) return 0;
     
-    // Start with products total
-    let baseAmount = getProductsTotal();
-    
-    // Add installation charges if selected
-    if (withInstallation && settings.installationCost) {
-      baseAmount += settings.installationCost;
-    }
-    
-    // Add AMC charges if selected
-    if (withAmc && amcMaterial && amcDuration) {
-      const amcKey = `${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions;
-      baseAmount += (settings.amcOptions[amcKey] || 0);
-    }
-    
-    // Add extra COD charges
-    baseAmount += settings.codAdvanceAmount;
+    // COD base now includes product total + 18% GST before adding COD extra charges.
+    let baseAmount = calculateTotalWithGST() + settings.codAdvanceAmount;
     
     // Calculate percentage advance payment
     const advancePayment = (baseAmount * settings.codPercentage) / 100;
-    return advancePayment;
+    return roundTo2(advancePayment);
   };
 
   const handleConfirm = () => {
@@ -507,39 +540,18 @@ function BuyNowContent() {
         return;
       }
 
-      // Development mode: Skip Razorpay and auto-verify
-      if (razorpayData.devMode) {
-        console.log('🧪 DEV MODE - Simulating successful payment...');
-        
-        const verifyResponse = await fetch('/api/razorpay/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_order_id: razorpayData.orderId,
-            razorpay_payment_id: `pay_DEV${Date.now()}`,
-            razorpay_signature: 'dev_signature',
-            order_number: orderNumber,
-          }),
-        });
-
-        const verifyData = await verifyResponse.json();
-
-        if (verifyData.success) {
-          alert('✅ Payment successful (DEV MODE)! Order placed.');
-          localStorage.removeItem('cart');
-          localStorage.removeItem('cartCheckout');
-          router.push('/');
-        }
+      // Production mode: Use real Razorpay
+      // Initialize Razorpay checkout
+      if (!razorpayData.keyId) {
+        alert('Razorpay key is missing. Please configure NEXT_PUBLIC_RAZORPAY_KEY_ID.');
         return;
       }
 
-      // Production mode: Use real Razorpay
-      // Initialize Razorpay checkout
       const options = {
-        key: 'rzp_test_SC7jHw0oYI68Ps', // Your Razorpay test key
+        key: razorpayData.keyId,
         amount: razorpayData.amount,
         currency: razorpayData.currency,
-        name: 'CCTV Store',
+        name: 'Protechtur',
         description: `Order #${orderNumber}`,
         order_id: razorpayData.orderId,
         handler: async function (response: any) {
@@ -561,7 +573,7 @@ function BuyNowContent() {
             // Show success message with tracking info for guest orders
             const token = localStorage.getItem('lastGuestOrderToken');
             if (!isLoggedIn && token) {
-              alert(`✅ Payment Successful! Order Placed.\n\n🔑 Your Tracking Token: ${token}\n\n📧 Check your email for order details and tracking link.\n\nYou can track your order at:\n/guest-track-order`);
+              alert(`Payment successful. Order placed.\n\nTracking token: ${token}\n\nCheck your email for order details and tracking link.\n\nYou can track your order at:\n/guest-track-order`);
               // Redirect to tracking page
               router.push(`/guest-track-order?token=${token}`);
             } else {
@@ -611,43 +623,48 @@ function BuyNowContent() {
       return;
     }
 
-    // Calculate COD charges with all components
+    // Calculate COD charges with GST added before COD extra charges.
     const productsTotal = getProductsTotal();
     const installationCost = withInstallation ? settings.installationCost : 0;
     const amcCost = (withAmc && amcMaterial && amcDuration) 
       ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) 
       : 0;
+    const subtotalBeforeGST = calculateTotal();
+    const gstAmount = calculateGST(subtotalBeforeGST);
+    const totalWithGST = roundTo2(subtotalBeforeGST + gstAmount);
     const extraCODAmount = settings.codAdvanceAmount;
     
-    // Base amount includes: Products + Installation + AMC + Extra COD charges
-    const baseAmount = productsTotal + installationCost + amcCost + extraCODAmount;
+    // Base amount includes: Product subtotal + GST + Extra COD charges
+    const baseAmount = roundTo2(totalWithGST + extraCODAmount);
     const advancePayment = calculateCODAdvancePayment();
-    const remainingAmount = calculateTotal() - advancePayment;
+    const remainingAmount = roundTo2(baseAmount - advancePayment);
 
     // Build detailed breakdown message
     let confirmMessage = 
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `   CASH ON DELIVERY (COD) DETAILS\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `📦 Product Total: RS ${productsTotal.toLocaleString()}\n`;
+      `--------------------------------\n` +
+      `CASH ON DELIVERY (COD) DETAILS\n` +
+      `--------------------------------\n\n` +
+      `Product Total: RS ${productsTotal.toLocaleString()}\n`;
     
     if (installationCost > 0) {
-      confirmMessage += `🔧 Installation Charges: RS ${installationCost.toLocaleString()}\n`;
+      confirmMessage += `Installation Charges: RS ${installationCost.toLocaleString()}\n`;
     }
     
     if (amcCost > 0) {
-      confirmMessage += `📅 AMC Charges: RS ${amcCost.toLocaleString()}\n`;
+      confirmMessage += `AMC Charges: RS ${amcCost.toLocaleString()}\n`;
     }
     
     confirmMessage +=
-      `💰 Extra COD Charges: RS ${extraCODAmount.toLocaleString()}\n` +
-      `➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n` +
-      `📊 Base Amount: RS ${baseAmount.toLocaleString()}\n\n` +
-      `⚠️ ADVANCE PAYMENT REQUIRED:\n` +
+      `GST (18%): RS ${gstAmount.toLocaleString()}\n` +
+      `Product Total (Incl. GST): RS ${totalWithGST.toLocaleString()}\n` +
+      `Extra COD Charges: RS ${extraCODAmount.toLocaleString()}\n` +
+      `--------------------------------\n` +
+      `Base Amount: RS ${baseAmount.toLocaleString()}\n\n` +
+      `ADVANCE PAYMENT REQUIRED:\n` +
       `You must pay ${settings.codPercentage}% of base amount\n` +
       `= RS ${advancePayment.toLocaleString()} via Razorpay NOW\n\n` +
-      `💵 Pay on Delivery: RS ${remainingAmount.toLocaleString()}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `Pay on Delivery: RS ${remainingAmount.toLocaleString()}\n\n` +
+      `--------------------------------\n` +
       `Click OK to proceed with payment`;
 
     if (!confirm(confirmMessage)) {
@@ -669,7 +686,7 @@ function BuyNowContent() {
     // Show tracking info for guest orders
     const token = localStorage.getItem('lastGuestOrderToken');
     if (!isLoggedIn && token) {
-      alert(`✅ COD Advance Payment Successful!\n\nYour order is confirmed.\n\n🔑 Your Tracking Token: ${token}\n\n📧 Check your email for order details and tracking link.\n\n💵 Pay the remaining amount on delivery.\n\nTrack your order at:\n/guest-track-order`);
+      alert(`COD advance payment successful.\n\nYour order is confirmed.\n\nTracking token: ${token}\n\nCheck your email for order details and tracking link.\n\nPay the remaining amount on delivery.\n\nTrack your order at:\n/guest-track-order`);
       localStorage.removeItem('cart');
       localStorage.removeItem('cartCheckout');
       localStorage.removeItem('lastGuestOrderToken');
@@ -698,6 +715,12 @@ function BuyNowContent() {
       
       if (isGuest) {
         // Guest checkout data structure
+        const subtotalBeforeGST = calculateTotal();
+        const taxAmount = calculateGST(subtotalBeforeGST);
+        const gstInclusiveTotal = roundTo2(subtotalBeforeGST + taxAmount);
+        const codExtra = paymentMethod === 'cod' ? (settings?.codAdvanceAmount ?? 0) : 0;
+        const finalTotalAmount = roundTo2(gstInclusiveTotal + codExtra);
+
         orderData = {
           customerName,
           customerPhone: phone,
@@ -711,19 +734,25 @@ function BuyNowContent() {
           productName: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} Products`,
           productPrice: getProductsTotal() / (cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)),
           quantity: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
-          subtotal: getProductsTotal(),
+          subtotal: subtotalBeforeGST,
           includesInstallation: withInstallation,
           installationCharges: withInstallation ? settings?.installationCost : 0,
           includesAmc: withAmc,
           amcCharges: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
-          totalAmount: paymentMethod === 'cod'
-            ? calculateTotal() + (settings?.codAdvanceAmount ?? 0)
-            : calculateTotal(),
+          taxAmount,
+          codAdvanceAmount: codExtra,
+          totalAmount: finalTotalAmount,
           paymentMethod,
         };
         console.log('📦 Guest order data:', orderData);
       } else {
         // Registered user data structure (with referrals/rewards)
+        const subtotalBeforeGST = calculateTotal();
+        const taxAmount = calculateGST(subtotalBeforeGST);
+        const gstInclusiveTotal = roundTo2(subtotalBeforeGST + taxAmount);
+        const codExtra = paymentMethod === 'cod' ? (settings?.codAdvanceAmount ?? 0) : 0;
+        const finalTotalAmount = roundTo2(gstInclusiveTotal + codExtra);
+
         orderData = {
           customerName,
           email,
@@ -741,9 +770,8 @@ function BuyNowContent() {
           withAmc,
           amcDetails: withAmc && amcMaterial && amcDuration ? { material: amcMaterial, duration: amcDuration } : null,
           amcCost: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
-          totalAmount: paymentMethod === 'cod'
-            ? calculateTotal() + (settings?.codAdvanceAmount ?? 0)
-            : calculateTotal(),
+          taxAmount,
+          totalAmount: finalTotalAmount,
           paymentMethod,
           status: 'pending',
           referralCode: referralValidated ? referralCode : null,
@@ -855,9 +883,25 @@ function BuyNowContent() {
                     {item.category && (
                       <p className="text-sm text-slate-500">{item.category}</p>
                     )}
-                    {item.quantity && item.quantity > 1 && (
-                      <p className="text-xs text-slate-600 mt-1">Quantity: {item.quantity}</p>
-                    )}
+                    <div className="mt-2 inline-flex items-center rounded-lg border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => updateItemQuantity(item.id, item.category, (item.quantity || 1) - 1)}
+                        className="p-1.5 hover:bg-slate-100"
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="min-w-8 text-center text-sm font-semibold text-slate-900">{item.quantity || 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateItemQuantity(item.id, item.category, (item.quantity || 1) + 1)}
+                        className="p-1.5 hover:bg-slate-100"
+                        aria-label="Increase quantity"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-[#e63946]">
@@ -1115,17 +1159,31 @@ function BuyNowContent() {
               )}
               
               <div className="border-t border-white/20 pt-3 mt-3">
-                <div className="flex justify-between text-xl font-bold">
-                  <span>Total Amount</span>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Subtotal (Before GST)</span>
                   <span>RS {calculateTotal().toLocaleString()}</span>
                 </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>GST (18%)</span>
+                  <span>RS {calculateGST(calculateTotal()).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xl font-bold">
+                  <span>Total Amount (Incl. GST)</span>
+                  <span>RS {calculateTotalWithGST().toLocaleString()}</span>
+                </div>
+                {settings && (
+                  <div className="flex justify-between text-xs text-slate-300 mt-2">
+                    <span>If COD selected: + RS {settings.codAdvanceAmount.toLocaleString()} extra COD charges</span>
+                    <span>COD Total: RS {calculateCODTotalWithGST().toLocaleString()}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Referral Code Section */}
           {isLoggedIn && (
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm p-6 mb-6 border-2 border-purple-200">
+            <div className="bg-linear-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm p-6 mb-6 border-2 border-purple-200">
               <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center">
                 <span className="text-2xl mr-2">🎁</span>
                 Have a Referral Code?
@@ -1188,7 +1246,7 @@ function BuyNowContent() {
 
           {/* Points Redemption Section */}
           {isLoggedIn && availablePoints > 0 && (
-            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg shadow-sm p-6 mb-6 border-2 border-yellow-300">
+            <div className="bg-linear-to-r from-yellow-50 to-orange-50 rounded-lg shadow-sm p-6 mb-6 border-2 border-yellow-300">
               <h2 className="text-xl font-bold text-slate-900 mb-3 flex items-center">
                 <span className="text-2xl mr-2">💰</span>
                 Redeem Reward Points
@@ -1448,7 +1506,7 @@ function BuyNowContent() {
         orderNumber={pendingOrderNumber}
         customerName={customerName}
         phone={phone}
-        totalAmount={calculateTotal()}
+        totalAmount={calculateCODTotalWithGST()}
         onPaymentSuccess={handleCODPaymentSuccess}
       />
 
@@ -1457,7 +1515,7 @@ function BuyNowContent() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowGuestPrompt(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-[#e63946] to-[#d62839] p-6 text-white text-center">
+            <div className="bg-linear-to-r from-[#e63946] to-[#d62839] p-6 text-white text-center">
               <ShoppingCart className="w-10 h-10 mx-auto mb-2" />
               <h3 className="text-xl font-bold">How would you like to proceed?</h3>
               <p className="text-sm text-white/80 mt-1">Choose an option to continue with your order</p>
@@ -1474,7 +1532,7 @@ function BuyNowContent() {
                 }}
                 className="w-full flex items-center gap-4 p-4 border-2 border-[#e63946] rounded-xl hover:bg-red-50 transition-colors group"
               >
-                <div className="w-12 h-12 rounded-full bg-[#e63946]/10 flex items-center justify-center flex-shrink-0 group-hover:bg-[#e63946]/20 transition-colors">
+                <div className="w-12 h-12 rounded-full bg-[#e63946]/10 flex items-center justify-center shrink-0 group-hover:bg-[#e63946]/20 transition-colors">
                   <LogIn className="w-6 h-6 text-[#e63946]" />
                 </div>
                 <div className="text-left flex-1">
@@ -1497,7 +1555,7 @@ function BuyNowContent() {
                 }}
                 className="w-full flex items-center gap-4 p-4 border-2 border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group"
               >
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-200 transition-colors">
                   <UserCircle2 className="w-6 h-6 text-slate-600" />
                 </div>
                 <div className="text-left flex-1">

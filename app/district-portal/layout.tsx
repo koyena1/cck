@@ -18,6 +18,7 @@ import {
   Sun,
   Trash2,
   Users,
+  Wrench,
   X,
 } from "lucide-react";
 
@@ -25,6 +26,7 @@ type ThemeMode = "light" | "dark";
 
 interface DistrictUser {
   district_user_id: number;
+  district_unique_id?: string | null;
   username: string;
   email?: string;
   full_name: string;
@@ -88,10 +90,17 @@ const DISTRICT_NAV_ITEMS = [
   },
   {
     key: "service",
-    label: "Service Support",
+    label: "Support",
     description: "Customer support and dealer follow-up",
     href: "/district-portal/service-support",
     icon: Headset,
+  },
+  {
+    key: "bpo-services",
+    label: "BPO Services",
+    description: "All Services-page customer requests",
+    href: "/district-portal/bpo-services",
+    icon: Wrench,
   },
 ] as const;
 
@@ -237,8 +246,14 @@ function DistrictPortalShell({ children }: { children: React.ReactNode }) {
     }
     if (pathname.startsWith("/district-portal/service-support")) {
       return {
-        title: "Service Support",
+        title: "Support",
         subtitle: "Handle customer tickets and coordinate dealer resolution.",
+      };
+    }
+    if (pathname.startsWith("/district-portal/bpo-services")) {
+      return {
+        title: "BPO Services",
+        subtitle: "View Services-page requests submitted by customers.",
       };
     }
     if (pathname.startsWith("/district-portal/proforma")) {
@@ -290,10 +305,31 @@ function DistrictPortalShell({ children }: { children: React.ReactNode }) {
     if (key === "service") {
       return pathname.startsWith("/district-portal/service-support");
     }
+    if (key === "bpo-services") {
+      return pathname.startsWith("/district-portal/bpo-services");
+    }
     return false;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (user?.district_user_id) {
+      try {
+        await fetch('/api/login-activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityType: 'district_manager',
+            entityId: String(user.district_user_id),
+            entityName: String(user.full_name || user.username || 'District Manager'),
+            portal: 'district',
+            eventType: 'logout',
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to record district logout activity:', error);
+      }
+    }
+
     localStorage.removeItem("district_user");
     localStorage.removeItem("district_token");
     router.push("/district-portal/login");
@@ -346,6 +382,9 @@ function DistrictPortalShell({ children }: { children: React.ReactNode }) {
             <p className="text-xs font-semibold text-blue-100">Managing District</p>
             <p className="mt-1 text-lg font-black">{user.district}</p>
             <p className="text-xs text-blue-100/90">{user.full_name} · {user.username}</p>
+            {user.district_unique_id ? (
+              <p className="mt-1 text-[11px] font-black tracking-[0.08em] text-blue-100">ID: {user.district_unique_id}</p>
+            ) : null}
           </div>
         </div>
 
@@ -378,13 +417,6 @@ function DistrictPortalShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/60">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Organization</p>
-            <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100">Use the sidebar as the primary navigation.</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-              Dealer approvals and requests stay under Dashboard. Orders and Stock now live in dedicated sections.
-            </p>
-          </div>
         </div>
 
         <div className="border-t border-slate-200 p-3 dark:border-slate-800">
@@ -490,6 +522,13 @@ function DistrictPortalShell({ children }: { children: React.ReactNode }) {
                         ))
                       )}
                     </div>
+                    <Link
+                      href="/district-portal/notifications"
+                      onClick={() => setIsNotificationOpen(false)}
+                      className="block border-t border-slate-200 px-4 py-3 text-center text-sm font-semibold text-blue-700 hover:bg-slate-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800"
+                    >
+                      View All Notifications
+                    </Link>
                   </div>
                 )}
               </div>
@@ -497,6 +536,9 @@ function DistrictPortalShell({ children }: { children: React.ReactNode }) {
               <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 sm:block dark:border-slate-700 dark:bg-slate-800/60">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user.full_name}</p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">{user.district}, {user.state}</p>
+                {user.district_unique_id ? (
+                  <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-300">{user.district_unique_id}</p>
+                ) : null}
               </div>
             </div>
           </div>

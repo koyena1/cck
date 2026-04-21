@@ -9,7 +9,7 @@ Updated the customer invoice format to include detailed seller/buyer information
 All invoices now include a comprehensive seller section with:
 - **Company Name**: PROTECHTUR
 - **Billing Address**: CONTAI-I, CONTAI, HATABARI, Purba Medinipur, West Bengal, 721401
-- **City**: East Midnapore
+- **City**: Purba Medinipur
 - **State**: West Bengal
 - **Pin Code**: 721401
 - **GSTIN No**: 19DNTPS0577P1ZO

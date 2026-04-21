@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool, resetPool } from '@/lib/db';
+import { getRequestIpAddress, recordLoginActivity } from '@/lib/login-activity';
 
 const RECOVERABLE_DB_ERROR_CODES = new Set([
   '57P01', // admin_shutdown
@@ -89,6 +90,17 @@ export async function POST(request: Request) {
           message: `Account ${dealer.status}. Please contact admin for approval.` 
         }, { status: 403 });
       }
+
+      await recordLoginActivity({
+        entityType: 'dealer',
+        entityId: String(dealer.dealer_id),
+        entityName: String(dealer.full_name || dealer.business_name || dealer.unique_dealer_id || dealer.email || 'Dealer'),
+        portal: 'dealer',
+        eventType: 'login',
+        ipAddress: getRequestIpAddress(request.headers),
+        userAgent: request.headers.get('user-agent'),
+      });
+
       return NextResponse.json({ 
         success: true, 
         role: 'dealer',

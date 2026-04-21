@@ -20,7 +20,9 @@ import {
   Sun,
   Boxes,
   Bell,
-  Trash2
+  Trash2,
+  Wrench,
+  MessageSquare
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { AdminAuthGuard } from "./AdminAuthGuard"
@@ -143,13 +145,19 @@ function AdminLayoutContent({
       description: "Summary, Sales, Purchase, Payments"
     },
     { 
-      label: "E. SERVICE SUPPORT", 
+      label: "E. SUPPORT", 
       href: "/admin/service", 
       icon: Headphones,
       description: "Calls, AMC, Site Visits"
     },
     { 
-      label: "F. LOGIN", 
+      label: "F. BPO SERVICES", 
+      href: "/admin/bpo-services", 
+      icon: Wrench,
+      description: "Services-page customer request board"
+    },
+    { 
+      label: "G. LOGIN", 
       href: "/admin/access", 
       icon: LogIn,
       description: "Tele, Field, Marchent, Online Sales"
@@ -238,6 +246,18 @@ function AdminLayoutContent({
   ];
 
   const settingsItems = [
+    {
+      label: "Bestseller Management",
+      href: "/admin/bestsellers",
+      icon: Settings,
+      description: "Select homepage bestseller products"
+    },
+    {
+      label: "Testimonials Management",
+      href: "/admin/testimonials",
+      icon: MessageSquare,
+      description: "Manage website testimonials content"
+    },
     { 
       label: "Quotation Management", 
       href: "/admin/quotation", 
@@ -496,6 +516,14 @@ function AdminLayoutContent({
                       ))
                     )}
                   </div>
+
+                  <Link
+                    href="/admin/notifications"
+                    onClick={() => setIsNotificationOpen(false)}
+                    className="block border-t border-slate-200 dark:border-slate-700 px-4 py-3 text-center text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    View All Notifications
+                  </Link>
                 </div>
               )}
             </div>

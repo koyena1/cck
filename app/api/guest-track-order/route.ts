@@ -1,6 +1,7 @@
 // app/api/guest-track-order/route.ts
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { buildPaymentBreakdown } from '@/lib/payment-breakdown';
 
 export async function POST(request: Request) {
   try {
@@ -44,10 +45,14 @@ export async function POST(request: Request) {
         o.city,
         o.state,
         o.subtotal,
+        COALESCE(NULLIF(to_jsonb(o)->>'products_total', '')::numeric, o.subtotal) AS products_total,
         o.installation_charges,
         o.delivery_charges,
         o.tax_amount,
         o.discount_amount,
+        COALESCE(NULLIF(to_jsonb(o)->>'referral_discount', '')::numeric, 0) AS referral_discount,
+        COALESCE(NULLIF(to_jsonb(o)->>'points_redeemed', '')::numeric, 0) AS points_redeemed,
+        COALESCE(NULLIF(to_jsonb(o)->>'amc_cost', '')::numeric, 0) AS amc_cost,
         o.total_amount,
         o.status,
         o.payment_status,
@@ -197,6 +202,39 @@ export async function POST(request: Request) {
       console.log('No progress update list found for order:', order.order_id);
     }
 
+    const codSettingsResult = await pool.query(
+      `SELECT cod_advance_amount, cod_percentage
+       FROM installation_settings
+       LIMIT 1`
+    );
+
+    const codSettings = codSettingsResult.rows[0] || {};
+    const paymentBreakdown = buildPaymentBreakdown({
+      productsTotal: order.products_total,
+      subtotal: order.subtotal,
+      installationCharges: order.installation_charges,
+      amcCharges: order.amc_cost,
+      deliveryCharges: order.delivery_charges,
+      taxAmount: order.tax_amount,
+      totalAmount: order.total_amount,
+      paymentMethod: order.payment_method,
+      codFlatAmount: codSettings.cod_advance_amount,
+      discountAmount: order.discount_amount,
+      referralDiscount: order.referral_discount,
+      pointsRedeemed: order.points_redeemed,
+    });
+
+    const totalAmount = parseFloat(String(order.total_amount || 0));
+    const codPercentage = parseFloat(String(codSettings.cod_percentage || 0));
+    const dbAdvanceAmount = parseFloat(String(order.advance_amount || 0));
+    const codAdvanceFromPercentage = codPercentage > 0 ? Math.round((totalAmount * codPercentage) / 100) : 0;
+    const amountAlreadyPaid = order.payment_method === 'cod'
+      ? Math.max(dbAdvanceAmount, codAdvanceFromPercentage)
+      : (String(order.payment_status || '').toLowerCase() === 'paid' ? totalAmount : 0);
+    const amountPendingOnDelivery = order.payment_method === 'cod'
+      ? Math.max(0, totalAmount - amountAlreadyPaid)
+      : 0;
+
     return NextResponse.json({
       success: true,
       order: {
@@ -205,6 +243,17 @@ export async function POST(request: Request) {
         statusHistory: statusHistory,
         latestProgressStatus,
         progressUpdates,
+        paymentSummary: {
+          actual_price: paymentBreakdown.actualProductPrice,
+          installation_charges: paymentBreakdown.installationCharges,
+          amc_charges: paymentBreakdown.amcCharges,
+          delivery_charges: paymentBreakdown.deliveryCharges,
+          gst_amount: paymentBreakdown.gstAmount,
+          cod_extra_charges: paymentBreakdown.codExtraCharges,
+          amount_already_paid: amountAlreadyPaid,
+          amount_pending_on_delivery: amountPendingOnDelivery,
+          total_amount: paymentBreakdown.totalAmount,
+        },
       }
     });
 

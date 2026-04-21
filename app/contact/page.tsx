@@ -127,8 +127,8 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-white">Email</h3>
-                      <p className="text-gray-600 dark:text-gray-300">admin@cygnatrix.com</p>
-                      <p className="text-gray-600 dark:text-gray-300">support@cygnatrix.com</p>
+                      <p className="text-gray-600 dark:text-gray-300">admin@Protechtur.com</p>
+                      <p className="text-gray-600 dark:text-gray-300">support@Protechtur.com</p>
                     </div>
                   </div>
                 </CardContent>

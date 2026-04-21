@@ -80,13 +80,7 @@
 body {
   color: hsl(var(--foreground));
   min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-
-/* Apply Orbitron font to all headings */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-orbitron), sans-serif;
-  font-weight: 700;
+  font-family: var(--font-roboto), sans-serif;
 }
 
 @keyframes fadeIn {
@@ -141,6 +135,21 @@ h1, h2, h3, h4, h5, h6 {
   100% {
     background-position: 0% 50%;
   }
+}
+
+@keyframes spotlight {
+  0% {
+    opacity: 0;
+    transform: translate(-72%, -62%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(1);
+  }
+}
+
+.animate-spotlight {
+  animation: spotlight 2s ease 0.75s 1 forwards;
 }
 
 .glass {

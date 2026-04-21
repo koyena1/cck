@@ -1,13 +1,13 @@
 'use client';
 
-import { X, ShoppingBag, Trash2 } from 'lucide-react';
+import { X, ShoppingBag, Trash2, Minus, Plus } from 'lucide-react';
 import { useCart } from './cart-context';
 import { Button } from './ui/button';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export function CartSidebar() {
-  const { cart, removeFromCart, clearCart, cartTotal, isCartOpen, setIsCartOpen } = useCart();
+  const { cart, removeFromCart, updateCartQuantity, clearCart, cartTotal, isCartOpen, setIsCartOpen } = useCart();
   const router = useRouter();
 
   const handleBuyNow = () => {
@@ -61,7 +61,7 @@ export function CartSidebar() {
               {cart.map((item) => (
                 <div key={`${item.id}-${item.category}`} className="flex gap-3 p-3 border rounded-lg hover:border-[#e63946] transition-colors">
                   {item.image && (
-                    <div className="relative w-16 h-16 flex-shrink-0 bg-slate-100 rounded">
+                    <div className="relative w-16 h-16 shrink-0 bg-slate-100 rounded">
                       <Image
                         src={item.image}
                         alt={item.name}
@@ -77,14 +77,31 @@ export function CartSidebar() {
                     )}
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-[#e63946] font-bold">RS {item.price.toLocaleString()}</p>
-                      {item.quantity && item.quantity > 1 && (
-                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">x{item.quantity}</span>
-                      )}
+                      <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">x{item.quantity || 1}</span>
+                    </div>
+                    <div className="mt-2 inline-flex items-center rounded-lg border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => updateCartQuantity(item.id, item.category, (item.quantity || 1) - 1)}
+                        className="p-1.5 hover:bg-slate-100"
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="min-w-8 text-center text-sm font-semibold text-slate-900">{item.quantity || 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateCartQuantity(item.id, item.category, (item.quantity || 1) + 1)}
+                        className="p-1.5 hover:bg-slate-100"
+                        aria-label="Increase quantity"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                   <button
-                    onClick={() => removeFromCart(item.id)}
-                    className="p-2 hover:bg-red-50 rounded-lg text-red-600 flex-shrink-0"
+                    onClick={() => removeFromCart(item.id, item.category)}
+                    className="p-2 hover:bg-red-50 rounded-lg text-red-600 shrink-0"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

@@ -8,39 +8,36 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 type CarouselItem = {
   id: number;
   url: string;
-  title: string;
+  layout: "center" | "split";
+  plainBackground?: boolean;
+  heading: string;
+  subheading?: string;
+  description?: string;
 };
 
 const items: CarouselItem[] = [
   {
+    id: 0,
+    url: "/car.png",
+    layout: "center",
+    heading: "PROTECT YOUR BUSINESS & HOME NOW",
+    subheading: "We guarantee you total safety and happiness",
+  },
+  {
     id: 1,
-    url: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1400&h=900&fit=crop",
-    title: "Corporate security control center",
+    url: "/car1.png",
+    layout: "center",
+    heading: "SAFETY & SECURITY",
+    subheading: "AT YOUR FINGERTIPS",
+    description:
+      "Comprehensive security systems including intrusion detection, access control, video surveillance, fire detection, and 24/7 monitoring.",
   },
   {
     id: 2,
-    url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1400&h=900&fit=crop",
-    title: "Modern glass building facade",
-  },
-  {
-    id: 3,
-    url: "https://images.unsplash.com/photo-1471478331149-c72f17e33c73?w=1400&h=900&fit=crop",
-    title: "Office tower at dusk",
-  },
-  {
-    id: 4,
-    url: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1400&h=900&fit=crop",
-    title: "Business district skyline",
-  },
-  {
-    id: 5,
-    url: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&h=900&fit=crop",
-    title: "Retail and monitoring zone",
-  },
-  {
-    id: 6,
-    url: "https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=1400&h=900&fit=crop",
-    title: "Night city security coverage",
+    url: "/car2.png",
+    layout: "center",
+    heading: "PROTECT YOUR BUSINESS & HOME NOW",
+    subheading: "We guarantee you total safety and happiness",
   },
 ];
 
@@ -65,12 +62,24 @@ export default function ThumbnailCarousel() {
     });
   }, [index, x, isDragging]);
 
+  useEffect(() => {
+    if (isDragging || items.length <= 1) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % items.length);
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [isDragging]);
+
   return (
     <div className="w-full h-[68vh] p-0 sm:h-[72vh] lg:h-[76vh]">
-      <div className="h-full border-y border-sky-300/20 bg-slate-950/85 p-4 shadow-[0_20px_80px_rgba(2,132,199,0.25)] backdrop-blur-sm lg:p-6">
-        <div className="relative h-full overflow-hidden bg-slate-900" ref={containerRef}>
+      <div className="h-full border-y border-slate-300/30 p-4 shadow-[0_20px_80px_rgba(15,23,42,0.14)] lg:p-6">
+        <div className="relative h-full overflow-hidden" ref={containerRef}>
           <motion.div
-            className="flex"
+            className="flex h-full"
             drag="x"
             dragElastic={0.2}
             dragMomentum={false}
@@ -93,29 +102,50 @@ export default function ThumbnailCarousel() {
             style={{ x }}
           >
             {items.map((item) => (
-              <div key={item.id} className="relative h-full w-full shrink-0">
+              <div
+                key={item.id}
+                className={`relative h-full w-full shrink-0 overflow-hidden rounded-2xl ${
+                  item.plainBackground
+                    ? "bg-white"
+                    : item.layout === "center"
+                    ? "bg-slate-900"
+                    : "bg-slate-900"
+                }`}
+              >
+                {!item.plainBackground && (
+                  <>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.10),transparent_45%)]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_30%,rgba(255,255,255,0.08),transparent_50%)]" />
+                    <div className="absolute inset-0 backdrop-blur-[1px]" />
+                  </>
+                )}
+
+                {item.layout === "center" ? (
+                  <div
+                    className={`absolute inset-0 ${
+                      "bg-linear-to-r from-black/55 via-black/30 to-black/10"
+                    }`}
+                  />
+                ) : null}
+
+                {/* Heading layer removed as requested */}
+
                 <Image
                   src={item.url}
-                  alt={item.title}
+                  alt={item.heading}
                   fill
-                  priority={item.id === 1}
+                  priority={item.id === 0 || item.id === 1}
                   sizes="(max-width: 1024px) 100vw, 1100px"
-                  className="pointer-events-none select-none rounded-2xl object-cover"
+                  className={`pointer-events-none select-none ${
+                    item.layout === "center"
+                      ? "object-cover object-center"
+                      : "object-cover object-center"
+                  }`}
                   draggable={false}
                 />
               </div>
             ))}
           </motion.div>
-
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30" />
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-4 text-center sm:px-8">
-            <p className="text-3xl font-black uppercase tracking-wide text-white drop-shadow-lg sm:text-5xl">
-              Complete
-            </p>
-            <p className="text-3xl font-black uppercase tracking-wide text-sky-200 drop-shadow-lg sm:text-5xl">
-              Security Solutions
-            </p>
-          </div>
 
           <button
             type="button"

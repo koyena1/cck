@@ -56,6 +56,7 @@ type LineFlags = {
   accounts: { revenue: boolean; netWorth: boolean; pending: boolean; paid: boolean };
   claims: { total: boolean; open: boolean; inProgress: boolean; resolved: boolean };
   dealers: { total: boolean; active: boolean; pending: boolean; inactive: boolean };
+  bpo: { total: boolean; open: boolean; inProgress: boolean; resolved: boolean };
   login: { total: boolean; pending: boolean; approved: boolean; rejected: boolean };
 };
 
@@ -65,6 +66,7 @@ const EMPTY_FLAGS: LineFlags = {
   accounts: { revenue: false, netWorth: false, pending: false, paid: false },
   claims: { total: false, open: false, inProgress: false, resolved: false },
   dealers: { total: false, active: false, pending: false, inactive: false },
+  bpo: { total: false, open: false, inProgress: false, resolved: false },
   login: { total: false, pending: false, approved: false, rejected: false },
 };
 
@@ -99,6 +101,11 @@ export default function AdminDashboard() {
   const [dealerPending, setDealerPending] = useState(0);
   const [dealerInactive, setDealerInactive] = useState(0);
 
+  const [bpoServicesTotal, setBpoServicesTotal] = useState(0);
+  const [bpoServicesOpen, setBpoServicesOpen] = useState(0);
+  const [bpoServicesInProgress, setBpoServicesInProgress] = useState(0);
+  const [bpoServicesResolved, setBpoServicesResolved] = useState(0);
+
   const [loginRoles, setLoginRoles] = useState(4);
   const [loginPending, setLoginPending] = useState(0);
   const [loginApproved, setLoginApproved] = useState(0);
@@ -111,6 +118,7 @@ export default function AdminDashboard() {
     accounts: 0,
     claims: 0,
     dealers: 0,
+    bpo: 0,
     login: 0,
   });
 
@@ -130,6 +138,7 @@ export default function AdminDashboard() {
         fetchStockData(),
         fetchClaimsData(),
         fetchDealersData(),
+        fetchBpoServicesData(),
         fetchLoginData(),
         fetchNotificationFlags(),
       ]);
@@ -211,7 +220,7 @@ export default function AdminDashboard() {
 
   const fetchClaimsData = async () => {
     try {
-      const response = await fetch("/api/support/tickets?viewer=admin", { cache: "no-store" });
+      const response = await fetch("/api/support/tickets?viewer=admin&source=general_support", { cache: "no-store" });
       const data = await response.json();
       if (!data?.success) return;
 
@@ -249,6 +258,27 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchBpoServicesData = async () => {
+    try {
+      const response = await fetch("/api/support/tickets?viewer=admin&source=services_portal", { cache: "no-store" });
+      const data = await response.json();
+      if (!data?.success) return;
+
+      const tickets: SupportTicket[] = data.tickets || [];
+      setBpoServicesTotal(tickets.length);
+      setBpoServicesOpen(tickets.filter((t) => String(t.status || "").toLowerCase() === "open").length);
+      setBpoServicesInProgress(tickets.filter((t) => String(t.status || "").toLowerCase() === "in_progress").length);
+      setBpoServicesResolved(
+        tickets.filter((t) => {
+          const s = String(t.status || "").toLowerCase();
+          return s === "resolved" || s === "closed";
+        }).length
+      );
+    } catch (error) {
+      console.error("Failed to fetch BPO services metrics:", error);
+    }
+  };
+
   const fetchLoginData = async () => {
     try {
       const response = await fetch("/api/admin/pending-admins", { cache: "no-store" });
@@ -275,7 +305,7 @@ export default function AdminDashboard() {
       const hasWord = (text: string, words: string[]) => words.some((w) => text.includes(w));
 
       const nextFlags: LineFlags = JSON.parse(JSON.stringify(EMPTY_FLAGS));
-      const nextCounts = { order: 0, stock: 0, accounts: 0, claims: 0, dealers: 0, login: 0 };
+      const nextCounts = { order: 0, stock: 0, accounts: 0, claims: 0, dealers: 0, bpo: 0, login: 0 };
 
       for (const item of unread) {
         const bag = `${String(item.type || "").toLowerCase()} ${String(item.title || "").toLowerCase()} ${String(item.message || "").toLowerCase()}`;
@@ -320,6 +350,14 @@ export default function AdminDashboard() {
         if (hasWord(bag, ["dealer pending", "pending dealer", "dealer request"])) nextFlags.dealers.pending = true;
         if (hasWord(bag, ["inactive dealer", "dealer inactive"])) nextFlags.dealers.inactive = true;
 
+        if (hasWord(bag, ["services portal", "service request", "bpo service", "ser", "frontend service"])) {
+          nextCounts.bpo += 1;
+          nextFlags.bpo.total = true;
+        }
+        if (hasWord(bag, ["service request open", "ser open", "open service request"])) nextFlags.bpo.open = true;
+        if (hasWord(bag, ["service request in progress", "ser in progress", "in progress service"])) nextFlags.bpo.inProgress = true;
+        if (hasWord(bag, ["service request resolved", "service request closed", "ser resolved", "ser closed"])) nextFlags.bpo.resolved = true;
+
         if (hasWord(bag, ["login", "access", "admin registration", "pending admin", "approved", "rejected"])) {
           nextCounts.login += 1;
           nextFlags.login.total = true;
@@ -350,9 +388,13 @@ export default function AdminDashboard() {
   };
 
   const lineText = (active: boolean, positive = false) => {
-    if (positive) return "text-green-600";
-    return active ? "text-red-600" : "text-[#0f172a]";
+    if (positive) return "text-green-600 dark:text-green-400";
+    return active ? "text-red-600 dark:text-red-400" : "text-[#0f172a] dark:text-slate-100";
   };
+
+  const metricCardClass = "cursor-pointer border border-slate-200/80 bg-white shadow-lg transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/80 dark:shadow-black/20";
+  const metricTitleClass = "text-sm font-medium text-slate-600 dark:text-slate-300";
+  const metricSubtextClass = "mt-2 text-xs font-medium text-slate-500 dark:text-slate-400";
 
   const quickActions = [
     {
@@ -401,6 +443,15 @@ export default function AdminDashboard() {
       updates: notificationCounts.dealers,
     },
     {
+      key: "bpo",
+      label: "Review BPO Service Requests",
+      href: "/admin/bpo-services",
+      icon: Phone,
+      isActive: bpoServicesOpen > 0 || bpoServicesInProgress > 0,
+      count: bpoServicesOpen + bpoServicesInProgress,
+      updates: notificationCounts.bpo,
+    },
+    {
       key: "login",
       label: "Review Login Access",
       href: "/admin/access",
@@ -425,19 +476,19 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Executive Overview</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Executive Overview</h1>
         <p className="text-slate-600 dark:text-slate-300 mt-1">Real-time status of your service aggregation platform.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <Card className="border-0 bg-white shadow-lg hover:shadow-xl transition-all cursor-pointer" onClick={() => router.push("/admin/orders")}>
+        <Card className={metricCardClass} onClick={() => router.push("/admin/orders")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-600">Orders</CardTitle>
+            <CardTitle className={metricTitleClass}>Orders</CardTitle>
             <ClipboardList className="w-5 h-5 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-black ${lineText(lineFlags.order.total)}`}>{ordersTotal}</div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Total orders</p>
+            <p className={metricSubtextClass}>Total orders</p>
             <div className="mt-3 space-y-1 text-xs">
               <div className="flex justify-between"><span className={lineText(ordersPending > 0 || lineFlags.order.pending)}>Pending</span><span className={`font-bold ${lineText(ordersPending > 0 || lineFlags.order.pending)}`}>{ordersPending}</span></div>
               <div className="flex justify-between"><span className={lineText(lineFlags.order.closed, ordersClosed > 0)}>Closed</span><span className={`font-bold ${lineText(lineFlags.order.closed, ordersClosed > 0)}`}>{ordersClosed}</span></div>
@@ -446,30 +497,25 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-white shadow-lg hover:shadow-xl transition-all cursor-pointer" onClick={() => router.push("/admin/stock") }>
+        <Card className={metricCardClass} onClick={() => router.push("/admin/stock") }>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-600">Stock</CardTitle>
+            <CardTitle className={metricTitleClass}>Stock</CardTitle>
             <Boxes className="w-5 h-5 text-amber-600" />
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-black ${lineText(lineFlags.stock.total)}`}>{stockTotal}</div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Total stock units</p>
-            <div className="mt-3 space-y-1 text-xs">
-              <div className="flex justify-between"><span className={lineText(stockLow > 0 || lineFlags.stock.low)}>Low Stock</span><span className={`font-bold ${lineText(stockLow > 0 || lineFlags.stock.low)}`}>{stockLow}</span></div>
-              <div className="flex justify-between"><span className={lineText(stockOut > 0 || lineFlags.stock.out)}>Out of Stock</span><span className={`font-bold ${lineText(stockOut > 0 || lineFlags.stock.out)}`}>{stockOut}</span></div>
-              <div className="flex justify-between"><span className={lineText(lineFlags.stock.dealerWise)}>Dealer-wise Stock</span><span className={`font-bold ${lineText(lineFlags.stock.dealerWise)}`}>{stockDealerWise}</span></div>
-            </div>
+            <p className={metricSubtextClass}>Total stock units</p>
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-white shadow-lg hover:shadow-xl transition-all cursor-pointer" onClick={() => router.push("/admin/accounts")}>
+        <Card className={metricCardClass} onClick={() => router.push("/admin/accounts")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-600">Accounts</CardTitle>
+            <CardTitle className={metricTitleClass}>Accounts</CardTitle>
             <DollarSign className="w-5 h-5 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-black ${lineText(lineFlags.accounts.revenue)}`}>RS {totalRevenue.toLocaleString("en-IN")}</div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Total revenue</p>
+            <p className={metricSubtextClass}>Total revenue</p>
             <div className="mt-3 space-y-1 text-xs">
               <div className="flex justify-between"><span className={lineText(lineFlags.accounts.netWorth, netWorth >= 0)}>Net Worth</span><span className={`font-bold ${lineText(lineFlags.accounts.netWorth, netWorth >= 0)}`}>RS {netWorth.toLocaleString("en-IN")}</span></div>
               <div className="flex justify-between"><span className={lineText(pendingPayments > 0 || lineFlags.accounts.pending)}>Pending Payments</span><span className={`font-bold ${lineText(pendingPayments > 0 || lineFlags.accounts.pending)}`}>RS {pendingPayments.toLocaleString("en-IN")}</span></div>
@@ -478,14 +524,14 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-white shadow-lg hover:shadow-xl transition-all cursor-pointer" onClick={() => router.push("/admin/service") }>
+        <Card className={metricCardClass} onClick={() => router.push("/admin/service") }>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-600">Claims</CardTitle>
+            <CardTitle className={metricTitleClass}>Claims</CardTitle>
             <Headphones className="w-5 h-5 text-indigo-600" />
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-black ${lineText(lineFlags.claims.total)}`}>{claimsTotal}</div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Support and service tickets</p>
+            <p className={metricSubtextClass}>Support and service tickets</p>
             <div className="mt-3 space-y-1 text-xs">
               <div className="flex justify-between"><span className={lineText(claimsOpen > 0 || lineFlags.claims.open)}>Open</span><span className={`font-bold ${lineText(claimsOpen > 0 || lineFlags.claims.open)}`}>{claimsOpen}</span></div>
               <div className="flex justify-between"><span className={lineText(claimsInProgress > 0 || lineFlags.claims.inProgress)}>In Progress</span><span className={`font-bold ${lineText(claimsInProgress > 0 || lineFlags.claims.inProgress)}`}>{claimsInProgress}</span></div>
@@ -494,14 +540,14 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-white shadow-lg hover:shadow-xl transition-all cursor-pointer" onClick={() => router.push("/admin/dealers")}>
+        <Card className={metricCardClass} onClick={() => router.push("/admin/dealers")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-600">Dealers</CardTitle>
+            <CardTitle className={metricTitleClass}>Dealers</CardTitle>
             <Users className="w-5 h-5 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-black ${lineText(lineFlags.dealers.total)}`}>{dealerTotal}</div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Total dealer network</p>
+            <p className={metricSubtextClass}>Total dealer network</p>
             <div className="mt-3 space-y-1 text-xs">
               <div className="flex justify-between"><span className={lineText(lineFlags.dealers.active, dealerActive > 0)}>Active</span><span className={`font-bold ${lineText(lineFlags.dealers.active, dealerActive > 0)}`}>{dealerActive}</span></div>
               <div className="flex justify-between"><span className={lineText(dealerPending > 0 || lineFlags.dealers.pending)}>Pending</span><span className={`font-bold ${lineText(dealerPending > 0 || lineFlags.dealers.pending)}`}>{dealerPending}</span></div>
@@ -510,18 +556,18 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-white shadow-lg hover:shadow-xl transition-all cursor-pointer" onClick={() => router.push("/admin/access")}>
+        <Card className={metricCardClass} onClick={() => router.push("/admin/bpo-services")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-600">Login</CardTitle>
-            <LogIn className="w-5 h-5 text-rose-600" />
+            <CardTitle className={metricTitleClass}>BPO Services</CardTitle>
+            <Phone className="w-5 h-5 text-rose-600" />
           </CardHeader>
           <CardContent>
-            <div className={`text-3xl font-black ${lineText(lineFlags.login.total)}`}>{loginRoles}</div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Role access categories</p>
+            <div className={`text-3xl font-black ${lineText(lineFlags.bpo.total)}`}>{bpoServicesTotal}</div>
+            <p className={metricSubtextClass}>Services portal requests</p>
             <div className="mt-3 space-y-1 text-xs">
-              <div className="flex justify-between"><span className={lineText(loginPending > 0 || lineFlags.login.pending)}>Pending Access</span><span className={`font-bold ${lineText(loginPending > 0 || lineFlags.login.pending)}`}>{loginPending}</span></div>
-              <div className="flex justify-between"><span className={lineText(lineFlags.login.approved, loginApproved > 0)}>Approved</span><span className={`font-bold ${lineText(lineFlags.login.approved, loginApproved > 0)}`}>{loginApproved}</span></div>
-              <div className="flex justify-between"><span className={lineText(lineFlags.login.rejected)}>Rejected</span><span className={`font-bold ${lineText(lineFlags.login.rejected)}`}>{loginRejected}</span></div>
+              <div className="flex justify-between"><span className={lineText(bpoServicesOpen > 0 || lineFlags.bpo.open)}>Open</span><span className={`font-bold ${lineText(bpoServicesOpen > 0 || lineFlags.bpo.open)}`}>{bpoServicesOpen}</span></div>
+              <div className="flex justify-between"><span className={lineText(bpoServicesInProgress > 0 || lineFlags.bpo.inProgress)}>In Progress</span><span className={`font-bold ${lineText(bpoServicesInProgress > 0 || lineFlags.bpo.inProgress)}`}>{bpoServicesInProgress}</span></div>
+              <div className="flex justify-between"><span className={lineText(lineFlags.bpo.resolved, bpoServicesResolved > 0)}>Resolved</span><span className={`font-bold ${lineText(lineFlags.bpo.resolved, bpoServicesResolved > 0)}`}>{bpoServicesResolved}</span></div>
             </div>
           </CardContent>
         </Card>
@@ -541,30 +587,30 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               {recentOrders.length > 0 ? (
                 displayedRecentOrders.map((order: AnyOrder) => (
-                  <div key={order.order_id} className="flex items-center justify-between p-4 hover:bg-purple-50/50 dark:hover:bg-slate-700/50 rounded-lg transition-all group border border-transparent hover:border-purple-200 dark:hover:border-purple-500">
-                    <div className="flex items-center gap-4 flex-1">
+                  <div key={order.order_id} className="flex flex-col gap-3 p-4 hover:bg-purple-50/50 dark:hover:bg-slate-700/50 rounded-lg transition-all group border border-transparent hover:border-purple-200 dark:hover:border-purple-500 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="w-12 h-12 rounded-full bg-linear-to-br from-purple-100 to-pink-100 dark:from-purple-900/50 dark:to-pink-900/50 flex items-center justify-center">
                         <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 dark:text-white">{order.customer_name || "Customer"}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
                           <Phone size={12} /> {order.customer_phone || "-"} • {order.pincode || "-"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-xs font-mono font-bold text-slate-400 dark:text-slate-400">{order.order_number || `#${order.order_id}`}</p>
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4">
+                      <div className="text-left sm:text-right min-w-0">
+                        <p className="text-xs font-mono font-bold text-slate-400 dark:text-slate-400 break-all">{order.order_number || `#${order.order_id}`}</p>
                         <p className="text-sm font-black text-purple-600 dark:text-purple-400">RS {(Number(order.total_amount) || 0).toLocaleString("en-IN")}</p>
                       </div>
-                      <Badge className={`${getStatusBadge(String(order.status || ""))} border font-bold`}>
+                      <Badge className={`${getStatusBadge(String(order.status || ""))} border font-bold shrink-0`}>
                         {String(order.status || "-")}
                       </Badge>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="font-bold gap-1 text-xs"
+                        className="font-bold gap-1 text-xs w-full sm:w-auto"
                         onClick={() => router.push(`/admin/orders?viewOrderId=${order.order_id}`)}
                       >
                         <ArrowUpRight className="w-3.5 h-3.5" />

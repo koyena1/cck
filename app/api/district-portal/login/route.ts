@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { getRequestIpAddress, recordLoginActivity } from '@/lib/login-activity';
+import { ensureDistrictUserUniqueIdSetup } from '@/lib/district-user';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -9,6 +11,8 @@ const pool = new Pool({
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureDistrictUserUniqueIdSetup(pool);
+
     const { username, password } = await req.json();
     const normalizedUsername = String(username || '').trim();
 
@@ -79,6 +83,7 @@ export async function POST(req: NextRequest) {
     // Return user data (excluding password_hash)
     const userData = {
       district_user_id: user.district_user_id,
+      district_unique_id: user.district_unique_id,
       username: user.username,
       email: user.email,
       full_name: user.full_name,
@@ -89,6 +94,16 @@ export async function POST(req: NextRequest) {
       can_view_orders: user.can_view_orders,
       can_contact_dealers: user.can_contact_dealers
     };
+
+    await recordLoginActivity({
+      entityType: 'district_manager',
+      entityId: String(user.district_user_id),
+      entityName: String(user.full_name || user.username || user.email || 'District Manager'),
+      portal: 'district',
+      eventType: 'login',
+      ipAddress: getRequestIpAddress(req.headers),
+      userAgent: req.headers.get('user-agent'),
+    });
 
     return NextResponse.json({
       success: true,

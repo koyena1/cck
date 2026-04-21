@@ -1028,10 +1028,12 @@ export default function DistrictOrdersPage() {
   const applySearch = (list: any[]) => {
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
+    const phoneQuery = searchQuery.replace(/\D/g, '');
     return list.filter((order) =>
       (order.order_number || '').toLowerCase().includes(q) ||
       (order.customer_name || '').toLowerCase().includes(q) ||
       (order.customer_phone || '').toLowerCase().includes(q) ||
+      (phoneQuery.length >= 3 && String(order.customer_phone || '').replace(/\D/g, '').includes(phoneQuery)) ||
       (order.assigned_dealer_uid || '').toLowerCase().includes(q) ||
       (order.dealer_business_name || '').toLowerCase().includes(q) ||
       (order.order_token || '').toLowerCase().includes(q)
@@ -1071,23 +1073,23 @@ export default function DistrictOrdersPage() {
   return (
     <>
       <div className="space-y-6 p-4 sm:p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">District Orders Management</h1>
             <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{user.district} · {orders.length} total · {unassignedCount} unassigned · {pendingList.length} in progress</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
-              <Input placeholder="Order ID, customer, phone, dealer..." className="pl-10 w-72 text-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <Input placeholder="Order ID, customer, phone, dealer..." className="pl-10 w-full sm:w-72 text-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
-            <Button variant="outline" size="sm" onClick={() => void fetchOrders()} className="gap-1.5 shrink-0"><RefreshCw className="w-4 h-4" />Refresh</Button>
+            <Button variant="outline" size="sm" onClick={() => void fetchOrders()} className="gap-1.5 shrink-0 w-full sm:w-auto"><RefreshCw className="w-4 h-4" />Refresh</Button>
           </div>
         </div>
 
         <div className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-700">
           {tabs.map(({ key, label, count, icon: Icon, urgent }) => (
-            <button key={key} onClick={() => setSection(key as any)} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-t-lg border-b-2 transition-all whitespace-nowrap ${section === key ? 'border-[#e63946] text-[#e63946] bg-red-50/50 dark:bg-red-950/30' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-600'}`}>
+            <button key={key} onClick={() => setSection(key as any)} className={`shrink-0 flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-t-lg border-b-2 transition-all whitespace-nowrap ${section === key ? 'border-[#e63946] text-[#e63946] bg-red-50/50 dark:bg-red-950/30' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-600'}`}>
               <Icon className="w-4 h-4" />{label}
               <span className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-xs font-black ${section === key ? 'bg-[#e63946] text-white' : urgent ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'}`}>{count}</span>
             </button>
@@ -1095,7 +1097,7 @@ export default function DistrictOrdersPage() {
         </div>
 
         {section === 'all' && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button onClick={() => setGuestOnly((value) => !value)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${guestOnly ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-200 dark:border-purple-700' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:border-slate-500'}`}>
               👤 Guest Orders Only
             </button>
@@ -1115,8 +1117,8 @@ export default function DistrictOrdersPage() {
             const acceptedByDistrictLabel = taskAcceptedByDistrict ? `${order.task_accepted_by_name}${order.task_accepted_by_details?.district ? ` (${order.task_accepted_by_details.district})` : ''}` : '';
             return (
               <div key={order.order_id} className="rounded-xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-                <div className="p-4">
-                  <div className="flex items-start gap-4">
+                <div className="p-3 sm:p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
                     <div className="w-10 h-10 rounded-full bg-[#e63946]/10 flex items-center justify-center shrink-0 mt-0.5"><Package className="w-5 h-5 text-[#e63946]" /></div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -1126,10 +1128,10 @@ export default function DistrictOrdersPage() {
                         {order.is_guest_order && <Badge className="bg-purple-100 text-purple-800 border border-purple-300 text-xs font-bold">👤 Guest</Badge>}
                         {order.order_type && <Badge variant="outline" className="text-[10px] font-semibold">{order.order_type === 'product_cart' ? 'Product' : order.order_type === 'hd_combo' ? 'HD Combo' : order.order_type}</Badge>}
                       </div>
-                      <div className="mb-1.5 flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                         <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{order.customer_phone}</span>
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{[order.city, order.state].filter(Boolean).join(', ')}{order.pincode && <span className="ml-1 font-mono">{order.pincode}</span>}</span>
-                        <span className="font-mono font-bold text-slate-400 dark:text-slate-500">{order.order_number}</span>
+                        <span className="font-mono font-bold text-slate-400 dark:text-slate-500 break-all">{order.order_number}</span>
                         <span>{new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                         {order.payment_status && <Badge variant="outline" className="text-[10px] py-0">{order.payment_status}</Badge>}
                       </div>
@@ -1141,20 +1143,20 @@ export default function DistrictOrdersPage() {
                           {isReassigning ? (
                             <div className="space-y-2">
                               <p className="flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300"><Navigation className="w-3 h-3" />Available dealers (sorted by proximity):</p>
-                              {loadingDealers ? <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"><RefreshCw className="w-3 h-3 animate-spin" />Loading dealers...</div> : availableDealers.length === 0 ? <p className="text-xs text-slate-500 dark:text-slate-400">No available dealers found.</p> : <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">{availableDealers.map((dealer: any) => <div key={dealer.dealer_id} className="flex items-center justify-between rounded border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900"><div className="flex items-center gap-2 text-xs"><span className="rounded-full border border-blue-300 bg-blue-100 px-1.5 py-0.5 text-[10px] font-black text-blue-700 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-300">#{dealer.display_uid}</span><span className="font-semibold text-slate-800 dark:text-slate-100">{dealer.business_name || dealer.full_name}</span>{dealer.location && <span className="text-slate-400 dark:text-slate-500">{dealer.location}</span>}{dealer.distance_km !== null && <span className="font-bold text-green-600 dark:text-green-400">{dealer.distance_km} km</span>}</div><Button size="sm" className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={() => confirmReassign(dealer.dealer_id)} disabled={reassigning}>{reassigning ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Assign'}</Button></div>)}</div>}
+                              {loadingDealers ? <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"><RefreshCw className="w-3 h-3 animate-spin" />Loading dealers...</div> : availableDealers.length === 0 ? <p className="text-xs text-slate-500 dark:text-slate-400">No available dealers found.</p> : <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">{availableDealers.map((dealer: any) => <div key={dealer.dealer_id} className="flex flex-col gap-2 rounded border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap items-center gap-2 text-xs"><span className="rounded-full border border-blue-300 bg-blue-100 px-1.5 py-0.5 text-[10px] font-black text-blue-700 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-300">#{dealer.display_uid}</span><span className="font-semibold text-slate-800 dark:text-slate-100">{dealer.business_name || dealer.full_name}</span>{dealer.location && <span className="text-slate-400 dark:text-slate-500">{dealer.location}</span>}{dealer.distance_km !== null && <span className="font-bold text-green-600 dark:text-green-400">{dealer.distance_km} km</span>}</div><Button size="sm" className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold w-full sm:w-auto" onClick={() => confirmReassign(dealer.dealer_id)} disabled={reassigning}>{reassigning ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Assign'}</Button></div>)}</div>}
                               <Button variant="outline" size="sm" className="text-xs h-6" onClick={() => setReassignOrderId(null)}>Close</Button>
                             </div>
                           ) : <Button size="sm" className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold gap-1" onClick={() => openReassignPanel(order.order_id)}><UserCheck className="w-3 h-3" />Reassign to Another Dealer</Button>}
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <p className="text-xl font-black text-[#e63946]">RS {(order.total_amount || 0).toLocaleString('en-IN')}</p>
-                      <div className="flex gap-1.5">
-                        <Button variant="outline" size="sm" className="font-bold gap-1 text-xs" onClick={() => setViewOrderId(order.order_id)}><Eye className="w-3.5 h-3.5" />Details</Button>
-                        {!order.assigned_dealer_id && !taskAcceptedByDistrict && !taskAcceptedByAdmin && <Button variant="outline" size="sm" className="gap-1 text-xs border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => acceptTask(order.order_id)} disabled={acceptingTaskId === order.order_id}>{acceptingTaskId === order.order_id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}Accept Task</Button>}
+                    <div className="flex w-full flex-col gap-2 shrink-0 sm:w-auto sm:items-end">
+                      <p className="text-lg sm:text-xl font-black text-[#e63946] self-start sm:self-auto">RS {(order.total_amount || 0).toLocaleString('en-IN')}</p>
+                      <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:justify-end">
+                        <Button variant="outline" size="sm" className="font-bold gap-1 text-xs w-full sm:w-auto" onClick={() => setViewOrderId(order.order_id)}><Eye className="w-3.5 h-3.5" />Details</Button>
+                        {!order.assigned_dealer_id && !taskAcceptedByDistrict && !taskAcceptedByAdmin && <Button variant="outline" size="sm" className="gap-1 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 w-full sm:w-auto" onClick={() => acceptTask(order.order_id)} disabled={acceptingTaskId === order.order_id}>{acceptingTaskId === order.order_id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}Accept Task</Button>}
                         <Dialog>
-                          <DialogTrigger asChild><Button variant="outline" size="sm" className="gap-1 text-xs"><Edit className="w-3.5 h-3.5" />Status</Button></DialogTrigger>
+                          <DialogTrigger asChild><Button variant="outline" size="sm" className="gap-1 text-xs w-full sm:w-auto"><Edit className="w-3.5 h-3.5" />Status</Button></DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>Change Order Status</DialogTitle>

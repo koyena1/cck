@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { Suspense } from "react"
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -19,9 +20,11 @@ function NavbarComponent() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isHelpDeskOpen, setIsHelpDeskOpen] = useState(false)
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true)
   const [customerName, setCustomerName] = useState<string | null>(null)
   const { cartCount, setIsCartOpen } = useCart()
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const lastScrollYRef = useRef(0)
 
   // Check if customer is logged in
   useEffect(() => {
@@ -54,6 +57,39 @@ function NavbarComponent() {
     }
   }, [isUserDropdownOpen])
 
+  // Hide navbar on downward scroll only on homepage, show again on upward scroll.
+  useEffect(() => {
+    if (pathname !== "/") {
+      setIsNavbarVisible(true)
+      return
+    }
+
+    lastScrollYRef.current = window.scrollY
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+
+      if (currentScrollY < 8) {
+        setIsNavbarVisible(true)
+        lastScrollYRef.current = currentScrollY
+        return
+      }
+
+      if (currentScrollY > lastScrollYRef.current + 4) {
+        setIsNavbarVisible(false)
+      } else if (currentScrollY < lastScrollYRef.current - 4) {
+        setIsNavbarVisible(true)
+      }
+
+      lastScrollYRef.current = currentScrollY
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [pathname])
+
   // Handle logout
   const handleLogout = () => {
     localStorage.removeItem('customerToken')
@@ -66,8 +102,9 @@ function NavbarComponent() {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    { href: customerName ? "/track-order" : "/guest-track-order", label: "Track Order" },
-    { href: "/quotation-management", label: "Quotation Management", highlighted: true },
+    { href: "/services", label: "Services" },
+    { href: "/quotation-management", label: "Create Quotation", highlighted: true },
+    { href: customerName ? "/track-order" : "/guest-track-order", label: "Track Order", skipActiveHighlight: true },
   ]
 
   // Light theme active style: Light grey background with dark text
@@ -75,7 +112,12 @@ function NavbarComponent() {
   const inactiveStyle = "text-slate-600 hover:text-[#e63946] px-6 py-2 transition-colors"
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center p-6">
+    <nav
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 flex justify-center p-6 transition-transform duration-300",
+        (isNavbarVisible || isMenuOpen) ? "translate-y-0" : "-translate-y-full"
+      )}
+    >
       {/* Container: White background with subtle shadow */}
       <div className="w-full max-w-7xl bg-white/90 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center justify-between shadow-md">
         
@@ -95,8 +137,8 @@ function NavbarComponent() {
           {navLinks.map((link) => {
             const isActive = pathname === link.href
             const linkStyle = link.highlighted 
-              ? "ml-2 flex items-center gap-2 px-6 py-2 bg-[#e63946] text-white hover:bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
-              : isActive ? activeStyle : inactiveStyle
+              ? "ml-2 flex items-center gap-2 px-6 py-2 !bg-[#e63946] text-white hover:!bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
+              : (isActive && !link.skipActiveHighlight) ? activeStyle : inactiveStyle
             return (
               <Link
                 key={link.label}
@@ -112,18 +154,19 @@ function NavbarComponent() {
           })}
 
           {/* Special CTA Button - Red Accent */}
-          <Link
+          {/* <Link
             href="/quote"
             className="ml-4 flex items-center gap-2 px-6 py-2 bg-[#e63946] text-white hover:bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
           >
             <Zap size={14} fill="white" />
             Contact Us
-          </Link>
+          </Link> */}
           
           <button
             onClick={() => setIsCartOpen(true)}
-            className="ml-2 relative p-2 hover:bg-slate-100 rounded-full transition-colors"
+            className="ml-2 relative p-2 rounded-full transition-colors hover:bg-slate-100"
             aria-label="Shopping cart"
+            title="Shopping Cart"
           >
             <ShoppingBag className="w-6 h-6 text-slate-900 stroke-2" />
             {cartCount > 0 && (
@@ -211,8 +254,8 @@ function NavbarComponent() {
             {navLinks.map((link) => {
               const isActive = pathname === link.href
               const linkStyle = link.highlighted
-                ? "bg-[#e63946] text-white"
-                : isActive ? "bg-slate-100 text-[#e63946]" : "text-slate-600 hover:bg-slate-50"
+                ? "!bg-[#e63946] text-white"
+                : (isActive && !link.skipActiveHighlight) ? "bg-slate-100 text-[#e63946]" : "text-slate-600 hover:bg-slate-50"
               return (
                 <Link
                   key={link.label}
@@ -321,6 +364,32 @@ function NavbarComponent() {
   )
 }
 
+function NavbarFallback() {
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center p-6">
+      <div className="w-full max-w-7xl bg-white/90 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center justify-between shadow-md">
+        <Link href="/" className="flex items-center gap-2 pl-4">
+          <Image
+            src="/logo2.png"
+            alt="Protechtur Logo"
+            width={150}
+            height={50}
+            className="h-12 w-auto object-contain"
+          />
+        </Link>
+      </div>
+    </nav>
+  )
+}
+
+function NavbarWithSuspense() {
+  return (
+    <Suspense fallback={<NavbarFallback />}>
+      <NavbarComponent />
+    </Suspense>
+  )
+}
+
 // Memoize the Navbar component to prevent unnecessary re-renders
-export const Navbar = React.memo(NavbarComponent)
+export const Navbar = React.memo(NavbarWithSuspense)
 Navbar.displayName = 'Navbar'

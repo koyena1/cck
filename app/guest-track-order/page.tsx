@@ -94,6 +94,7 @@ function GuestTrackOrderContent() {
     const statusLower = status?.toLowerCase() || '';
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'order placed': 'bg-blue-100 text-blue-800 border-blue-200',
       'in progress': 'bg-blue-100 text-blue-800 border-blue-200',
       'in-progress': 'bg-blue-100 text-blue-800 border-blue-200',
       'order packing done': 'bg-orange-100 text-orange-800 border-orange-200',
@@ -127,7 +128,22 @@ function GuestTrackOrderContent() {
   };
 
   const getDisplayStatus = (orderData: any) => {
-    return orderData?.latestProgressStatus || orderData?.status || 'Unknown';
+    const rawStatus = orderData?.latestProgressStatus || orderData?.status || 'Unknown';
+    const statusLower = String(rawStatus).toLowerCase();
+
+    if (statusLower === 'awaiting dealer confirmation' || statusLower === 'pending admin review') {
+      return 'Order Placed';
+    }
+
+    if (statusLower === 'accepted') {
+      return 'In Progress';
+    }
+
+    if (statusLower === 'declined') {
+      return 'Cancelled';
+    }
+
+    return rawStatus;
   };
 
   const formatDate = (dateString: string) => {
@@ -139,6 +155,22 @@ function GuestTrackOrderContent() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const getCodPaymentBreakdown = (orderData: any) => {
+    const paymentSummary = orderData?.paymentSummary || {};
+    const total = parseFloat(String(paymentSummary.total_amount || orderData?.total_amount || 0));
+    const advancePaid = parseFloat(String(paymentSummary.amount_already_paid || orderData?.advance_amount || 0));
+    const safeAdvancePaid = Number.isFinite(advancePaid) ? Math.max(0, advancePaid) : 0;
+    const pendingFromSummary = parseFloat(String(paymentSummary.amount_pending_on_delivery || 0));
+    const pendingOnDelivery = Number.isFinite(pendingFromSummary)
+      ? Math.max(0, pendingFromSummary)
+      : Math.max(0, total - safeAdvancePaid);
+
+    return {
+      advancePaid: safeAdvancePaid,
+      pendingOnDelivery,
+    };
   };
 
   return (
@@ -313,6 +345,86 @@ function GuestTrackOrderContent() {
                     </div>
                   </div>
 
+                  {(() => {
+                    const paymentSummary = order.paymentSummary || {};
+                    const actualPrice = parseFloat(String(paymentSummary.actual_price || order.products_total || order.subtotal || 0)) || 0;
+                    const installationCharges = parseFloat(String(paymentSummary.installation_charges || order.installation_charges || 0)) || 0;
+                    const amcCharges = parseFloat(String(paymentSummary.amc_charges || order.amc_cost || 0)) || 0;
+                    const deliveryCharges = parseFloat(String(paymentSummary.delivery_charges || order.delivery_charges || 0)) || 0;
+                    const gstAmount = parseFloat(String(paymentSummary.gst_amount || order.tax_amount || 0)) || 0;
+                    const codExtraCharges = parseFloat(String(paymentSummary.cod_extra_charges || 0)) || 0;
+                    const totalAmount = parseFloat(String(paymentSummary.total_amount || order.total_amount || 0)) || 0;
+                    const isCOD = String(order.payment_method || '').toLowerCase() === 'cod';
+
+                    return (
+                      <div className="border-t mt-6 pt-6">
+                        <h4 className="text-sm font-bold text-slate-900 mb-3">Payment Breakdown</h4>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">Actual Product Price</span>
+                            <span className="font-semibold text-slate-900">RS {actualPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          {installationCharges > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-600">Installation Charges</span>
+                              <span className="font-semibold text-slate-900">RS {installationCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          {amcCharges > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-600">AMC Charges</span>
+                              <span className="font-semibold text-slate-900">RS {amcCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          {deliveryCharges > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-600">Delivery Charges</span>
+                              <span className="font-semibold text-slate-900">RS {deliveryCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">GST (18%)</span>
+                            <span className="font-semibold text-slate-900">RS {gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          {isCOD && codExtraCharges > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-600">COD Extra Charges</span>
+                              <span className="font-semibold text-slate-900">RS {codExtraCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          <div className="border-t pt-2 mt-2 flex items-center justify-between text-sm">
+                            <span className="font-bold text-slate-800">Total Payment</span>
+                            <span className="font-black text-[#e63946]">RS {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {order.payment_method === 'cod' && (() => {
+                    const codPayment = getCodPaymentBreakdown(order);
+
+                    return (
+                      <div className="border-t mt-6 pt-6">
+                        <h4 className="text-sm font-bold text-slate-900 mb-3">COD Payment Summary</h4>
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                            <p className="text-xs font-semibold uppercase text-green-700">Already Paid</p>
+                            <p className="text-xl font-bold text-green-800 mt-1">
+                              RS {codPayment.advancePaid.toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                            <p className="text-xs font-semibold uppercase text-amber-700">Pay on Delivery</p>
+                            <p className="text-xl font-bold text-amber-800 mt-1">
+                              RS {codPayment.pendingOnDelivery.toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Delivery Dates */}
                   {(order.expected_delivery_date || order.actual_delivery_date) && (
                     <div className="border-t mt-6 pt-6 flex gap-6">
@@ -434,90 +546,6 @@ function GuestTrackOrderContent() {
                 </Card>
               )}
 
-              {/* Order Progress */}
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-[#e63946]" />
-                    Order Progress
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const updates = order.progressUpdates || [];
-                    const latestLabel = updates.length > 0
-                      ? updates[updates.length - 1].status_label
-                      : '';
-                    const latestIndex = Math.max(
-                      0,
-                      PROGRESS_STATUS_OPTIONS.findIndex((opt) => opt.value === latestLabel)
-                    );
-                    const isDeliveryDone = updates.some(
-                      (u: any) => u.is_delivery_done || u.status_label === 'Order Delivery Done'
-                    );
-
-                    if (updates.length === 0) {
-                      return (
-                        <div className="text-sm text-slate-500 flex items-center gap-2">
-                          <RefreshCw className="w-4 h-4" />
-                          Waiting for dealer to post progress updates.
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-3">
-                        <div className="overflow-x-auto pb-2">
-                          <div className="min-w-140 px-2">
-                            <div className="relative">
-                              <div className="absolute left-6 right-6 top-4 h-1 rounded-full bg-slate-300" />
-                              <div
-                                className="absolute left-6 top-4 h-1 rounded-full bg-green-500 transition-all duration-300"
-                                style={{
-                                  width: `${Math.max(0, (latestIndex / (PROGRESS_STATUS_OPTIONS.length - 1)) * 100)}%`,
-                                  right: 'auto'
-                                }}
-                              />
-                              <div className="relative flex items-start justify-between gap-2">
-                                {PROGRESS_STATUS_OPTIONS.map((opt, idx) => {
-                                  const isDone = idx <= latestIndex;
-                                  const isCurrent = idx === latestIndex && !isDeliveryDone;
-                                  return (
-                                    <div key={opt.value} className="w-28 shrink-0 text-center">
-                                      <div
-                                        className={`mx-auto w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
-                                          isDone
-                                            ? 'bg-green-500 border-green-600 text-white'
-                                            : 'bg-slate-100 border-slate-400 text-slate-500'
-                                        } ${isCurrent ? 'ring-2 ring-green-200' : ''}`}
-                                      >
-                                        {isDone ? '✓' : idx + 1}
-                                      </div>
-                                      <p className={`mt-1 text-[11px] font-semibold leading-tight ${isDone ? 'text-green-700' : 'text-slate-500'}`}>
-                                        {opt.value}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {isDeliveryDone && (
-                          <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-300 rounded-xl">
-                            <CheckCheck className="w-5 h-5 text-green-600 shrink-0" />
-                            <div>
-                              <p className="text-sm font-bold text-green-800">Delivery Completed!</p>
-                              <p className="text-xs text-green-600">The order has been closed.</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
 
               {/* Order Timeline — customer-visible events only */}
               {order.statusHistory && order.statusHistory.length > 0 && false && (
@@ -556,29 +584,6 @@ function GuestTrackOrderContent() {
                 </Card>
               )}
 
-              {/* Help Card */}
-              <Card className="bg-blue-50 border-blue-200 shadow-lg">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-                      <Phone className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 mb-2">Need Help?</h3>
-                      <p className="text-sm text-slate-700 mb-3">
-                        If you have any questions about your order, please contact our support team.
-                      </p>
-                      <Button
-                        variant="outline"
-                        onClick={() => router.push('/contact')}
-                        className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-                      >
-                        Contact Support
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
               );
             })()

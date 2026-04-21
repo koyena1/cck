@@ -15,7 +15,8 @@ export default function ServicePage() {
     <SupportInbox
       viewerRole="admin"
       viewerName={viewerName}
-      title="Service Support"
+      sourceFilter="general_support"
+      title="Support"
       subtitle="Customer tickets, district responses, and dealer escalations"
     />
   );

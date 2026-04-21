@@ -27,6 +27,7 @@ function toActorLabel(actorRole?: string | null, actorName?: string | null) {
   const name = trimText(actorName);
 
   if (normalizedRole === 'admin') return 'Admin(Protechtur)';
+  if (normalizedRole === 'bpo') return name || 'BPO Agent';
   if (normalizedRole === 'district') return name || 'District Manager';
   if (normalizedRole === 'dealer') return name || 'Dealer';
   if (normalizedRole === 'customer') return name || 'Customer';
@@ -82,6 +83,7 @@ export async function sendSupportTicketBellNotifications(input: SupportTicketBel
     const ticketId = input.ticketId;
     const district = trimText(input.district) || 'all';
     const dealerId = Number(input.dealerId);
+    const actorRole = trimText(input.actorRole).toLowerCase();
 
     await createPortalNotification({
       portal: 'admin',
@@ -113,27 +115,68 @@ export async function sendSupportTicketBellNotifications(input: SupportTicketBel
       },
     });
 
+    await createPortalNotification({
+      portal: 'bpo',
+      title: details.title,
+      message: details.message,
+      type: details.type,
+      priority: details.priority,
+      actionUrl: '/bpo-portal/service-requests',
+      createdBy: 'support_system',
+      metadata: {
+        ticketId,
+        event: input.event,
+      },
+    });
+
+    const recipientDealerIds = new Set<number>();
     if (Number.isFinite(dealerId) && dealerId > 0) {
+      recipientDealerIds.add(dealerId);
+    }
+
+    // For admin/BPO/district updates, notify all currently assigned dealers as well.
+    if (actorRole === 'admin' || actorRole === 'bpo' || actorRole === 'district') {
       const pool = getPool();
-      await pool.query(
-        `INSERT INTO dealer_notifications (
-          dealer_id,
-          title,
-          message,
-          type,
-          priority,
-          is_read,
-          created_by
-        ) VALUES ($1, $2, $3, $4, $5, false, $6)`,
-        [
-          dealerId,
-          details.title,
-          details.message,
-          details.type,
-          details.priority,
-          'support_system'
-        ]
+      const assignmentResult = await pool.query(
+        `SELECT dealer_id
+         FROM support_ticket_dealer_assignments
+         WHERE ticket_id = $1
+           AND dealer_id IS NOT NULL
+           AND response_status IN ('pending', 'accepted', 'accepted_by_other')`,
+        [ticketId]
       );
+
+      for (const row of assignmentResult.rows) {
+        const assignedDealerId = Number(row.dealer_id);
+        if (Number.isFinite(assignedDealerId) && assignedDealerId > 0) {
+          recipientDealerIds.add(assignedDealerId);
+        }
+      }
+    }
+
+    if (recipientDealerIds.size > 0) {
+      const pool = getPool();
+      for (const recipientDealerId of recipientDealerIds) {
+        await pool.query(
+          `INSERT INTO dealer_notifications (
+            dealer_id,
+            title,
+            message,
+            type,
+            priority,
+            is_read,
+            created_by
+          ) VALUES ($1, $2, $3, $4, $5, false, $6)`,
+          [
+            recipientDealerId,
+            details.title,
+            details.message,
+            details.type,
+            details.priority,
+            'support_system'
+          ]
+        );
+      }
     }
   } catch (error) {
     console.error('Support bell notification error:', error);

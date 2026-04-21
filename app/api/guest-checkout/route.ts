@@ -122,13 +122,15 @@ export async function POST(request: Request) {
     try {
       await client.query('BEGIN');
 
-      // Determine payment status
+      // Determine payment status strictly from actual payment evidence.
+      // COD should remain Pending until advance payment is verified in /api/razorpay/verify-payment.
       let paymentStatus = 'Pending';
       if (paymentMethod === 'razorpay' && razorpayPaymentId) {
         paymentStatus = 'Paid';
-      } else if (paymentMethod === 'cod' && codAdvanceAmount > 0) {
-        paymentStatus = 'Advance Paid';
       }
+
+      // Never persist advance amount before payment verification.
+      const advanceAmountToStore = 0;
 
       // Insert order with guest flag
       const orderResult = await client.query(
@@ -158,7 +160,7 @@ export async function POST(request: Request) {
           includesAccessories || false, includesInstallation || false,
           subtotal || 0, installationCharges || 0, deliveryCharges || 0,
           taxAmount || 0, discountAmount || 0, totalAmount,
-          paymentMethod, paymentStatus, codAdvanceAmount || 0,
+          paymentMethod, paymentStatus, advanceAmountToStore,
           razorpayOrderId || null, razorpayPaymentId || null,
           true, // is_guest_order
           'Pending' // status
@@ -338,9 +340,13 @@ export async function POST(request: Request) {
 
       const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order_token}`;
 
-      // Send order confirmation email
+      // Send order confirmation email only after successful payment.
+      // For pending online/COD flows, verify-payment route will send it post payment.
       let emailSent = false;
-      if (customerEmail) {
+      const normalizedPaymentStatus = String(paymentStatus || '').toLowerCase();
+      const canSendPostPaymentEmail = normalizedPaymentStatus === 'paid' || normalizedPaymentStatus === 'advance paid';
+
+      if (customerEmail && canSendPostPaymentEmail) {
         try {
           console.log(`📧 Sending order confirmation email to ${customerEmail} for order ${customerOrderNumber}`);
 
@@ -385,6 +391,8 @@ export async function POST(request: Request) {
           console.error('Email sending error (non-blocking):', emailError);
           // Don't fail the order creation if email fails
         }
+      } else if (customerEmail && !canSendPostPaymentEmail) {
+        console.log(`⏭️ Skipping pre-payment confirmation email for order ${customerOrderNumber}; current payment status: ${paymentStatus}`);
       }
 
       return NextResponse.json({

@@ -98,42 +98,21 @@ export function CODAdvanceDialog({
         return;
       }
 
-      // Development mode: Skip Razorpay and auto-verify
-      if (razorpayData.devMode) {
-        console.log('🧪 DEV MODE - Simulating COD advance payment...');
-        
-        const verifyResponse = await fetch('/api/razorpay/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_order_id: razorpayData.orderId,
-            razorpay_payment_id: `pay_COD_ADVANCE_DEV${Date.now()}`,
-            razorpay_signature: 'dev_signature',
-            order_number: orderNumber,
-          }),
-        });
-
-        const verifyData = await verifyResponse.json();
-
-        if (verifyData.success) {
-          setProcessing(false);
-          onPaymentSuccess();
-        } else {
-          alert('Payment verification failed');
-          setProcessing(false);
-          setPaymentTriggered(false);
-        }
-        return;
-      }
-
       console.log('🚀 Opening Razorpay payment gateway...');
 
       // Production mode: Use real Razorpay
+      if (!razorpayData.keyId) {
+        alert('Razorpay key is missing. Please configure NEXT_PUBLIC_RAZORPAY_KEY_ID.');
+        setProcessing(false);
+        setPaymentTriggered(false);
+        return;
+      }
+
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_SC7jHw0oYI68Ps',
+        key: razorpayData.keyId,
         amount: razorpayData.amount,
         currency: razorpayData.currency,
-        name: 'CCTV Store',
+        name: 'Protechtur',
         description: `COD Advance Payment - Order #${orderNumber}`,
         order_id: razorpayData.orderId,
         handler: async function (response: any) {

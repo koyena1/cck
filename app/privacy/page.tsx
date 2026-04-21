@@ -27,7 +27,7 @@ export default function PrivacyPage() {
               <CardContent className="p-8 prose prose-lg max-w-none">
                 <h2 className="text-2xl font-bold mb-4">Introduction</h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Cygnatrix IT Solutions ("we," "our," or "us") is committed to protecting your privacy. This Privacy
+                  Protechtur ("we," "our," or "us") is committed to protecting your privacy. This Privacy
                   Policy explains how we collect, use, disclose, and safeguard your information when you visit our
                   website or use our services.
                 </p>
@@ -60,7 +60,7 @@ export default function PrivacyPage() {
 
                 <h2 className="text-2xl font-bold mb-4 mt-8">Contact Us</h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  If you have any questions about this Privacy Policy, please contact us at privacy@cygnatrix.com
+                  If you have any questions about this Privacy Policy, please contact us at privacy@Protechtur.com
                 </p>
               </CardContent>
             </Card>
