@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useSearchParams, useRouter } from "next/navigation"
-import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut, ChevronDown, Gift, CircleHelp } from "lucide-react"
+import { Zap, UserCircle, Menu, X, ShoppingBag, LogOut, ChevronDown, Gift, CircleHelp, Edit3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCart } from "./cart-context"
 import { CustomerAuthModal } from "./customer-auth-modal"
@@ -30,6 +30,24 @@ function NavbarComponent() {
   useEffect(() => {
     const name = localStorage.getItem('customerName')
     setCustomerName(name)
+  }, [])
+
+  useEffect(() => {
+    const syncCustomerName = () => {
+      setCustomerName(localStorage.getItem('customerName'))
+    }
+
+    const handleCustomerProfileUpdate = () => {
+      syncCustomerName()
+    }
+
+    window.addEventListener('storage', syncCustomerName)
+    window.addEventListener('customer-profile-updated', handleCustomerProfileUpdate)
+
+    return () => {
+      window.removeEventListener('storage', syncCustomerName)
+      window.removeEventListener('customer-profile-updated', handleCustomerProfileUpdate)
+    }
   }, [])
 
   // Auto-open auth modal if login query parameter is present
@@ -118,16 +136,14 @@ function NavbarComponent() {
         (isNavbarVisible || isMenuOpen) ? "translate-y-0" : "-translate-y-full"
       )}
     >
-      {/* Container: White background with subtle shadow */}
       <div className="w-full max-w-7xl bg-white/90 backdrop-blur-md border border-slate-200 rounded-full px-4 py-2 flex items-center justify-between shadow-md">
-        
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 pl-4">
-          <Image 
-            src="/logo2.png" 
-            alt="Protechtur Logo" 
-            width={150} 
-            height={50} 
+          <Image
+            src="/logo2.png"
+            alt="Protechtur Logo"
+            width={150}
+            height={50}
             className="h-12 w-auto object-contain"
           />
         </Link>
@@ -136,7 +152,7 @@ function NavbarComponent() {
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => {
             const isActive = pathname === link.href
-            const linkStyle = link.highlighted 
+            const linkStyle = link.highlighted
               ? "ml-2 flex items-center gap-2 px-6 py-2 !bg-[#e63946] text-white hover:!bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
               : (isActive && !link.skipActiveHighlight) ? activeStyle : inactiveStyle
             return (
@@ -153,15 +169,6 @@ function NavbarComponent() {
             )
           })}
 
-          {/* Special CTA Button - Red Accent */}
-          {/* <Link
-            href="/quote"
-            className="ml-4 flex items-center gap-2 px-6 py-2 bg-[#e63946] text-white hover:bg-red-700 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95"
-          >
-            <Zap size={14} fill="white" />
-            Contact Us
-          </Link> */}
-          
           <button
             onClick={() => setIsCartOpen(true)}
             className="ml-2 relative p-2 rounded-full transition-colors hover:bg-slate-100"
@@ -219,10 +226,20 @@ function NavbarComponent() {
                       router.push('/customer/dashboard')
                       setIsUserDropdownOpen(false)
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 hover:text-purple-600 text-sm font-medium transition-all"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-linear-to-r hover:from-purple-50 hover:to-blue-50 hover:text-purple-600 text-sm font-medium transition-all"
                   >
                     <Gift size={18} />
                     <span>Rewards</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      router.push('/customer/profile')
+                      setIsUserDropdownOpen(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-slate-700 hover:bg-slate-50 hover:text-slate-950 text-sm font-medium transition-colors"
+                  >
+                    <Edit3 size={18} />
+                    <span>Edit Profile</span>
                   </button>
                   <div className="border-t border-slate-200"></div>
                   <button
@@ -236,7 +253,7 @@ function NavbarComponent() {
               )}
             </div>
           ) : (
-            <button 
+            <button
               onClick={() => setIsAuthModalOpen(true)}
               className="flex items-center gap-2 text-slate-600 hover:text-[#e63946] text-sm font-medium transition-colors"
             >
@@ -247,10 +264,40 @@ function NavbarComponent() {
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown - White Background */}
-      {isMenuOpen && (
-        <div className="absolute top-24 left-6 right-6 bg-white border border-slate-200 shadow-xl rounded-3xl p-6 md:hidden">
-          <div className="flex flex-col gap-4">
+      {/* Mobile Side Drawer */}
+      <div className={cn(
+        "fixed inset-0 z-[9999] bg-white md:hidden transition-opacity duration-300",
+        isMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+      )}>
+        <div
+          className="absolute inset-0 bg-white"
+          onClick={() => setIsMenuOpen(false)}
+          aria-hidden="true"
+        />
+        <div className={cn(
+          "absolute right-0 top-0 z-[10000] h-full w-80 max-w-[85vw] bg-white shadow-2xl border-l border-slate-200 px-5 py-6 transition-transform duration-300",
+          isMenuOpen ? "translate-x-0" : "translate-x-full"
+        )}>
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Image
+                src="/logo2.png"
+                alt="Protechtur Logo"
+                width={120}
+                height={40}
+                className="h-8 w-auto object-contain"
+              />
+            </div>
+            <button
+              onClick={() => setIsMenuOpen(false)}
+              className="p-2 rounded-full hover:bg-slate-100"
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3">
             {navLinks.map((link) => {
               const isActive = pathname === link.href
               const linkStyle = link.highlighted
@@ -278,7 +325,7 @@ function NavbarComponent() {
               <Zap size={14} fill="white" />
               Get Instant Quote
             </Link>
-            
+
             <button
               onClick={() => {
                 setIsCartOpen(true)
@@ -305,20 +352,30 @@ function NavbarComponent() {
               <CircleHelp className="w-5 h-5" />
               Help Desk
             </button>
-            
+
             {/* Login/Register for Mobile */}
             {customerName ? (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 rounded-full text-sm font-bold">
                   <UserCircle size={18} />
                   {customerName}
                 </div>
                 <button
                   onClick={() => {
+                    router.push('/customer/profile')
+                    setIsMenuOpen(false)
+                  }}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-full text-sm font-bold transition-colors"
+                >
+                  <Edit3 size={18} />
+                  Edit Profile
+                </button>
+                <button
+                  onClick={() => {
                     router.push('/customer/dashboard')
                     setIsMenuOpen(false)
                   }}
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-600 hover:from-purple-200 hover:to-blue-200 rounded-full text-sm font-bold transition-colors"
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-linear-to-r from-purple-100 to-blue-100 text-purple-600 hover:from-purple-200 hover:to-blue-200 rounded-full text-sm font-bold transition-colors"
                 >
                   <Gift size={18} />
                   Rewards
@@ -348,12 +405,12 @@ function NavbarComponent() {
             )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Customer Auth Modal */}
-      <CustomerAuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
+      <CustomerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
       />
 
       <HelpDeskModal

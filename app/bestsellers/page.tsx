@@ -13,6 +13,7 @@ type BestsellerProduct = {
   brand_name: string;
   base_price: number;
   original_price: number | null;
+  price_note: string;
   image: string | null;
   product_description: string;
   product_specifications: string;
@@ -49,6 +50,7 @@ function AllBestsellersContent() {
             brand_name: product.brand_name || '',
             base_price: Number(product.base_price) || 0,
             original_price: product.original_price !== null ? Number(product.original_price) || null : null,
+            price_note: product.price_note || '',
             image: product.image || '/pdt.png',
             product_description: product.product_description || '',
             product_specifications: product.product_specifications || '',
@@ -152,6 +154,10 @@ function AllBestsellersContent() {
                       <span className="text-sm text-slate-500 line-through">RS {Number(product.original_price).toLocaleString()}</span>
                     )}
                   </div>
+
+                  {!!product.price_note && (
+                    <p className="mt-1 text-xs text-slate-500">{product.price_note}</p>
+                  )}
 
                   <p className="text-xs text-slate-500 mt-2 line-clamp-2">
                     Specs: {product.product_specifications || 'N/A'}

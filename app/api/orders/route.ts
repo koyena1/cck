@@ -336,12 +336,14 @@ export async function POST(request: Request) {
                ORDER BY oi.item_id`,
               [createdOrder.order_id]
             ),
-            pool.query('SELECT cod_advance_amount FROM installation_settings LIMIT 1'),
+            pool.query('SELECT cod_advance_amount, cod_percentage FROM installation_settings LIMIT 1'),
           ]);
           const refreshedOrder = refreshedOrderResult.rows[0] || createdOrder;
 
           const codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
+          const codPercentage = parseFloat(codSettingsResult.rows[0]?.cod_percentage || '0');
           refreshedOrder._codFlatAmount = codFlatAmount;
+          refreshedOrder._codPercentage = codPercentage;
           const actualOrderNumber = refreshedOrder.order_number || createdOrder.order_number;
           const actualOrderToken  = refreshedOrder.order_token  || createdOrder.order_token;
 

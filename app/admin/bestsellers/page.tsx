@@ -26,6 +26,7 @@ type AdminBestsellerProduct = {
   image: string;
   base_price: number;
   original_price: number | null;
+  price_note: string;
   segment: string;
   product_description: string;
   product_specifications: string;
@@ -37,6 +38,7 @@ type CreateFormState = {
   product_name: string;
   base_price: string;
   original_price: string;
+  price_note: string;
   product_description: string;
   product_specifications: string;
   segment: string;
@@ -49,6 +51,7 @@ const initialFormState: CreateFormState = {
   product_name: '',
   base_price: '0',
   original_price: '',
+  price_note: '',
   product_description: '',
   product_specifications: '',
   segment: '',
@@ -88,6 +91,7 @@ export default function AdminBestsellersPage() {
           image: p.image || '/pdt.png',
           base_price: Number(p.base_price) || 0,
           original_price: p.original_price !== null ? Number(p.original_price) || 0 : null,
+          price_note: p.price_note || '',
           segment: p.segment || 'CCTV',
           product_description: p.product_description || '',
           product_specifications: p.product_specifications || '',
@@ -252,6 +256,7 @@ export default function AdminBestsellersPage() {
       product_name: product.product_name || '',
       base_price: String(product.base_price ?? 0),
       original_price: product.original_price !== null ? String(product.original_price) : '',
+      price_note: product.price_note || '',
       product_description: product.product_description || '',
       product_specifications: product.product_specifications || '',
       segment: product.segment || '',
@@ -401,8 +406,9 @@ export default function AdminBestsellersPage() {
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Create Product</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input placeholder="Product Name (required)" value={formState.product_name} onChange={(e) => setFormState((prev) => ({ ...prev, product_name: e.target.value }))} />
-              <Input placeholder="Base Price" type="number" value={formState.base_price} onChange={(e) => setFormState((prev) => ({ ...prev, base_price: e.target.value }))} />
-              <Input placeholder="Original Price" type="number" value={formState.original_price} onChange={(e) => setFormState((prev) => ({ ...prev, original_price: e.target.value }))} />
+              <Input placeholder="Base Price" type="text" inputMode="decimal" value={formState.base_price} onChange={(e) => setFormState((prev) => ({ ...prev, base_price: e.target.value }))} />
+              <Input placeholder="Original Price" type="text" inputMode="decimal" value={formState.original_price} onChange={(e) => setFormState((prev) => ({ ...prev, original_price: e.target.value }))} />
+              <Input placeholder="Price Note (excl gst)" value={formState.price_note} onChange={(e) => setFormState((prev) => ({ ...prev, price_note: e.target.value }))} />
               <Input placeholder="Product Description" value={formState.product_description} onChange={(e) => setFormState((prev) => ({ ...prev, product_description: e.target.value }))} />
               <Input placeholder="Product Specifications" value={formState.product_specifications} onChange={(e) => setFormState((prev) => ({ ...prev, product_specifications: e.target.value }))} />
               <Input placeholder="Segment (required)" value={formState.segment} onChange={(e) => setFormState((prev) => ({ ...prev, segment: e.target.value }))} />
@@ -444,8 +450,9 @@ export default function AdminBestsellersPage() {
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Edit Product #{editingProductId}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input placeholder="Product Name (required)" value={editFormState.product_name} onChange={(e) => setEditFormState((prev) => ({ ...prev, product_name: e.target.value }))} />
-              <Input placeholder="Base Price" type="number" value={editFormState.base_price} onChange={(e) => setEditFormState((prev) => ({ ...prev, base_price: e.target.value }))} />
-              <Input placeholder="Original Price" type="number" value={editFormState.original_price} onChange={(e) => setEditFormState((prev) => ({ ...prev, original_price: e.target.value }))} />
+              <Input placeholder="Base Price" type="text" inputMode="decimal" value={editFormState.base_price} onChange={(e) => setEditFormState((prev) => ({ ...prev, base_price: e.target.value }))} />
+              <Input placeholder="Original Price" type="text" inputMode="decimal" value={editFormState.original_price} onChange={(e) => setEditFormState((prev) => ({ ...prev, original_price: e.target.value }))} />
+              <Input placeholder="Price Note (excl gst)" value={editFormState.price_note} onChange={(e) => setEditFormState((prev) => ({ ...prev, price_note: e.target.value }))} />
               <Input placeholder="Product Description" value={editFormState.product_description} onChange={(e) => setEditFormState((prev) => ({ ...prev, product_description: e.target.value }))} />
               <Input placeholder="Product Specifications" value={editFormState.product_specifications} onChange={(e) => setEditFormState((prev) => ({ ...prev, product_specifications: e.target.value }))} />
               <Input placeholder="Segment (required)" value={editFormState.segment} onChange={(e) => setEditFormState((prev) => ({ ...prev, segment: e.target.value }))} />

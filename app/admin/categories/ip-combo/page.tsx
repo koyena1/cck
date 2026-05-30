@@ -14,8 +14,11 @@ interface Product {
   resolution: string;
   hdd: string;
   cable: string;
+  dvr: boolean;
+  nvr: boolean;
   price: number;
   originalPrice: number;
+  priceNote?: string | null;
   image: string;
   specs: string[];
   rating: number;
@@ -41,8 +44,11 @@ export default function IPComboAdmin() {
     resolution: '2MP',
     hdd: '1TB',
     cable: '90 Meter',
+    dvr: false,
+    nvr: false,
     price: '',
     originalPrice: '',
+    priceNote: '',
     image: '',
     specs: [''],
     rating: '4.5',
@@ -76,8 +82,11 @@ export default function IPComboAdmin() {
           resolution: p.resolution,
           hdd: p.hdd,
           cable: p.cable,
+          dvr: Boolean(p.dvr),
+          nvr: Boolean(p.nvr),
         price: parseFloat(p.price),
         originalPrice: parseFloat(p.original_price),
+        priceNote: p.price_note || '',
         image: p.image || '',
         specs: Array.isArray(p.specs) ? p.specs : [],
         rating: parseFloat(p.rating) || 4.5,
@@ -121,15 +130,29 @@ export default function IPComboAdmin() {
     setFormData({ ...formData, specs: newSpecs });
   };
 
+  const parsePriceInput = (value: string) => {
+    const normalized = value.replace(/,/g, '').trim();
+    const match = normalized.match(/([0-9]+(?:\.[0-9]+)?)/);
+    if (!match) {
+      return { amount: '', note: '' };
+    }
+    const amount = match[1];
+    const note = normalized.slice(normalized.indexOf(amount) + amount.length).trim();
+    return { amount, note };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const parsedPrice = parsePriceInput(formData.price);
+    const parsedOriginal = parsePriceInput(formData.originalPrice);
+    const resolvedOriginal = parsedOriginal.amount ? parsedOriginal : { amount: parsedPrice.amount, note: '' };
+
     // Immediate validation before setting loading
-    if (!formData.name || !formData.brand || !formData.price) {
-      alert('Please fill in all required fields');
+    if (!formData.name || !formData.brand || !parsedPrice.amount) {
+      alert('Please fill in all required fields with a valid price');
       return;
     }
-    
+
     setLoading(true);
     console.log('🚀 Starting IP Combo form submission...');
 
@@ -148,8 +171,11 @@ export default function IPComboAdmin() {
         resolution: formData.resolution,
         hdd: formData.hdd,
         cable: formData.cable,
-        price: parseFloat(formData.price),
-        original_price: parseFloat(formData.originalPrice),
+        dvr: formData.dvr,
+        nvr: formData.nvr,
+        price: parseFloat(parsedPrice.amount),
+        original_price: parseFloat(resolvedOriginal.amount),
+        price_note: parsedPrice.note || null,
         image: formData.image,
         specs: formData.specs.filter(spec => spec.trim() !== ''),
         rating: parseFloat(formData.rating),
@@ -215,8 +241,11 @@ export default function IPComboAdmin() {
       resolution: product.resolution,
       hdd: product.hdd,
       cable: product.cable,
-      price: product.price.toString(),
+      dvr: product.dvr,
+      nvr: product.nvr,
+      price: `${product.price}${product.priceNote ? ` ${product.priceNote}` : ''}`,
       originalPrice: product.originalPrice.toString(),
+      priceNote: product.priceNote || '',
       image: product.image,
       specs: product.specs && product.specs.length > 0 ? product.specs : [''],
       rating: product.rating.toString(),
@@ -259,8 +288,11 @@ export default function IPComboAdmin() {
     resolution: '2MP',
     hdd: '1TB',
     cable: '90 Meter',
+    dvr: false,
+    nvr: false,
       price: '',
       originalPrice: '',
+    priceNote: '',
       image: '',
       specs: [''],
       rating: '4.5',
@@ -298,6 +330,8 @@ export default function IPComboAdmin() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resolution</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Hard Disk</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cable Length</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">DVR</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">NVR</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Price</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
@@ -327,6 +361,8 @@ export default function IPComboAdmin() {
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.resolution}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.hdd}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.cable}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.dvr ? 'Yes' : 'No'}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.nvr ? 'Yes' : 'No'}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">RS {product.price}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs rounded-full ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -524,13 +560,39 @@ export default function IPComboAdmin() {
                   </p>
                 </div>
 
+                {/* DVR */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.dvr}
+                      onChange={(e) => setFormData({ ...formData, dvr: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    DVR
+                  </label>
+                </div>
+
+                {/* NVR */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.nvr}
+                      onChange={(e) => setFormData({ ...formData, nvr: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    NVR
+                  </label>
+                </div>
+
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Price
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -543,7 +605,7 @@ export default function IPComboAdmin() {
                     Original Price
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     value={formData.originalPrice}
                     onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"

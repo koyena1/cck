@@ -10,7 +10,8 @@ import {
   Edit,
   Trash2,
   XCircle,
-  Clock
+  Clock,
+  Lock
 } from "lucide-react";
 import { stateDistrictMapping } from "@/lib/state-district-mapping";
 import {
@@ -28,6 +29,7 @@ interface DistrictUser {
   district_unique_id?: string;
   username: string;
   email: string;
+  password?: string;
   full_name: string;
   phone_number: string;
   district: string;
@@ -56,6 +58,7 @@ export default function DistrictManagementPage() {
   const [districtStats, setDistrictStats] = useState<DistrictStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
@@ -131,7 +134,7 @@ export default function DistrictManagementPage() {
     e.preventDefault();
     
     // Trim all text input values to prevent whitespace issues
-    const trimmedData = {
+    const trimmedData: Record<string, any> = {
       ...formData,
       username: formData.username.trim(),
       email: formData.email.trim(),
@@ -141,8 +144,16 @@ export default function DistrictManagementPage() {
     };
     
     try {
+      const isEditing = editingUserId !== null;
+      if (isEditing) {
+        trimmedData.district_user_id = editingUserId;
+        if (!trimmedData.password) {
+          delete trimmedData.password;
+        }
+      }
+
       const response = await fetch('/api/admin/district-users', {
-        method: 'POST',
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(trimmedData)
       });
@@ -150,8 +161,9 @@ export default function DistrictManagementPage() {
       const data = await response.json();
 
       if (data.success) {
-        alert('District manager created successfully!');
+        alert(isEditing ? 'District manager updated successfully!' : 'District manager created successfully!');
         setShowCreateForm(false);
+        setEditingUserId(null);
         setFormData({
           username: "",
           email: "",
@@ -171,7 +183,64 @@ export default function DistrictManagementPage() {
       }
     } catch (error) {
       console.error('Failed to create user:', error);
-      alert('Failed to create district user');
+      alert(editingUserId ? 'Failed to update district user' : 'Failed to create district user');
+    }
+  };
+
+  const handleEditUser = (user: DistrictUser) => {
+    setEditingUserId(user.district_user_id);
+    setShowCreateForm(true);
+    setFormData({
+      username: user.username || "",
+      email: user.email || "",
+      password: "",
+      full_name: user.full_name || "",
+      phone_number: user.phone_number || "",
+      district: user.district || "",
+      state: user.state || "",
+      pincodes: user.pincodes || "",
+      can_view_dealers: user.can_view_dealers,
+      can_view_orders: user.can_view_orders,
+      can_contact_dealers: user.can_contact_dealers
+    });
+    if (user.state) {
+      setAvailableDistricts(stateDistrictMapping[user.state] || []);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowCreateForm(false);
+    setEditingUserId(null);
+    setFormData({
+      username: "",
+      email: "",
+      password: "",
+      full_name: "",
+      phone_number: "",
+      district: "",
+      state: "",
+      pincodes: "",
+      can_view_dealers: true,
+      can_view_orders: true,
+      can_contact_dealers: true
+    });
+  };
+
+  const fetchDistrictPincodes = async (district: string, state: string) => {
+    if (!district) return;
+    try {
+      const response = await fetch(
+        `/api/admin/district-pincodes?district=${encodeURIComponent(district)}&state=${encodeURIComponent(state || "")}`
+      );
+      const data = await response.json();
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          pincodes: Array.isArray(data.pincodes) ? data.pincodes.join(", ") : ""
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch district pincodes:', error);
     }
   };
 
@@ -260,10 +329,12 @@ export default function DistrictManagementPage() {
           <CardHeader className="p-4 sm:p-6">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
-              Create New Manager
+              {editingUserId ? "Edit Manager" : "Create New Manager"}
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm mt-1.5">
-              Create a new district manager account for district-level management
+              {editingUserId
+                ? "Update district manager details and permissions"
+                : "Create a new district manager account for district-level management"}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
@@ -296,7 +367,7 @@ export default function DistrictManagementPage() {
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Password</label>
                 <input
                   type="password"
-                  required
+                  required={!editingUserId}
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className="w-full p-2 border rounded"
@@ -348,7 +419,11 @@ export default function DistrictManagementPage() {
                 <select
                   required
                   value={formData.district}
-                  onChange={(e) => setFormData({...formData, district: e.target.value})}
+                  onChange={(e) => {
+                    const nextDistrict = e.target.value;
+                    setFormData({...formData, district: nextDistrict});
+                    fetchDistrictPincodes(nextDistrict, formData.state);
+                  }}
                   className="w-full p-2 border rounded"
                   disabled={!formData.state}
                 >
@@ -406,12 +481,12 @@ export default function DistrictManagementPage() {
 
               <div className="col-span-1 sm:col-span-2 flex flex-col sm:flex-row gap-2 sm:gap-3 mt-2">
                 <Button type="submit" className="flex-1 w-full sm:w-auto">
-                  Create Manager
+                  {editingUserId ? "Save Changes" : "Create Manager"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setShowCreateForm(false)}
+                  onClick={handleCancelEdit}
                   className="flex-1 w-full sm:w-auto"
                 >
                   Cancel
@@ -494,11 +569,16 @@ export default function DistrictManagementPage() {
                         <span className="truncate">Username: {user.username}</span>
                       </div>
                       <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Lock className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                        <span className="truncate">Password: {user.password}</span>
+                      </div>
+                      <div className="truncate">Email: {user.email}</div>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <MapPin className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
                         <span className="truncate">{user.district}, {user.state}</span>
                       </div>
-                      <div className="truncate">Email: {user.email}</div>
                       <div>Phone: {user.phone_number || "N/A"}</div>
+                      <div>Pincodes: {user.pincodes || "N/A"}</div>
                       <div>Created: {new Date(user.created_at).toLocaleDateString()}</div>
                       <div>Last Login: {user.last_login ? new Date(user.last_login).toLocaleDateString() : "Never"}</div>
                     </div>
@@ -517,6 +597,14 @@ export default function DistrictManagementPage() {
                   </div>
 
                   <div className="flex gap-2 sm:gap-2 justify-end sm:justify-start">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditUser(user)}
+                      className="h-8 w-8 sm:h-9 sm:w-9 p-0"
+                    >
+                      <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

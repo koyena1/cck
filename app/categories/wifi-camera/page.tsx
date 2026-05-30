@@ -24,6 +24,7 @@ interface Product {
   nightVision: string;
   price: number;
   originalPrice: number;
+  priceNote?: string | null;
   image: string;
   specs: string[];
   rating: number;
@@ -98,6 +99,7 @@ function WifiCameraContent() {
           nightVision: p.night_vision,
           price: parseFloat(p.price),
           originalPrice: parseFloat(p.original_price),
+          priceNote: p.price_note || '',
           image: p.image || '/prod1.jpg',
           specs: Array.isArray(p.specs) ? p.specs : [],
           rating: parseFloat(p.rating) || 4.5,
@@ -428,6 +430,11 @@ function WifiCameraContent() {
                           <span className="text-2xl font-bold text-slate-900">
                             RS {product.price.toLocaleString()}
                           </span>
+                          {product.priceNote && (
+                            <span className="text-[10px] text-slate-500">
+                              {product.priceNote}
+                            </span>
+                          )}
                           {product.originalPrice && (
                             <span className="text-sm text-slate-500 line-through">
                               RS {product.originalPrice.toLocaleString()}

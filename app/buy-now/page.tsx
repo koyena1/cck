@@ -106,18 +106,47 @@ function BuyNowContent() {
   // Check if user is logged in and fetch rewards info
   useEffect(() => {
     const token = localStorage.getItem('customerToken');
+    const storedEmail = localStorage.getItem('customerEmail');
+    const storedName = localStorage.getItem('customerName');
+    const storedPhone = localStorage.getItem('customerPhone');
+    const storedAddress = localStorage.getItem('customerAddress');
+    const storedPincode = localStorage.getItem('customerPincode');
+    const storedCity = localStorage.getItem('customerCity');
+    const storedLandmark = localStorage.getItem('customerLandmark');
+    const storedDistrict = localStorage.getItem('customerDistrict');
+    const storedState = localStorage.getItem('customerState');
+
     setIsLoggedIn(!!token);
-    
-    // If logged in, prefill email and name
-    if (token) {
-      const name = localStorage.getItem('customerName');
-      const userEmail = localStorage.getItem('customerEmail');
-      if (name) setCustomerName(name);
-      if (userEmail) setEmail(userEmail);
-      
-      // Fetch available points
-      if (userEmail) fetchAvailablePoints(userEmail);
+
+    if (storedName) setCustomerName(storedName);
+    if (storedEmail) setEmail(storedEmail);
+    if (storedPhone) setPhone(storedPhone);
+    if (storedAddress) setAddress(storedAddress);
+    if (storedPincode) setPinCode(storedPincode);
+    if (storedCity) setCity(storedCity);
+    if (storedLandmark) setLandmark(storedLandmark);
+    if (storedDistrict) setDistrict(storedDistrict);
+    if (storedState) setState(storedState);
+
+    if (token && storedEmail) {
+      fetchAvailablePoints(storedEmail);
+      hydrateCustomerProfile(storedEmail);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleCustomerProfileUpdate = () => {
+      const userEmail = localStorage.getItem('customerEmail');
+      if (userEmail) {
+        hydrateCustomerProfile(userEmail);
+      }
+    };
+
+    window.addEventListener('customer-profile-updated', handleCustomerProfileUpdate);
+
+    return () => {
+      window.removeEventListener('customer-profile-updated', handleCustomerProfileUpdate);
+    };
   }, []);
   
   const fetchAvailablePoints = async (userEmail: string) => {
@@ -227,12 +256,64 @@ function BuyNowContent() {
   const [pincodeError, setPincodeError] = useState('');
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([]);
 
+  const hydrateCustomerProfile = async (customerEmail: string) => {
+    try {
+      const response = await fetch(`/api/customer/profile?customerEmail=${encodeURIComponent(customerEmail)}`);
+      const data = await response.json();
+
+      if (data.success && data.customer) {
+        const customer = data.customer;
+        if (customer.full_name) {
+          setCustomerName(customer.full_name);
+          localStorage.setItem('customerName', customer.full_name);
+        }
+        if (customer.phone) {
+          setPhone(customer.phone);
+          localStorage.setItem('customerPhone', customer.phone);
+        }
+        if (customer.address) {
+          setAddress(customer.address);
+          localStorage.setItem('customerAddress', customer.address);
+        }
+        if (customer.pincode) {
+          setPinCode(String(customer.pincode));
+          localStorage.setItem('customerPincode', String(customer.pincode));
+        }
+        if (customer.city) {
+          setCity(customer.city);
+          localStorage.setItem('customerCity', customer.city);
+        }
+        if (customer.landmark) {
+          setLandmark(customer.landmark);
+          localStorage.setItem('customerLandmark', customer.landmark);
+        }
+        if (customer.district) {
+          setDistrict(customer.district);
+          localStorage.setItem('customerDistrict', customer.district);
+        }
+        if (customer.state) {
+          setState(customer.state);
+          localStorage.setItem('customerState', customer.state);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching customer profile:', error);
+    }
+  }
+
   // Auto-detect location from 6-digit PIN code using India Post API
   useEffect(() => {
     if (pinCode.length !== 6) {
       setPincodeDetected(false);
       setPincodeError('');
       if (pinCode.length === 0) setAutoFilledFields([]);
+      return;
+    }
+
+    const hasLocation = Boolean(city || district || state);
+    if (hasLocation) {
+      setPincodeDetected(true);
+      setPincodeError('');
       return;
     }
     let cancelled = false;
@@ -263,13 +344,17 @@ function BuyNowContent() {
           setAutoFilledFields(filled);
           setPincodeDetected(true);
         } else {
-          setPincodeError('PIN code not found');
-          setPincodeDetected(false);
+          if (!hasLocation) {
+            setPincodeError('PIN code not found');
+            setPincodeDetected(false);
+          }
         }
       } catch {
         if (!cancelled) {
-          setPincodeError('Could not look up PIN code');
-          setPincodeDetected(false);
+          if (!hasLocation) {
+            setPincodeError('Could not look up PIN code');
+            setPincodeDetected(false);
+          }
         }
       } finally {
         if (!cancelled) setPincodeLoading(false);
@@ -277,8 +362,14 @@ function BuyNowContent() {
     };
     lookup();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinCode]);
+  }, [pinCode, city, district, state]);
+
+  useEffect(() => {
+    if (pinCode.length === 6 && (city || district || state)) {
+      setPincodeDetected(true);
+      setPincodeError('');
+    }
+  }, [pinCode, city, district, state]);
 
   useEffect(() => {
     // Priority 1: Load from buyNowCart (from cart checkout)

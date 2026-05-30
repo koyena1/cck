@@ -31,7 +31,20 @@ export async function POST(
     const body = await request.json();
     const viewerRole = parseRole(body?.viewerRole);
     const message = String(body?.message || '').trim();
-    const attachmentUrl = body?.attachmentUrl ? String(body.attachmentUrl).trim() : null;
+    const normalizeAttachmentUrls = (value: any) => {
+      if (Array.isArray(value)) {
+        return value.map((item) => String(item).trim()).filter(Boolean);
+      }
+      if (typeof value === 'string' && value.trim()) {
+        return [value.trim()];
+      }
+      return [] as string[];
+    };
+
+    const normalizedAttachmentUrls = normalizeAttachmentUrls(body?.attachmentUrls || body?.attachmentUrl);
+    const attachmentUrl = normalizedAttachmentUrls.length > 1
+      ? JSON.stringify(normalizedAttachmentUrls)
+      : (normalizedAttachmentUrls[0] || null);
     const inputChannel = normalizeChannel(body?.channel);
 
     if (!message && !attachmentUrl) {

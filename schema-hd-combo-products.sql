@@ -10,8 +10,12 @@ CREATE TABLE IF NOT EXISTS hd_combo_products (
     resolution VARCHAR(20) NOT NULL, -- 2MP, 4MP, 5MP, etc.
     hdd VARCHAR(50) NOT NULL, -- 500GB, 1TB, 2TB, etc.
     cable VARCHAR(50) NOT NULL, -- 60 Meter, 90 Meter, 120 Meter, etc.
+    dvr BOOLEAN DEFAULT false,
+    nvr BOOLEAN DEFAULT false,
     price DECIMAL(10, 2) NOT NULL,
     original_price DECIMAL(10, 2) NOT NULL,
+    price_note TEXT,
+    price_including_gst DECIMAL(10, 2),
     image TEXT, -- Base64 encoded image or URL
     specs TEXT[], -- Array of specifications
     rating DECIMAL(2, 1) DEFAULT 4.5,

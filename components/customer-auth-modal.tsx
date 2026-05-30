@@ -206,6 +206,37 @@ export function CustomerAuthModal({ isOpen, onClose }: CustomerAuthModalProps) {
           localStorage.setItem('customerToken', result.token)
           localStorage.setItem('customerName', result.customer.full_name)
           localStorage.setItem('customerEmail', result.customer.email)
+          localStorage.setItem('customerPhone', result.customer.phone || '')
+          if (result.customer.address) {
+            localStorage.setItem('customerAddress', result.customer.address)
+          } else {
+            localStorage.removeItem('customerAddress')
+          }
+          if (result.customer.pincode) {
+            localStorage.setItem('customerPincode', result.customer.pincode)
+          } else {
+            localStorage.removeItem('customerPincode')
+          }
+          if (result.customer.city) {
+            localStorage.setItem('customerCity', result.customer.city)
+          } else {
+            localStorage.removeItem('customerCity')
+          }
+          if (result.customer.landmark) {
+            localStorage.setItem('customerLandmark', result.customer.landmark)
+          } else {
+            localStorage.removeItem('customerLandmark')
+          }
+          if (result.customer.district) {
+            localStorage.setItem('customerDistrict', result.customer.district)
+          } else {
+            localStorage.removeItem('customerDistrict')
+          }
+          if (result.customer.state) {
+            localStorage.setItem('customerState', result.customer.state)
+          } else {
+            localStorage.removeItem('customerState')
+          }
           
           setMessage("Login successful! Welcome back!")
           

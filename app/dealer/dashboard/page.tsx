@@ -87,6 +87,7 @@ export default function DealerDashboard() {
   const [claimOpenCount, setClaimOpenCount] = useState<number | null>(null);
   const [claimInProgressCount, setClaimInProgressCount] = useState<number | null>(null);
   const [claimResolvedCount, setClaimResolvedCount] = useState<number | null>(null);
+  const [claimClosedCount, setClaimClosedCount] = useState<number | null>(null);
   const [latestClaimTicketNumber, setLatestClaimTicketNumber] = useState<string>('');
   const [servicesTotalCount, setServicesTotalCount] = useState<number | null>(null);
   const [servicesOpenCount, setServicesOpenCount] = useState<number | null>(null);
@@ -287,6 +288,7 @@ export default function DealerDashboard() {
         setClaimOpenCount(0);
         setClaimInProgressCount(0);
         setClaimResolvedCount(0);
+        setClaimClosedCount(0);
         setLatestClaimTicketNumber('');
         return;
       }
@@ -294,15 +296,14 @@ export default function DealerDashboard() {
       const tickets = data.tickets || [];
       const openCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'open').length;
       const inProgressCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'in_progress').length;
-      const resolvedCount = tickets.filter((ticket: any) => {
-        const status = String(ticket.status || '').toLowerCase();
-        return status === 'resolved' || status === 'closed';
-      }).length;
+      const resolvedCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'resolved').length;
+      const closedCount = tickets.filter((ticket: any) => String(ticket.status || '').toLowerCase() === 'closed').length;
 
       setClaimTotalCount(tickets.length);
       setClaimOpenCount(openCount);
       setClaimInProgressCount(inProgressCount);
       setClaimResolvedCount(resolvedCount);
+      setClaimClosedCount(closedCount);
       setLatestClaimTicketNumber(tickets[0]?.ticket_number || '');
     } catch (error) {
       console.error('Failed to fetch claim details:', error);
@@ -310,6 +311,7 @@ export default function DealerDashboard() {
       setClaimOpenCount(0);
       setClaimInProgressCount(0);
       setClaimResolvedCount(0);
+      setClaimClosedCount(0);
       setLatestClaimTicketNumber('');
     }
   };
@@ -643,9 +645,9 @@ export default function DealerDashboard() {
 
   const claimLineColor = {
     total: (claimOpenCount ?? 0) > 0 ? 'text-red-600' : 'text-[#0f172a]',
-    open: (claimOpenCount ?? 0) > 0 ? 'text-red-600' : 'text-[#0f172a]',
     inProgress: (claimInProgressCount ?? 0) > 0 ? 'text-blue-600' : 'text-[#0f172a]',
     resolved: (claimResolvedCount ?? 0) > 0 ? 'text-green-600' : 'text-[#0f172a]',
+    closed: (claimClosedCount ?? 0) > 0 ? 'text-amber-600' : 'text-[#0f172a]',
   };
 
   const servicesLineColor = {
@@ -808,22 +810,58 @@ export default function DealerDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <ul className="list-disc list-inside space-y-1 text-xs font-poppins font-medium text-[#0f172a] opacity-90">
-                <li className="flex items-center justify-between gap-2">
-                  <span className={claimLineColor.total}>Total Claim</span>
-                  <span className={`font-bold ${claimLineColor.total}`}>{claimTotalCount !== null ? claimTotalCount.toString().padStart(2, '0') : '--'}</span>
+              <ul className="space-y-1 text-xs font-poppins font-medium text-[#0f172a] opacity-90">
+                <li>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push('/dealer/service-support');
+                    }}
+                    className="flex w-full items-center justify-between gap-2"
+                  >
+                    <span className={claimLineColor.total}>Total Claim</span>
+                    <span className={`font-bold ${claimLineColor.total}`}>{claimTotalCount !== null ? claimTotalCount.toString().padStart(2, '0') : '--'}</span>
+                  </button>
                 </li>
-                <li className="flex items-center justify-between gap-2">
-                  <span className={claimLineColor.open}>Open Claim</span>
-                  <span className={`font-bold ${claimLineColor.open}`}>{claimOpenCount !== null ? claimOpenCount.toString().padStart(2, '0') : '--'}</span>
+                <li>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push('/dealer/service-support?status=in_progress');
+                    }}
+                    className="flex w-full items-center justify-between gap-2"
+                  >
+                    <span className={claimLineColor.inProgress}>In Progress</span>
+                    <span className={`font-bold ${claimLineColor.inProgress}`}>{claimInProgressCount !== null ? claimInProgressCount.toString().padStart(2, '0') : '--'}</span>
+                  </button>
                 </li>
-                <li className="flex items-center justify-between gap-2">
-                  <span className={claimLineColor.inProgress}>In Progress</span>
-                  <span className={`font-bold ${claimLineColor.inProgress}`}>{claimInProgressCount !== null ? claimInProgressCount.toString().padStart(2, '0') : '--'}</span>
+                <li>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push('/dealer/service-support?status=resolved');
+                    }}
+                    className="flex w-full items-center justify-between gap-2"
+                  >
+                    <span className={claimLineColor.resolved}>Resolved</span>
+                    <span className={`font-bold ${claimLineColor.resolved}`}>{claimResolvedCount !== null ? claimResolvedCount.toString().padStart(2, '0') : '--'}</span>
+                  </button>
                 </li>
-                <li className="flex items-center justify-between gap-2">
-                  <span className={claimLineColor.resolved}>Resolved</span>
-                  <span className={`font-bold ${claimLineColor.resolved}`}>{claimResolvedCount !== null ? claimResolvedCount.toString().padStart(2, '0') : '--'}</span>
+                <li>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push('/dealer/service-support?status=closed');
+                    }}
+                    className="flex w-full items-center justify-between gap-2"
+                  >
+                    <span className={claimLineColor.closed}>Closed Claim</span>
+                    <span className={`font-bold ${claimLineColor.closed}`}>{claimClosedCount !== null ? claimClosedCount.toString().padStart(2, '0') : '--'}</span>
+                  </button>
                 </li>
                 <li className="pt-1 text-[10px] text-slate-600 flex items-center justify-between gap-2">
                   <span>Latest Ticket</span>

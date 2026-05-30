@@ -68,8 +68,12 @@ export async function POST(request: NextRequest) {
       resolution,
       hdd,
       cable,
+      dvr,
+      nvr,
       price,
       original_price,
+      price_note,
+      price_including_gst,
       image,
       specs,
       rating,
@@ -87,8 +91,8 @@ export async function POST(request: NextRequest) {
 
     const query = `
       INSERT INTO hd_combo_products 
-      (name, brand, channels, camera_type, resolution, hdd, cable, price, original_price, image, specs, rating, reviews, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      (name, brand, channels, camera_type, resolution, hdd, cable, dvr, nvr, price, original_price, price_note, price_including_gst, image, specs, rating, reviews, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *
     `;
 
@@ -100,8 +104,14 @@ export async function POST(request: NextRequest) {
       resolution,
       hdd,
       cable,
+      dvr || false,
+      nvr || false,
       parseFloat(price),
       parseFloat(original_price),
+      price_note || null,
+      price_including_gst !== null && price_including_gst !== undefined
+        ? parseFloat(price_including_gst)
+        : null,
       image || '',
       specs || [],
       rating || 4.5,
@@ -153,8 +163,12 @@ export async function PUT(request: NextRequest) {
       resolution,
       hdd,
       cable,
+      dvr,
+      nvr,
       price,
       original_price,
+      price_note,
+      price_including_gst,
       image,
       specs,
       rating,
@@ -172,15 +186,19 @@ export async function PUT(request: NextRequest) {
         resolution = $5,
         hdd = $6,
         cable = $7,
-        price = $8,
-        original_price = $9,
-        image = $10,
-        specs = $11,
-        rating = $12,
-        reviews = $13,
-        is_active = $14,
+        dvr = $8,
+        nvr = $9,
+        price = $10,
+        original_price = $11,
+        price_note = $12,
+        price_including_gst = $13,
+        image = $14,
+        specs = $15,
+        rating = $16,
+        reviews = $17,
+        is_active = $18,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $15
+      WHERE id = $19
       RETURNING *
     `;
 
@@ -192,8 +210,14 @@ export async function PUT(request: NextRequest) {
       resolution,
       hdd,
       cable,
+      dvr || false,
+      nvr || false,
       parseFloat(price),
       parseFloat(original_price),
+      price_note || null,
+      price_including_gst !== null && price_including_gst !== undefined
+        ? parseFloat(price_including_gst)
+        : null,
       image,
       specs || [],
       rating || 4.5,

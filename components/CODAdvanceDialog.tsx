@@ -27,6 +27,7 @@ export function CODAdvanceDialog({
 }: CODAdvanceDialogProps) {
   const [processing, setProcessing] = useState(false);
   const [paymentTriggered, setPaymentTriggered] = useState(false);
+  const autoOpenDelayMs = 5000;
 
   useEffect(() => {
     // Load Razorpay script if not already loaded
@@ -40,20 +41,25 @@ export function CODAdvanceDialog({
 
   // Auto-trigger payment when dialog opens
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
     if (isOpen && !paymentTriggered && orderNumber) {
-      setPaymentTriggered(true);
-      // Increased delay to ensure Razorpay script is fully loaded
-      setTimeout(() => {
+      // Keep the dialog visible before auto-opening the gateway.
+      timer = setTimeout(() => {
+        setPaymentTriggered(true);
         handlePayAdvance();
-      }, 1000);
+      }, autoOpenDelayMs);
     }
-    
-    // Reset state when dialog closes
+
     if (!isOpen) {
       setPaymentTriggered(false);
       setProcessing(false);
     }
-  }, [isOpen, orderNumber, paymentTriggered]);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isOpen, orderNumber, paymentTriggered, autoOpenDelayMs]);
 
   const handlePayAdvance = async () => {
     setProcessing(true);

@@ -14,6 +14,7 @@ interface Product {
   poe: boolean;
   price: number;
   originalPrice: number;
+  priceNote?: string | null;
   image: string;
   specs: string[];
   rating: number;
@@ -39,6 +40,7 @@ export default function IPCameraAdmin() {
     poe: 'true',
     price: '',
     originalPrice: '',
+    priceNote: '',
     image: '',
     specs: [''],
     rating: '4.5',
@@ -65,6 +67,7 @@ export default function IPCameraAdmin() {
           poe: p.poe,
         price: parseFloat(p.price),
         originalPrice: parseFloat(p.original_price),
+        priceNote: p.price_note || '',
         image: p.image || '',
         specs: Array.isArray(p.specs) ? p.specs : [],
         rating: parseFloat(p.rating) || 4.5,
@@ -106,8 +109,28 @@ export default function IPCameraAdmin() {
     setFormData({ ...formData, specs: newSpecs });
   };
 
+  const parsePriceInput = (value: string) => {
+    const normalized = value.replace(/,/g, '').trim();
+    const match = normalized.match(/([0-9]+(?:\.[0-9]+)?)/);
+    if (!match) {
+      return { amount: '', note: '' };
+    }
+    const amount = match[1];
+    const note = normalized.slice(normalized.indexOf(amount) + amount.length).trim();
+    return { amount, note };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedPrice = parsePriceInput(formData.price);
+    const parsedOriginal = parsePriceInput(formData.originalPrice);
+    const resolvedOriginal = parsedOriginal.amount ? parsedOriginal : { amount: parsedPrice.amount, note: '' };
+
+    if (!formData.name || !formData.brand || !parsedPrice.amount) {
+      alert('Please fill in all required fields with a valid price');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -126,8 +149,9 @@ export default function IPCameraAdmin() {
           camera_type: formData.cameraType,
           resolution: formData.resolution,
           poe: formData.poe === 'true',
-          price: parseFloat(formData.price),
-          original_price: parseFloat(formData.originalPrice),
+          price: parseFloat(parsedPrice.amount),
+          original_price: parseFloat(resolvedOriginal.amount),
+          price_note: parsedPrice.note || null,
           image: formData.image,
           specs: formData.specs.filter(spec => spec.trim() !== ''),
           rating: parseFloat(formData.rating),
@@ -160,8 +184,9 @@ export default function IPCameraAdmin() {
       cameraType: product.cameraType,
       resolution: product.resolution,
       poe: product.poe.toString(),
-      price: product.price.toString(),
+      price: `${product.price}${product.priceNote ? ` ${product.priceNote}` : ''}`,
       originalPrice: product.originalPrice.toString(),
+      priceNote: product.priceNote || '',
       image: product.image,
       specs: product.specs && product.specs.length > 0 ? product.specs : [''],
       rating: product.rating.toString(),
@@ -204,6 +229,7 @@ export default function IPCameraAdmin() {
     poe: 'true',
       price: '',
       originalPrice: '',
+    priceNote: '',
       image: '',
       specs: [''],
       rating: '4.5',
@@ -419,7 +445,7 @@ export default function IPCameraAdmin() {
                     Price
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -432,7 +458,7 @@ export default function IPCameraAdmin() {
                     Original Price
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     value={formData.originalPrice}
                     onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"

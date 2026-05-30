@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Package,
   TrendingUp,
@@ -70,6 +70,7 @@ interface StockTrend {
 }
 
 export default function StockManagementPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const filterParam = (searchParams?.get('filter') || 'all') as 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
   
@@ -81,6 +82,7 @@ export default function StockManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in-stock' | 'low-stock' | 'out-of-stock'>(filterParam);
   const [urgencyFlags, setUrgencyFlags] = useState<Record<number, UrgencyFlag>>({});
+  const [isRouting, startTransition] = useTransition();
 
   useEffect(() => {
     const initializePage = async () => {
@@ -109,6 +111,10 @@ export default function StockManagementPage() {
   useEffect(() => {
     applyFilters();
   }, [searchQuery, filterStatus, stock]);
+
+  useEffect(() => {
+    setFilterStatus(filterParam);
+  }, [filterParam]);
 
   const fetchStock = async (dId: number) => {
     try {
@@ -271,6 +277,21 @@ export default function StockManagementPage() {
 
   const stats = calculateStats();
 
+  const applyStatusFilter = (nextFilter: 'all' | 'in-stock' | 'low-stock' | 'out-of-stock') => {
+    if (nextFilter === filterStatus) return;
+    setFilterStatus(nextFilter);
+    const params = new URLSearchParams(searchParams?.toString());
+    if (nextFilter === 'all') {
+      params.delete('filter');
+    } else {
+      params.set('filter', nextFilter);
+    }
+    const query = params.toString();
+    startTransition(() => {
+      router.replace(query ? `/dealer/stock?${query}` : '/dealer/stock', { scroll: false });
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -323,7 +344,10 @@ export default function StockManagementPage() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+        <Card
+          className="border-none shadow-sm bg-white dark:bg-slate-900 cursor-pointer transition hover:shadow-md"
+          onClick={() => applyStatusFilter('all')}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardDescription className="flex items-center gap-1 sm:gap-2 dark:text-slate-400 text-xs sm:text-sm">
               <Package className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
@@ -333,7 +357,10 @@ export default function StockManagementPage() {
           </CardHeader>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+        <Card
+          className="border-none shadow-sm bg-white dark:bg-slate-900 cursor-pointer transition hover:shadow-md"
+          onClick={() => applyStatusFilter('in-stock')}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardDescription className="flex items-center gap-1 sm:gap-2 dark:text-slate-400 text-xs sm:text-sm">
               <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
@@ -343,7 +370,10 @@ export default function StockManagementPage() {
           </CardHeader>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+        <Card
+          className="border-none shadow-sm bg-white dark:bg-slate-900 cursor-pointer transition hover:shadow-md"
+          onClick={() => applyStatusFilter('low-stock')}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardDescription className="flex items-center gap-1 sm:gap-2 dark:text-slate-400 text-xs sm:text-sm">
               <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-600" />
@@ -353,7 +383,10 @@ export default function StockManagementPage() {
           </CardHeader>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+        <Card
+          className="border-none shadow-sm bg-white dark:bg-slate-900 cursor-pointer transition hover:shadow-md"
+          onClick={() => applyStatusFilter('out-of-stock')}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardDescription className="flex items-center gap-1 sm:gap-2 dark:text-slate-400 text-xs sm:text-sm">
               <Archive className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />
@@ -363,7 +396,10 @@ export default function StockManagementPage() {
           </CardHeader>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900 col-span-2 sm:col-span-1">
+        <Card
+          className="border-none shadow-sm bg-white dark:bg-slate-900 col-span-2 sm:col-span-1 cursor-pointer transition hover:shadow-md"
+          onClick={() => applyStatusFilter('all')}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardDescription className="flex items-center gap-1 sm:gap-2 dark:text-slate-400 text-xs sm:text-sm">
               <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />

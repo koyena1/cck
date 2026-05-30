@@ -81,8 +81,8 @@ export const metadata: Metadata = {
     canonical: 'https://yourdomain.com',
   },
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/logo2.png",
+    apple: "/logo2.png",
   },
 }
 
@@ -96,7 +96,7 @@ export default function RootLayout({
     "@type": "Organization",
     "name": "Protechtur",
     "url": "https://yourdomain.com",
-    "logo": "https://yourdomain.com/logo.png",
+    "logo": "https://yourdomain.com/logo2.png",
     "description": "Protechtur offers CCTV products, installation support, and security solutions.",
     "sameAs": [
       "https://www.facebook.com/Protechtur",

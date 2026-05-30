@@ -78,9 +78,10 @@ export async function GET(
 
     // Fetch installation settings for COD amount
     const settingsResult = await pool.query(`
-      SELECT cod_advance_amount FROM installation_settings LIMIT 1
+      SELECT cod_advance_amount, cod_percentage FROM installation_settings LIMIT 1
     `);
     const codAmount = settingsResult.rows[0]?.cod_advance_amount || 500;
+    const codPercentage = settingsResult.rows[0]?.cod_percentage || 0;
 
     // Fetch order items
     const itemsResult = await pool.query(`
@@ -131,6 +132,7 @@ export async function GET(
       order,
       items: itemsResult.rows,
       codAmount: parseFloat(codAmount), // COD extra charge from settings
+      codPercentage: parseFloat(codPercentage), // COD advance percentage (if configured)
     });
   } catch (error: any) {
     console.error('Error fetching order invoice:', error);

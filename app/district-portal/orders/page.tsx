@@ -186,7 +186,7 @@ function ViewDetailsModal({
         alert('Failed to fetch invoice data');
         return;
       }
-      const { invoiceNumber, order: o, items, codAmount } = inv;
+      const { invoiceNumber, order: o, items, codAmount, codPercentage } = inv;
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
       const pageW = doc.internal.pageSize.getWidth();
       const margin = 15;
@@ -214,7 +214,12 @@ function ViewDetailsModal({
       y += 6;
       doc.setFont('helvetica', 'normal');
       doc.text(`Date: ${new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`, margin, y);
-      doc.text(`Payment: ${o.payment_method || '—'} | Status: ${o.payment_status || '—'}`, pageW - margin, y, { align: 'right' });
+      const isCodPayment = String(o.payment_method || '').toLowerCase() === 'cod';
+      const paymentStatusLabel = o.payment_status || '—';
+      const paymentMeta = isCodPayment
+        ? 'Payment: Cash on Delivery'
+        : `Payment: Online | Status: ${paymentStatusLabel}`;
+      doc.text(paymentMeta, pageW - margin, y, { align: 'right' });
 
       y += 3;
       doc.setDrawColor(200, 210, 230);
@@ -474,6 +479,42 @@ function ViewDetailsModal({
       doc.setTextColor(250, 204, 21);
       doc.text('GRAND TOTAL', totalsX, y + 6);
       doc.text(`Rs.${grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, totalsValX, y + 6, { align: 'right' });
+
+      y += 16;
+      if (isCodPayment) {
+        const round2 = (val: number) => Math.round(val * 100) / 100;
+        const codPercentValue = parseFloat(String(codPercentage || 0)) || 0;
+        const advanceFromDb = round2(parseFloat(String(o.advance_amount || 0)) || 0);
+        const advanceFromPercent = codPercentValue > 0
+          ? round2((grandTotal * codPercentValue) / 100)
+          : 0;
+        const amountAlreadyPaid = Math.max(advanceFromDb, advanceFromPercent);
+        const amountDueOnDelivery = round2(Math.max(0, grandTotal - amountAlreadyPaid));
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = margin;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(15, 23, 42);
+        doc.text('Important Note:', margin, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.text(
+          `Already paid: Rs.${amountAlreadyPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          margin, y
+        );
+        y += 4.5;
+        doc.text(
+          `Pay on delivery (COD): Rs.${amountDueOnDelivery.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          margin, y
+        );
+        y += 6;
+      }
 
       const pageH = doc.internal.pageSize.getHeight();
       doc.setFillColor(15, 23, 42);

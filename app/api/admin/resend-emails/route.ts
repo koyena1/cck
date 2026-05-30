@@ -44,13 +44,14 @@ export async function POST(request: Request) {
            WHERE oi.order_id = $1`,
           [orderId]
         ),
-        pool.query('SELECT cod_advance_amount FROM installation_settings LIMIT 1'),
+        pool.query('SELECT cod_advance_amount, cod_percentage FROM installation_settings LIMIT 1'),
       ]);
 
       const order = orderRes.rows[0];
       if (!order) { results[orderId] = { sent: false, email: '', error: 'Order not found' }; continue; }
       if (!order.customer_email) { results[orderId] = { sent: false, email: '', error: 'No email on order' }; continue; }
       order._codFlatAmount = parseFloat(codSettingsRes.rows[0]?.cod_advance_amount || '500');
+      order._codPercentage = parseFloat(codSettingsRes.rows[0]?.cod_percentage || '0');
 
       const actualOrderNumber = order.order_number;
       const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(actualOrderNumber)

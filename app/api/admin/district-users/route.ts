@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
         district_unique_id,
         username,
         email,
+        password,
         full_name,
         phone_number,
         district,
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
         username,
         email,
         password_hash,
+        password,
         full_name,
         phone_number,
         district,
@@ -105,12 +107,13 @@ export async function POST(req: NextRequest) {
         can_view_orders,
         can_contact_dealers
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING district_user_id, district_unique_id, username, email, full_name, district, state, pincodes
     `, [
       username,
       email,
       password_hash,
+      password,
       full_name,
       phone_number || null,
       district,
@@ -141,7 +144,21 @@ export async function PATCH(req: NextRequest) {
     await ensureDistrictUserUniqueIdSetup(pool);
 
     const body = await req.json();
-    const { district_user_id, is_active, can_view_dealers, can_view_orders, can_contact_dealers } = body;
+    const {
+      district_user_id,
+      is_active,
+      can_view_dealers,
+      can_view_orders,
+      can_contact_dealers,
+      username,
+      email,
+      password,
+      full_name,
+      phone_number,
+      district,
+      state,
+      pincodes
+    } = body;
 
     if (!district_user_id) {
       return NextResponse.json(
@@ -170,6 +187,42 @@ export async function PATCH(req: NextRequest) {
     if (typeof can_contact_dealers === 'boolean') {
       updates.push(`can_contact_dealers = $${paramCount++}`);
       values.push(can_contact_dealers);
+    }
+
+    if (typeof username === 'string' && username.trim()) {
+      updates.push(`username = $${paramCount++}`);
+      values.push(username.trim());
+    }
+    if (typeof email === 'string' && email.trim()) {
+      updates.push(`email = $${paramCount++}`);
+      values.push(email.trim());
+    }
+    if (typeof full_name === 'string' && full_name.trim()) {
+      updates.push(`full_name = $${paramCount++}`);
+      values.push(full_name.trim());
+    }
+    if (typeof phone_number === 'string') {
+      updates.push(`phone_number = $${paramCount++}`);
+      values.push(phone_number.trim() || null);
+    }
+    if (typeof district === 'string' && district.trim()) {
+      updates.push(`district = $${paramCount++}`);
+      values.push(district.trim());
+    }
+    if (typeof state === 'string' && state.trim()) {
+      updates.push(`state = $${paramCount++}`);
+      values.push(state.trim());
+    }
+    if (typeof pincodes === 'string') {
+      updates.push(`pincodes = $${paramCount++}`);
+      values.push(pincodes.trim() || null);
+    }
+    if (typeof password === 'string' && password.trim()) {
+      const password_hash = await bcrypt.hash(password, 10);
+      updates.push(`password_hash = $${paramCount++}`);
+      values.push(password_hash);
+      updates.push(`password = $${paramCount++}`);
+      values.push(password);
     }
 
     if (updates.length === 0) {

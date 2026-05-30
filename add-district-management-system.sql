@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS district_users (
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    password VARCHAR(255),
     full_name VARCHAR(100) NOT NULL,
     phone_number VARCHAR(15),
     

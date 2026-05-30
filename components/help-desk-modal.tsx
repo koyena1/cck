@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { Paperclip, Send, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -71,6 +71,17 @@ function getSenderDisplayText(message: Pick<TicketMessage, "sender_role" | "send
   return `${senderName} (${roleLabel})`;
 }
 
+function parseAttachmentUrls(value?: string | null) {
+  if (!value) return [] as string[];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item)).filter(Boolean);
+  } catch {
+    // Fall back to treating as a single URL string.
+  }
+  return [String(value)].filter(Boolean);
+}
+
 interface HelpDeskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -88,9 +99,16 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
   const [subCategory, setSubCategory] = useState("");
   const [referenceOrderId, setReferenceOrderId] = useState("");
   const [explanation, setExplanation] = useState("");
-  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
   const [sendMessage, setSendMessage] = useState("");
-  const [sendAttachmentUrl, setSendAttachmentUrl] = useState("");
+  const [sendAttachmentUrls, setSendAttachmentUrls] = useState<string[]>([]);
+  const removeAttachment = (index: number) => {
+    setAttachmentUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeFollowUpAttachment = (index: number) => {
+    setSendAttachmentUrls((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const customerName = typeof window !== "undefined" ? localStorage.getItem("customerName") || "Customer" : "Customer";
   const customerEmail = typeof window !== "undefined" ? localStorage.getItem("customerEmail") || "" : "";
@@ -139,7 +157,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
     loadTickets();
   }, [open]);
 
-  const handleUpload = async (file: File, setter: (url: string) => void) => {
+  const handleUpload = async (file: File) => {
     setUploading(true);
     try {
       const formData = new FormData();
@@ -154,10 +172,30 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Upload failed");
       }
-      setter(data.url);
+      return data.url as string;
     } catch (error) {
       console.error("Attachment upload failed:", error);
       alert("Attachment upload failed. Please retry.");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploads = async (
+    files: FileList | null,
+    setter: Dispatch<SetStateAction<string[]>>
+  ) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const uploads = await Promise.all(
+        Array.from(files).map((file) => handleUpload(file))
+      );
+      const urls = uploads.filter((url): url is string => Boolean(url));
+      if (urls.length) {
+        setter((prev) => [...prev, ...urls]);
+      }
     } finally {
       setUploading(false);
     }
@@ -168,7 +206,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
     setSubCategory("");
     setReferenceOrderId("");
     setExplanation("");
-    setAttachmentUrl("");
+    setAttachmentUrls([]);
   };
 
   const createTicket = async () => {
@@ -197,7 +235,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
           subCategory,
           referenceOrderId: referenceOrderId.trim() || null,
           explanation,
-          attachmentUrl: attachmentUrl || null
+          attachmentUrls: attachmentUrls.length ? attachmentUrls : null
         })
       });
       const data = await response.json();
@@ -219,7 +257,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
 
   const sendFollowUpMessage = async () => {
     if (!selectedTicket) return;
-    if (!sendMessage.trim() && !sendAttachmentUrl) {
+    if (!sendMessage.trim() && sendAttachmentUrls.length === 0) {
       alert("Enter a message or upload attachment.");
       return;
     }
@@ -235,7 +273,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
           viewerRole: "customer",
           senderName: customerName,
           message: sendMessage,
-          attachmentUrl: sendAttachmentUrl,
+          attachmentUrls: sendAttachmentUrls,
           channel: "customer"
         })
       });
@@ -244,7 +282,7 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
         throw new Error(data.error || "Failed to send message");
       }
       setSendMessage("");
-      setSendAttachmentUrl("");
+      setSendAttachmentUrls([]);
       await loadTickets();
     } catch (error: any) {
       alert(error?.message || "Failed to send message");
@@ -335,17 +373,31 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
               <div className="flex items-center gap-2">
                 <Input
                   type="file"
+                  multiple
                   onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) handleUpload(file, setAttachmentUrl);
+                    handleUploads(event.target.files, setAttachmentUrls);
+                    event.currentTarget.value = "";
                   }}
                 />
                 {uploading && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
               </div>
-              {attachmentUrl && (
-                <a href={attachmentUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                  View uploaded file
-                </a>
+              {attachmentUrls.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {attachmentUrls.map((url, index) => (
+                    <div key={`${url}-${index}`} className="flex items-center justify-between gap-2">
+                      <a href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                        View uploaded file {index + 1}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(index)}
+                        className="text-[11px] text-slate-500 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -396,9 +448,13 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
                       </div>
                       {message.message_text && <p className="mt-1 text-xs text-slate-600">{message.message_text}</p>}
                       {message.attachment_url && (
-                        <a href={message.attachment_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-blue-600 underline">
-                          Open attachment
-                        </a>
+                        <div className="mt-1 space-y-1">
+                          {parseAttachmentUrls(message.attachment_url).map((url, index) => (
+                            <a key={url} href={url} target="_blank" rel="noreferrer" className="block text-xs text-blue-600 underline">
+                              Open attachment {index + 1}
+                            </a>
+                          ))}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -424,10 +480,11 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
                     <input
                       id="helpdesk-followup-file"
                       type="file"
+                      multiple
                       className="hidden"
                       onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) handleUpload(file, setSendAttachmentUrl);
+                        handleUploads(event.target.files, setSendAttachmentUrls);
+                        event.currentTarget.value = "";
                       }}
                     />
                     <Button size="sm" onClick={sendFollowUpMessage} disabled={submitting || uploading}>
@@ -435,10 +492,23 @@ export function HelpDeskModal({ open, onOpenChange }: HelpDeskModalProps) {
                       Send
                     </Button>
                   </div>
-                  {sendAttachmentUrl && (
-                    <a href={sendAttachmentUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                      View follow-up attachment
-                    </a>
+                  {sendAttachmentUrls.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      {sendAttachmentUrls.map((url, index) => (
+                        <div key={`${url}-${index}`} className="flex items-center justify-between gap-2">
+                          <a href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                            View follow-up attachment {index + 1}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => removeFollowUpAttachment(index)}
+                            className="text-[11px] text-slate-500 hover:text-red-600"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

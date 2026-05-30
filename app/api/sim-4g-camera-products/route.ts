@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       battery,
       price,
       original_price,
+      price_note,
       image,
       specs,
       rating,
@@ -49,10 +50,10 @@ export async function POST(request: NextRequest) {
     
     const result = await pool.query(
       `INSERT INTO sim_4g_camera_products 
-       (name, brand, resolution, sim_support, battery, price, original_price, image, specs, rating, reviews, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       (name, brand, resolution, sim_support, battery, price, original_price, price_note, image, specs, rating, reviews, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
-      [name, brand, resolution, sim_support, battery, price, original_price, image, specs, rating || 4.5, reviews || 0, is_active !== undefined ? is_active : true]
+      [name, brand, resolution, sim_support, battery, price, original_price, price_note || null, image, specs, rating || 4.5, reviews || 0, is_active !== undefined ? is_active : true]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
@@ -80,6 +81,7 @@ export async function PUT(request: NextRequest) {
       battery,
       price,
       original_price,
+      price_note,
       image,
       specs,
       rating,
@@ -92,11 +94,11 @@ export async function PUT(request: NextRequest) {
     const result = await pool.query(
       `UPDATE sim_4g_camera_products 
        SET name = $1, brand = $2, resolution = $3, sim_support = $4, battery = $5,
-           price = $6, original_price = $7, image = $8, specs = $9, rating = $10, 
-           reviews = $11, is_active = $12, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $13
+           price = $6, original_price = $7, price_note = $8, image = $9, specs = $10, rating = $11, 
+           reviews = $12, is_active = $13, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $14
        RETURNING *`,
-      [name, brand, resolution, sim_support, battery, price, original_price, image, specs, rating, reviews, is_active, id]
+        [name, brand, resolution, sim_support, battery, price, original_price, price_note || null, image, specs, rating, reviews, is_active, id]
     );
 
     if (result.rows.length === 0) {

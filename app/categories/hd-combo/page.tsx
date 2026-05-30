@@ -19,12 +19,15 @@ interface Product {
   name: string;
   brand: string;
   channels: number;
+  dvr: boolean;
+  nvr: boolean;
   cameraType: string;
   resolution: string;
   hdd: string;
   cable: string;
   price: number;
   originalPrice: number;
+  priceNote?: string | null;
   image: string;
   specs: string[];
   rating: number;
@@ -101,12 +104,15 @@ function HdComboContent() {
           name: p.name,
           brand: p.brand,
           channels: p.channels,
+          dvr: Boolean(p.dvr),
+          nvr: Boolean(p.nvr),
           cameraType: p.camera_type,
           resolution: p.resolution,
           hdd: p.hdd,
           cable: p.cable,
           price: parseFloat(p.price),
           originalPrice: parseFloat(p.original_price),
+          priceNote: p.price_note || '',
           image: p.image || '/prod1.jpg',
           specs: Array.isArray(p.specs) ? p.specs : [],
           rating: parseFloat(p.rating) || 4.5,
@@ -365,6 +371,12 @@ function HdComboContent() {
                             <span className="text-slate-600">{product.channels} CH</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs">
+                            <span className="font-semibold text-slate-700 min-w-[70px]">DVR/NVR:</span>
+                            <span className="text-slate-600">
+                              {product.nvr ? 'NVR' : product.dvr ? 'DVR' : '-'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
                             <span className="font-semibold text-slate-700 min-w-[70px]">Camera:</span>
                             <span className="text-slate-600">{product.cameraType}</span>
                           </div>
@@ -422,6 +434,11 @@ function HdComboContent() {
                           <span className="text-2xl font-bold text-slate-900">
                             RS {product.price.toLocaleString()}
                           </span>
+                          {product.priceNote && (
+                            <span className="text-[10px] text-slate-500">
+                              {product.priceNote}
+                            </span>
+                          )}
                           {product.originalPrice && (
                             <span className="text-sm text-slate-500 line-through">
                               RS {product.originalPrice.toLocaleString()}

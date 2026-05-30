@@ -348,8 +348,23 @@ export async function POST(request: NextRequest) {
       location,
       ticketSource,
       explanation,
-      attachmentUrl
+      attachmentUrl,
+      attachmentUrls
     } = body || {};
+        const normalizeAttachmentUrls = (value: any) => {
+          if (Array.isArray(value)) {
+            return value.map((item) => String(item).trim()).filter(Boolean);
+          }
+          if (typeof value === 'string' && value.trim()) {
+            return [value.trim()];
+          }
+          return [] as string[];
+        };
+
+        const normalizedAttachmentUrls = normalizeAttachmentUrls(attachmentUrls || attachmentUrl);
+        const storedAttachmentUrl = normalizedAttachmentUrls.length > 1
+          ? JSON.stringify(normalizedAttachmentUrls)
+          : (normalizedAttachmentUrls[0] || null);
     const requestedTicketSource = String(ticketSource || '').trim().toLowerCase();
     const normalizedTicketSource = requestedTicketSource === 'services_portal' ? 'services_portal' : 'general_support';
 
@@ -602,7 +617,7 @@ export async function POST(request: NextRequest) {
         orderId,
         orderNumber || (referenceOrderNumber ? String(referenceOrderNumber).trim() : null),
         String(explanation).trim(),
-        attachmentUrl ? String(attachmentUrl).trim() : null,
+        storedAttachmentUrl,
         district,
         dealerId,
         normalizedTicketSource
@@ -622,7 +637,7 @@ export async function POST(request: NextRequest) {
         is_internal,
         created_at
       ) VALUES ($1,'customer','customer',$2,$3,$4,false,CURRENT_TIMESTAMP)`,
-      [ticket.ticket_id, displaySenderName('customer', normalizedCustomerName), String(explanation).trim(), attachmentUrl ? String(attachmentUrl).trim() : null]
+      [ticket.ticket_id, displaySenderName('customer', normalizedCustomerName), String(explanation).trim(), storedAttachmentUrl]
     );
 
     await sendSupportTicketBellNotifications({

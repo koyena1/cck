@@ -61,7 +61,11 @@ export async function POST(request: Request) {
         email: customer.email,
         phone: customer.phone_number,
         address: customer.address,
-        pincode: customer.pincode
+        pincode: customer.pincode,
+        city: customer.city,
+        landmark: customer.landmark,
+        district: customer.district,
+        state: customer.state
       }
     });
 

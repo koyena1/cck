@@ -102,6 +102,8 @@ interface SupportInboxProps {
   district?: string;
   dealerId?: number;
   sourceFilter?: string;
+  statusFilter?: string;
+  onTicketsLoaded?: (tickets: TicketItem[]) => void;
   title?: string;
   subtitle?: string;
 }
@@ -112,6 +114,8 @@ export function SupportInbox({
   district,
   dealerId,
   sourceFilter,
+  statusFilter,
+  onTicketsLoaded,
   title = "Support",
   subtitle = "Track, reply, and resolve support tickets"
 }: SupportInboxProps) {
@@ -138,10 +142,21 @@ export function SupportInbox({
   }, [selectedTicketId, tickets]);
 
   const filteredTickets = useMemo(() => {
+    const normalizedStatus = String(statusFilter || "").trim().toLowerCase();
+    const statusQuery = normalizedStatus.replace(/\s+/g, "_");
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return tickets;
+    const statusFiltered = !statusQuery || statusQuery === "all"
+      ? tickets
+      : tickets.filter((ticket) => {
+          const ticketStatus = String(ticket.status || "").toLowerCase();
+          if (statusQuery === "in_progress") {
+            return ticketStatus === "in_progress" || ticketStatus === "open";
+          }
+          return ticketStatus === statusQuery;
+        });
+    if (!q) return statusFiltered;
 
-    return tickets.filter((ticket) => {
+    return statusFiltered.filter((ticket) => {
       const haystack = [
         ticket.ticket_number,
         ticket.customer_name,
@@ -155,7 +170,7 @@ export function SupportInbox({
 
       return haystack.includes(q);
     });
-  }, [tickets, searchQuery]);
+  }, [tickets, searchQuery, statusFilter]);
 
   const filteredDealerOptions = useMemo(() => {
     const q = dealerSearchQuery.trim().toLowerCase().replace(/^#/, "");
@@ -212,7 +227,9 @@ export function SupportInbox({
       });
       const data = await response.json();
       if (data.success) {
-        setTickets(data.tickets || []);
+        const nextTickets = data.tickets || [];
+        setTickets(nextTickets);
+        onTicketsLoaded?.(nextTickets);
         if (!selectedTicketId && data.tickets?.length) {
           setSelectedTicketId(data.tickets[0].ticket_id);
           setStatusValue(data.tickets[0].status || "open");
@@ -317,6 +334,19 @@ export function SupportInbox({
       }
     }
   }, [selectedTicket, viewerRole]);
+
+  useEffect(() => {
+    if (!filteredTickets.length) {
+      setSelectedTicketId(null);
+      return;
+    }
+
+    if (selectedTicketId && filteredTickets.some((ticket) => ticket.ticket_id === selectedTicketId)) {
+      return;
+    }
+
+    setSelectedTicketId(filteredTickets[0].ticket_id);
+  }, [filteredTickets, selectedTicketId]);
 
   const handleUpload = async (file: File, setter: (url: string) => void) => {
     setUploading(true);
@@ -497,23 +527,30 @@ export function SupportInbox({
             <CardTitle className="text-base">Tickets</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="mb-3 flex items-center gap-2">
-              <Input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    handleTicketSearch();
-                  }
-                }}
-                placeholder="Search ticket, customer, category"
-                className="h-9"
-              />
-              <Button type="button" size="sm" onClick={handleTicketSearch} className={actionButtonClass}>
-                <Search className="mr-1 h-4 w-4" />
-                Search
-              </Button>
+            <div className="mb-3 flex items-center">
+              <div className="flex w-full items-center overflow-hidden rounded-lg border border-slate-300">
+                <Input
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleTicketSearch();
+                    }
+                  }}
+                  placeholder="Search ticket, customer, category"
+                  className="h-10 rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleTicketSearch}
+                  className={`${actionButtonClass} h-10 rounded-none px-3`}
+                >
+                  <Search className="mr-1 h-4 w-4" />
+                  Search
+                </Button>
+              </div>
             </div>
 
             {loading ? (

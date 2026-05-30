@@ -14,8 +14,12 @@ interface HDComboProduct {
   resolution: string;
   hdd: string;
   cable: string;
+  dvr: boolean;
+  nvr: boolean;
   price: number;
   originalPrice: number;
+  priceNote?: string | null;
+  priceIncludingGst: number | null;
   image: string;
   specs: string[];
   rating: number;
@@ -41,8 +45,12 @@ export default function HDComboAdmin() {
     resolution: '2MP',
     hdd: '1TB',
     cable: '90 Meter',
+    dvr: false,
+    nvr: false,
     price: '',
     originalPrice: '',
+    priceNote: '',
+    priceIncludingGst: '',
     image: '',
     specs: [''],
     rating: '4.5',
@@ -77,8 +85,12 @@ export default function HDComboAdmin() {
         resolution: p.resolution,
         hdd: p.hdd,
         cable: p.cable,
+        dvr: Boolean(p.dvr),
+        nvr: Boolean(p.nvr),
         price: parseFloat(p.price),
         originalPrice: parseFloat(p.original_price),
+        priceNote: p.price_note || '',
+        priceIncludingGst: p.price_including_gst !== null ? parseFloat(p.price_including_gst) : null,
         image: p.image || '',
         specs: Array.isArray(p.specs) ? p.specs : [],
         rating: parseFloat(p.rating) || 4.5,
@@ -124,8 +136,28 @@ export default function HDComboAdmin() {
     setFormData({ ...formData, specs: newSpecs });
   };
 
+  const parsePriceInput = (value: string) => {
+    const normalized = value.replace(/,/g, '').trim();
+    const match = normalized.match(/([0-9]+(?:\.[0-9]+)?)/);
+    if (!match) {
+      return { amount: '', note: '' };
+    }
+    const amount = match[1];
+    const note = normalized.slice(normalized.indexOf(amount) + amount.length).trim();
+    return { amount, note };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedPrice = parsePriceInput(formData.price);
+    const parsedOriginal = parsePriceInput(formData.originalPrice);
+    const resolvedOriginal = parsedOriginal.amount ? parsedOriginal : { amount: parsedPrice.amount, note: '' };
+
+    if (!formData.name || !formData.brand || !parsedPrice.amount) {
+      alert('Please fill in all required fields with a valid price');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -146,8 +178,12 @@ export default function HDComboAdmin() {
           resolution: formData.resolution,
           hdd: formData.hdd,
           cable: formData.cable,
-          price: parseFloat(formData.price),
-          original_price: parseFloat(formData.originalPrice),
+          dvr: formData.dvr,
+          nvr: formData.nvr,
+          price: parseFloat(parsedPrice.amount),
+          original_price: parseFloat(resolvedOriginal.amount),
+          price_note: parsedPrice.note || null,
+          price_including_gst: formData.priceIncludingGst === '' ? null : parseFloat(formData.priceIncludingGst),
           image: formData.image,
           specs: formData.specs.filter(spec => spec.trim() !== ''),
           rating: parseFloat(formData.rating),
@@ -183,8 +219,12 @@ export default function HDComboAdmin() {
       resolution: product.resolution,
       hdd: product.hdd,
       cable: product.cable,
-      price: product.price.toString(),
+      dvr: product.dvr,
+      nvr: product.nvr,
+      price: `${product.price}${product.priceNote ? ` ${product.priceNote}` : ''}`,
       originalPrice: product.originalPrice.toString(),
+      priceNote: product.priceNote || '',
+      priceIncludingGst: product.priceIncludingGst !== null ? product.priceIncludingGst.toString() : '',
       image: product.image,
       specs: product.specs && product.specs.length > 0 ? product.specs : [''],
       rating: product.rating.toString(),
@@ -202,8 +242,6 @@ export default function HDComboAdmin() {
       const res = await fetch(`/api/hd-combo-products?id=${id}`, {
         method: 'DELETE'
       });
-
-      const data = await res.json();
 
       if (res.ok) {
         fetchProducts();
@@ -229,8 +267,12 @@ export default function HDComboAdmin() {
       resolution: '2MP',
       hdd: '1TB',
       cable: '90 Meter',
+      dvr: false,
+      nvr: false,
       price: '',
       originalPrice: '',
+      priceNote: '',
+      priceIncludingGst: '',
       image: '',
       specs: [''],
       rating: '4.5',
@@ -268,6 +310,8 @@ export default function HDComboAdmin() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resolution</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">HDD</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cable</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DVR</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NVR</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -297,6 +341,8 @@ export default function HDComboAdmin() {
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.resolution}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.hdd}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.cable}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.dvr ? 'Yes' : 'No'}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{product.nvr ? 'Yes' : 'No'}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">RS {product.price}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 text-xs rounded-full ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -327,9 +373,11 @@ export default function HDComboAdmin() {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-slate-900 border-b px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative flex items-center justify-center h-full p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto">
+            <div className="sticky top-0 bg-white dark:bg-slate-900 border-b px-4 sm:px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h2>
@@ -338,10 +386,10 @@ export default function HDComboAdmin() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {/* Product Name */}
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Product Name *
                   </label>
@@ -413,6 +461,7 @@ export default function HDComboAdmin() {
                     <option value="Bullet">Bullet</option>
                     <option value="Dome">Dome</option>
                     <option value="PTZ">PTZ</option>
+                    <option value="Dome Bullet">Dome Bullet</option>
                   </select>
                 </div>
 
@@ -479,13 +528,39 @@ export default function HDComboAdmin() {
                   </select>
                 </div>
 
+                {/* DVR */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.dvr}
+                      onChange={(e) => setFormData({ ...formData, dvr: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    DVR
+                  </label>
+                </div>
+
+                {/* NVR */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.nvr}
+                      onChange={(e) => setFormData({ ...formData, nvr: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    NVR
+                  </label>
+                </div>
+
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Price
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -498,12 +573,27 @@ export default function HDComboAdmin() {
                     Original Price
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     value={formData.originalPrice}
                     onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
+                {/* Price Including GST */}
+                {/*
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Price (Incl. GST)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.priceIncludingGst}
+                    onChange={(e) => setFormData({ ...formData, priceIncludingGst: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                */}
 
                 {/* Rating */}
                 <div>
@@ -535,7 +625,7 @@ export default function HDComboAdmin() {
                 </div>
 
                 {/* Image Upload */}
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Product Image *
                   </label>
@@ -564,7 +654,7 @@ export default function HDComboAdmin() {
                 </div>
 
                 {/* Specifications */}
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Specifications
                   </label>
@@ -599,7 +689,7 @@ export default function HDComboAdmin() {
                 </div>
 
                 {/* Active Status */}
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -631,6 +721,7 @@ export default function HDComboAdmin() {
               </div>
             </form>
           </div>
+        </div>
         </div>
       )}
     </div>

@@ -278,7 +278,7 @@ export async function POST(request: Request) {
           LEFT JOIN dealers d ON d.dealer_id = o.assigned_dealer_id
           WHERE o.order_id = $1
         `, [order_id]),
-        pool.query('SELECT cod_advance_amount FROM installation_settings LIMIT 1'),
+        pool.query('SELECT cod_advance_amount, cod_percentage FROM installation_settings LIMIT 1'),
         pool.query(
           `SELECT
              oi.id as item_id,
@@ -316,6 +316,7 @@ export async function POST(request: Request) {
         created_at: new Date().toISOString(),
       };
       orderDataForEmail._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
+      orderDataForEmail._codPercentage = parseFloat(codSettingsResult.rows[0]?.cod_percentage || '0');
 
       const canonicalOrderItems = (canonicalOrderItemsResult.rows || []) as Array<{
         item_id: number;

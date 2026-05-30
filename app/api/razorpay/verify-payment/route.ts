@@ -238,6 +238,7 @@ export async function POST(request: Request) {
               );
               const fullOrderData = fullOrderResult.rows[0] || order;
               fullOrderData._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
+              fullOrderData._codPercentage = parseFloat(codSettingsResult.rows[0]?.cod_percentage || '0');
               
               const taxAmountValue = parseFloat(fullOrderData.tax_amount || 0) || 0;
               const productTotal = subtotalAmount;
@@ -430,6 +431,7 @@ export async function POST(request: Request) {
               );
               const fullOrderData = fullOrderResult.rows[0] || order;
               fullOrderData._codFlatAmount = parseFloat(codSettingsResult.rows[0]?.cod_advance_amount || '500');
+              fullOrderData._codPercentage = parseFloat(codSettingsResult.rows[0]?.cod_percentage || '0');
               
               const taxAmountValue = parseFloat(fullOrderData.tax_amount || 0) || 0;
               const productTotal = subtotalAmount;

@@ -15,6 +15,15 @@ const BUSINESS_SECTIONS = [
 
 const BUSINESS_KEYS: Set<string> = new Set(BUSINESS_SECTIONS.map((item) => item.key));
 
+function parseNumericInput(value: unknown) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return 0;
+  const cleaned = raw.replace(/[^0-9.]/g, '');
+  if (!cleaned) return 0;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeBusinessKey(value: unknown) {
   const raw = String(value || '').trim().toLowerCase();
   if (!raw) return 'best-seller';
@@ -41,6 +50,11 @@ async function ensureBestsellerTable() {
   await pool.query(`
     ALTER TABLE dealer_products
     ADD COLUMN IF NOT EXISTS manual_sold INTEGER NOT NULL DEFAULT 0
+  `);
+
+  await pool.query(`
+    ALTER TABLE dealer_products
+    ADD COLUMN IF NOT EXISTS price_note TEXT
   `);
 
   await pool.query(`
@@ -179,6 +193,7 @@ export async function GET(request: Request) {
         END AS image,
         COALESCE(dp.base_price, 0)::numeric AS base_price,
         COALESCE(dp.original_price, NULL)::numeric AS original_price,
+        COALESCE(dp.price_note, '') AS price_note,
         dp.segment,
         COALESCE(dp.description, '') AS product_description,
         COALESCE(dp.specifications, '') AS product_specifications,
@@ -230,6 +245,7 @@ export async function POST(request: Request) {
         original_price,
         sold,
         image_url,
+        price_note,
       } = body;
 
       const normalizedCompany = String(brand_name || '').trim();
@@ -263,12 +279,13 @@ export async function POST(request: Request) {
             base_price,
             original_price,
             manual_sold,
+            price_note,
             dealer_sale_price,
             in_stock,
             is_active,
             image_url
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $7, true, true, $10)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $7, true, true, $11)
           RETURNING id
         `,
         [
@@ -278,11 +295,12 @@ export async function POST(request: Request) {
           'bestseller',
           product_description || '',
           product_specifications || '',
-          Number(base_price) || 0,
+          parseNumericInput(base_price),
           original_price !== undefined && original_price !== null && String(original_price) !== ''
-            ? Number(original_price) || 0
+            ? parseNumericInput(original_price)
             : null,
-          Number(sold) || 0,
+          parseNumericInput(sold),
+          price_note ? String(price_note).trim() : null,
           image_url || null
         ]
       );
@@ -316,6 +334,7 @@ export async function POST(request: Request) {
         original_price,
         sold,
         image_url,
+        price_note,
       } = body;
 
       const normalizedProductId = Number(productId);
@@ -363,8 +382,9 @@ export async function POST(request: Request) {
             base_price = $6,
             original_price = $7,
             manual_sold = $8,
-            image_url = $9
-          WHERE id = $10
+            image_url = $9,
+            price_note = $10
+          WHERE id = $11
         `,
         [
           normalizedCompany,
@@ -372,12 +392,13 @@ export async function POST(request: Request) {
           normalizedModel,
           product_description || '',
           product_specifications || '',
-          Number(base_price) || 0,
+          parseNumericInput(base_price),
           original_price !== undefined && original_price !== null && String(original_price) !== ''
-            ? Number(original_price) || 0
+            ? parseNumericInput(original_price)
             : null,
-          Number(sold) || 0,
+          parseNumericInput(sold),
           image_url ? String(image_url).trim() : null,
+          price_note ? String(price_note).trim() : null,
           normalizedProductId,
         ]
       );
