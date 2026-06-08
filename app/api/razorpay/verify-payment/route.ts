@@ -182,7 +182,7 @@ export async function POST(request: Request) {
                payment_id = $2,
                razorpay_order_id = $3,
                updated_at = NOW()
-           WHERE order_number = $4 OR order_number LIKE $4 || '-%'
+           WHERE order_number = $4 OR order_number LIKE $4 || '-%' OR razorpay_order_id = $3
            RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, order_number, created_at`,
           ['Paid', razorpay_payment_id || 'DEV_PAYMENT', razorpay_order_id, order_number]
         );
@@ -375,7 +375,7 @@ export async function POST(request: Request) {
                payment_id = $2,
                razorpay_order_id = $3,
                updated_at = NOW()
-           WHERE order_number = $4 OR order_number LIKE $4 || '-%'
+           WHERE order_number = $4 OR order_number LIKE $4 || '-%' OR razorpay_order_id = $3
            RETURNING order_id, customer_email, customer_name, customer_phone, payment_method, total_amount, subtotal, installation_charges, advance_amount, order_token, order_number, created_at`,
           ['Paid', razorpay_payment_id, razorpay_order_id, order_number]
         );

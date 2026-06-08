@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 
 
 /**
@@ -231,19 +232,7 @@ export async function POST(request: Request) {
       WHERE order_id = $2
     `, [nextDealer.dealer_id, orderId]);
 
-    // Replace dealer UID in order number with the new dealer's UID
-    if (nextDealer.unique_dealer_id) {
-      await pool.query(`
-        UPDATE orders
-        SET order_number = CASE
-          WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-            THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-          ELSE order_number || '-' || $1
-        END
-        WHERE order_id = $2
-          AND order_number NOT LIKE '%-' || $1
-      `, [nextDealer.unique_dealer_id, orderId]);
-    }
+    await updateOrderNumberForDealer(pool, orderId, nextDealer.dealer_id);
 
     // Record reallocation in status history so Admin portal reflects it
     await pool.query(`

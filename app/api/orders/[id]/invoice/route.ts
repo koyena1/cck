@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { buildOrderNumberFromOrder, getOrCreateCustomerInvoiceNumber } from '@/lib/order-numbering';
 
 /**
  * GET /api/orders/[id]/invoice
@@ -96,6 +97,7 @@ export async function GET(
           END,
           'PIC' || LPAD(oi.id::text, 3, '0')
         ) AS product_code,
+        resolved_dp.hsn_code,
         oi.item_type,
         oi.item_name,
         oi.quantity,
@@ -105,7 +107,8 @@ export async function GET(
       LEFT JOIN LATERAL (
         SELECT
           dp.id,
-          to_jsonb(dp)->>'product_code' AS product_code
+          to_jsonb(dp)->>'product_code' AS product_code,
+          to_jsonb(dp)->>'hsn_code' AS hsn_code
         FROM dealer_products dp
         WHERE dp.id = oi.product_id
            OR (
@@ -119,16 +122,14 @@ export async function GET(
       ORDER BY oi.id ASC
     `, [orderId]);
 
-    // Build invoice number in format: PR-{dealerNameFirstTwoLetters}-{dealerUniqueId}
-    const dealerNameSource = String(order.dealer_business_name || order.dealer_full_name || 'PR');
-    const dealerNameFirstTwo = dealerNameSource.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'PR';
-    const dealerUniqueId = String(order.dealer_unique_id || '').trim().toUpperCase();
-    const fallbackDealerId = order.dealer_id ? String(order.dealer_id).padStart(3, '0') : 'NA';
-    const invoiceNumber = `PR-${dealerNameFirstTwo}-${dealerUniqueId || fallbackDealerId}`;
+    const invoiceNumber = await getOrCreateCustomerInvoiceNumber(pool, order);
+    const normalizedOrderNumber = buildOrderNumberFromOrder(order);
+    order.order_number = normalizedOrderNumber;
 
     return NextResponse.json({
       success: true,
       invoiceNumber,
+      orderNumber: normalizedOrderNumber,
       order,
       items: itemsResult.rows,
       codAmount: parseFloat(codAmount), // COD extra charge from settings

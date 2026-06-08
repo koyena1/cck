@@ -18,6 +18,7 @@ interface Product {
   id: number;
   name: string;
   brand: string;
+  hsnCode?: string;
   resolution: string;
   simSupport: string;
   storage: string;
@@ -95,6 +96,7 @@ function FourGSimCameraContent() {
           id: p.id,
           name: p.name,
           brand: p.brand,
+          hsnCode: p.hsn_code || '',
           resolution: p.resolution,
           simSupport: p.sim_support,
           storage: p.storage,
@@ -372,6 +374,12 @@ function FourGSimCameraContent() {
                             <span className="font-semibold text-slate-700 min-w-[70px]">Brand:</span>
                             <span className="text-slate-600">{product.brand}</span>
                           </div>
+                          {product.hsnCode && (
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="font-semibold text-slate-700 min-w-[70px]">HSN Code:</span>
+                              <span className="text-slate-600">{product.hsnCode}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 text-xs">
                             <span className="font-semibold text-slate-700 min-w-[70px]">Resolution:</span>
                             <span className="text-slate-600">{product.resolution}</span>

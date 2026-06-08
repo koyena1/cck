@@ -16,6 +16,7 @@ export function generateInvoicePDFBuffer(
     unit_price: number | string;
     total_price: number | string;
     item_type?: string;
+    hsn_code?: string;
   }>,
   invoiceNumber: string,
   codFlatAmount: number = 500
@@ -39,10 +40,7 @@ export function generateInvoicePDFBuffer(
 
     y = 48;
 
-    // Customer-facing order number — strip the dealer UID suffix (e.g. -101)
-    const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(order.order_number)
-      ? order.order_number.replace(/-\d+$/, '')
-      : (order.order_number || '—');
+    const customerOrderNumber = order.order_number || '—';
 
     // ── Invoice metadata ────────────────────────────────────────────────
     doc.setTextColor(15, 23, 42);
@@ -59,7 +57,7 @@ export function generateInvoicePDFBuffer(
     const isCodPayment = String(order.payment_method || '').toLowerCase() === 'cod';
     const paymentStatusLabel = order.payment_status || 'Pending';
     const paymentMeta = isCodPayment
-      ? 'Payment: Cash on Delivery'
+      ? 'Payment: Pay on Delivery'
       : `Payment: Online | Status: ${paymentStatusLabel}`;
     doc.text(paymentMeta, pageW - margin, y, { align: 'right' });
     y += 3;
@@ -193,6 +191,14 @@ export function generateInvoicePDFBuffer(
       yRight += 4.5;
     }
 
+    if (order.city) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('City:', col2, yRight);
+      doc.setFont('helvetica', 'normal');
+      doc.text(` ${order.city}`, col2 + 10, yRight);
+      yRight += 4.5;
+    }
+
     const customerGSTIN = order.customer_gstin || order.gstin || '';
     if (customerGSTIN) {
       doc.setFont('helvetica', 'bold');
@@ -202,11 +208,12 @@ export function generateInvoicePDFBuffer(
       yRight += 4.5;
     }
 
-    if (order.city) {
+    const customerPhone = order.customer_phone || order.phone || '';
+    if (customerPhone) {
       doc.setFont('helvetica', 'bold');
-      doc.text('City:', col2, yRight);
+      doc.text('Phone:', col2, yRight);
       doc.setFont('helvetica', 'normal');
-      doc.text(` ${order.city}`, col2 + 10, yRight);
+      doc.text(` ${customerPhone}`, col2 + 13, yRight);
       yRight += 4.5;
     }
 
@@ -224,27 +231,25 @@ export function generateInvoicePDFBuffer(
     doc.rect(margin, y, pageW - 2 * margin, 7, 'F');
     doc.setTextColor(255, 255, 255);
 
-    const colSNo     = margin + 2;
-    const colProductId = margin + 10;
-    const colDesc    = margin + 36;
-    const colQty     = margin + 65;
-    const colUnit    = margin + 80;
-    const colUPrice  = margin + 92;
-    const colTotal   = margin + 110;
-    const colDisc    = margin + 128;
-    const colGST     = margin + 142;
-    const colSGST    = margin + 158;
-    const colCGST    = margin + 172;
+    const colSNo = margin + 2;
+    const colProductId = margin + 11;
+    const colDesc = margin + 39;
+    const colHsn = margin + 73;
+    const colQty = margin + 94;
+    const colUPrice = margin + 105;
+    const colTotal = margin + 126;
+    const colGST = margin + 145;
+    const colSGST = margin + 158;
+    const colCGST = margin + 173;
 
     doc.setFontSize(7.5);
     doc.text('S.No', colSNo, y + 5);
     doc.text('Product Unique_ID', colProductId, y + 5);
     doc.text('Description', colDesc, y + 5);
+    doc.text('HSN Code', colHsn, y + 5);
     doc.text('Qty', colQty, y + 5);
-    doc.text('Unit', colUnit, y + 5);
-    doc.text('UnitPrice', colUPrice, y + 5);
+    doc.text('Unit Price', colUPrice, y + 5);
     doc.text('Total', colTotal, y + 5);
-    doc.text('Discount', colDisc, y + 5);
     doc.text('GST%', colGST, y + 5);
     doc.text('SGST', colSGST, y + 5);
     doc.text('CGST', colCGST, y + 5);
@@ -265,7 +270,6 @@ export function generateInvoicePDFBuffer(
       const itemTotal = parseFloat(String(item.total_price));
       const itemUnitPrice = parseFloat(String(item.unit_price));
       const itemQty = parseFloat(String(item.quantity));
-      const itemDiscount = 0; // Discount not tracked at item level currently
       
       const gstAmount = Math.round((itemTotal * 0.18) * 100) / 100;
       const sgstAmount = Math.round((gstAmount / 2) * 100) / 100;
@@ -275,13 +279,12 @@ export function generateInvoicePDFBuffer(
       const productUniqueId = item.product_code || `PIC${String(fallbackSource).padStart(3, '0')}`;
       doc.text(String(idx + 1), colSNo, y + 4);
       doc.text(String(productUniqueId), colProductId, y + 4);
-      const nameLines = doc.splitTextToSize(item.item_name, 50);
+      const nameLines = doc.splitTextToSize(item.item_name, 32);
       doc.text(nameLines[0], colDesc, y + 4);
+      doc.text(String(item.hsn_code || ''), colHsn, y + 4);
       doc.text(String(itemQty), colQty, y + 4);
-      doc.text('', colUnit, y + 4); // Unit column empty
       doc.text(`${itemUnitPrice.toFixed(2)}`, colUPrice, y + 4);
       doc.text(`${itemTotal.toFixed(2)}`, colTotal, y + 4);
-      doc.text(itemDiscount > 0 ? `${itemDiscount}%` : '', colDisc, y + 4);
       doc.text('18%', colGST, y + 4);
       doc.text(`${sgstAmount.toFixed(2)}`, colSGST, y + 4);
       doc.text(`${cgstAmount.toFixed(2)}`, colCGST, y + 4);
@@ -321,8 +324,7 @@ export function generateInvoicePDFBuffer(
     const productTotal = subtotalComputed;
 
     addRow('Product Total:', productTotal);
-    
-    // COD Extra Charges (flat amount from installation_settings)
+
     let codCharges = 0;
     if (order.payment_method === 'cod') {
       codCharges = codFlatAmount;
@@ -331,18 +333,16 @@ export function generateInvoicePDFBuffer(
       }
     }
 
-    // GST is applied only on product total (COD charges are non-taxable here)
-    const calculatedGST = Math.round(productTotal * 0.18 * 100) / 100;
-    const finalSGST = Math.round((calculatedGST / 2) * 100) / 100;
-    const finalCGST = Math.round((calculatedGST - finalSGST) * 100) / 100;
-    
-    if (calculatedGST > 0) {
+    const taxableTotal = productTotal + codCharges;
+    const finalSGST = Math.round(taxableTotal * 0.09 * 100) / 100;
+    const finalCGST = Math.round(taxableTotal * 0.09 * 100) / 100;
+
+    if (taxableTotal > 0) {
       addRow('SGST (9%):', finalSGST);
       addRow('CGST (9%):', finalCGST);
     }
 
-    // Grand total = Product + GST (+ COD extra when applicable)
-    const grandTotal = productTotal + calculatedGST + codCharges;
+    const grandTotal = taxableTotal + finalSGST + finalCGST;
     const bandX = totalsX - 4;
     const bandW = pageW - margin - bandX;
     doc.setFillColor(15, 23, 42);

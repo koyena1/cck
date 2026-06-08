@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Upload, X } from 'lucide-react';
 import Image from 'next/image';
 import { useGlobalQuotationData } from '@/lib/useGlobalQuotationData';
+import CategoryExcelUpload from '@/components/CategoryExcelUpload';
 
 interface Product {
   id: number;
@@ -12,6 +13,7 @@ interface Product {
   resolution: string;
   batteryLife: string;
   storage: string;
+  hsnCode: string;
   price: number;
   originalPrice: number;
   priceNote?: string | null;
@@ -38,6 +40,7 @@ export default function BodyWornCameraAdmin() {
     resolution: '1080P',
     batteryLife: '8 Hours',
     storage: '32GB',
+    hsnCode: '',
     price: '',
     originalPrice: '',
     priceNote: '',
@@ -65,6 +68,7 @@ export default function BodyWornCameraAdmin() {
           resolution: p.resolution,
           batteryLife: p.battery_life,
           storage: p.storage,
+        hsnCode: p.hsn_code || '',
         price: parseFloat(p.price),
         originalPrice: parseFloat(p.original_price),
         priceNote: p.price_note || '',
@@ -149,6 +153,7 @@ export default function BodyWornCameraAdmin() {
           resolution: formData.resolution,
           battery_life: formData.batteryLife,
           storage: formData.storage,
+          hsn_code: formData.hsnCode || null,
           price: parseFloat(parsedPrice.amount),
           original_price: parseFloat(resolvedOriginal.amount),
           price_note: parsedPrice.note || null,
@@ -184,6 +189,7 @@ export default function BodyWornCameraAdmin() {
       resolution: product.resolution,
       batteryLife: product.batteryLife,
       storage: product.storage,
+      hsnCode: product.hsnCode || '',
       price: `${product.price}${product.priceNote ? ` ${product.priceNote}` : ''}`,
       originalPrice: product.originalPrice.toString(),
       priceNote: product.priceNote || '',
@@ -227,6 +233,7 @@ export default function BodyWornCameraAdmin() {
     resolution: '1080P',
     batteryLife: '8 Hours',
     storage: '32GB',
+    hsnCode: '',
       price: '',
       originalPrice: '',
     priceNote: '',
@@ -245,13 +252,16 @@ export default function BodyWornCameraAdmin() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Body-Worn Camera Products</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">Manage your Body-Worn Camera products</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-        >
-          <Plus className="w-5 h-5" />
-          Add Product
-        </button>
+        <div className="flex items-center gap-3">
+          <CategoryExcelUpload category="body-worn-camera" onUploaded={fetchProducts} />
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+          >
+            <Plus className="w-5 h-5" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {/* Products Table */}
@@ -385,6 +395,18 @@ export default function BodyWornCameraAdmin() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     📝 Add/edit brands in Quotation Management
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    HSN Code
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.hsnCode}
+                    onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 {/* Resolution - Dynamic from Admin */}

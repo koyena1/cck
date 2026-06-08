@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { calculateDistance } from '@/lib/distance-calculator';
 import { acceptOrderTask, ensureOrderTaskAcceptanceColumns, formatAcceptanceSummary } from '@/lib/order-task-acceptance';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 
 export async function GET(request: NextRequest) {
   try {
@@ -178,20 +179,7 @@ export async function POST(request: Request) {
         [dealerId, orderId]
       );
 
-      const newDealerUid = dealerScope.rows[0]?.unique_dealer_id;
-      if (newDealerUid) {
-        await pool.query(
-          `UPDATE orders
-           SET order_number = CASE
-             WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-               THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-             ELSE order_number || '-' || $1
-           END
-           WHERE order_id = $2
-             AND order_number NOT LIKE '%-' || $1`,
-          [newDealerUid, orderId]
-        );
-      }
+      await updateOrderNumberForDealer(pool, orderId, dealerId);
 
       await pool.query(
         `INSERT INTO order_status_history (order_id, status, remarks, created_at)

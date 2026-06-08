@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       resolution,
       sim_support,
       battery,
+      hsn_code,
       price,
       original_price,
       price_note,
@@ -50,10 +51,10 @@ export async function POST(request: NextRequest) {
     
     const result = await pool.query(
       `INSERT INTO sim_4g_camera_products 
-       (name, brand, resolution, sim_support, battery, price, original_price, price_note, image, specs, rating, reviews, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       (name, brand, resolution, sim_support, battery, hsn_code, price, original_price, price_note, image, specs, rating, reviews, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
-      [name, brand, resolution, sim_support, battery, price, original_price, price_note || null, image, specs, rating || 4.5, reviews || 0, is_active !== undefined ? is_active : true]
+      [name, brand, resolution, sim_support, battery, hsn_code || null, price, original_price, price_note || null, image, specs, rating || 4.5, reviews || 0, is_active !== undefined ? is_active : true]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
@@ -79,6 +80,7 @@ export async function PUT(request: NextRequest) {
       resolution,
       sim_support,
       battery,
+      hsn_code,
       price,
       original_price,
       price_note,
@@ -93,12 +95,12 @@ export async function PUT(request: NextRequest) {
     
     const result = await pool.query(
       `UPDATE sim_4g_camera_products 
-       SET name = $1, brand = $2, resolution = $3, sim_support = $4, battery = $5,
-           price = $6, original_price = $7, price_note = $8, image = $9, specs = $10, rating = $11, 
-           reviews = $12, is_active = $13, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $14
+       SET name = $1, brand = $2, resolution = $3, sim_support = $4, battery = $5, hsn_code = $6,
+           price = $7, original_price = $8, price_note = $9, image = $10, specs = $11, rating = $12, 
+           reviews = $13, is_active = $14, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $15
        RETURNING *`,
-        [name, brand, resolution, sim_support, battery, price, original_price, price_note || null, image, specs, rating, reviews, is_active, id]
+        [name, brand, resolution, sim_support, battery, hsn_code || null, price, original_price, price_note || null, image, specs, rating, reviews, is_active, id]
     );
 
     if (result.rows.length === 0) {

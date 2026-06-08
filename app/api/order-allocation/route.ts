@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 
 // POST - Allocate order to nearest dealer with stock
 export async function POST(request: Request) {
@@ -214,7 +215,7 @@ export async function POST(request: Request) {
       firstDealer.service_pin
     ]);
 
-    // Step 6: Update order status AND append dealer UID to order number immediately
+    // Step 6: Update order status and assign the formatted dealer order number immediately
     await pool.query(`
       UPDATE orders 
       SET status = 'Awaiting Dealer Confirmation',
@@ -223,19 +224,7 @@ export async function POST(request: Request) {
       WHERE order_id = $1
     `, [orderId, firstDealer.dealer_id]);
 
-    // Append dealer unique ID to order number so admin can see who has the order
-    if (firstDealer.unique_dealer_id) {
-      await pool.query(`
-        UPDATE orders
-        SET order_number = CASE
-          WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-            THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-          ELSE order_number || '-' || $1
-        END
-        WHERE order_id = $2
-          AND order_number NOT LIKE '%-' || $1
-      `, [firstDealer.unique_dealer_id, orderId]);
-    }
+    await updateOrderNumberForDealer(pool, orderId, firstDealer.dealer_id);
 
     // Record in status history so Admin portal reflects it immediately
     await pool.query(`

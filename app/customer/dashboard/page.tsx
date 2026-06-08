@@ -230,6 +230,14 @@ export default function CustomerDashboard() {
         yRight += 4.5;
       }
 
+      if (o.city) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('City:', col2, yRight);
+        doc.setFont('helvetica', 'normal');
+        doc.text(` ${o.city}`, col2 + 10, yRight);
+        yRight += 4.5;
+      }
+
       const customerGSTIN = o.customer_gstin || o.gstin || '';
       if (customerGSTIN) {
         doc.setFont('helvetica', 'bold');
@@ -239,11 +247,12 @@ export default function CustomerDashboard() {
         yRight += 4.5;
       }
 
-      if (o.city) {
+      const buyerPhone = o.customer_phone || o.phone || '';
+      if (buyerPhone) {
         doc.setFont('helvetica', 'bold');
-        doc.text('City:', col2, yRight);
+        doc.text('Phone:', col2, yRight);
         doc.setFont('helvetica', 'normal');
-        doc.text(` ${o.city}`, col2 + 10, yRight);
+        doc.text(` ${buyerPhone}`, col2 + 13, yRight);
         yRight += 4.5;
       }
 
@@ -257,19 +266,17 @@ export default function CustomerDashboard() {
       doc.setFillColor(15, 23, 42);
       doc.rect(margin, y, pageW - 2 * margin, 7, 'F');
       doc.setTextColor(255, 255, 255);
-      const colSNo = margin + 2, colProductId = margin + 10, colDesc = margin + 36, colQty = margin + 65;
-      const colUnit = margin + 80, colUPrice = margin + 92, colTotal = margin + 110;
-      const colDisc = margin + 128, colGST = margin + 142;
-      const colSGST = margin + 158, colCGST = margin + 172;
+      const colSNo = margin + 2, colProductId = margin + 11, colDesc = margin + 39, colHsn = margin + 73;
+      const colQty = margin + 94, colUPrice = margin + 105, colTotal = margin + 126;
+      const colGST = margin + 145, colSGST = margin + 158, colCGST = margin + 173;
       doc.setFontSize(7.5);
       doc.text('S.No', colSNo, y + 5);
       doc.text('Product Unique_ID', colProductId, y + 5);
       doc.text('Description', colDesc, y + 5);
+      doc.text('HSN Code', colHsn, y + 5);
       doc.text('Qty', colQty, y + 5);
-      doc.text('Unit', colUnit, y + 5);
-      doc.text('UnitPrice', colUPrice, y + 5);
+      doc.text('Unit Price', colUPrice, y + 5);
       doc.text('Total', colTotal, y + 5);
-      doc.text('Discount', colDisc, y + 5);
       doc.text('GST%', colGST, y + 5);
       doc.text('SGST', colSGST, y + 5);
       doc.text('CGST', colCGST, y + 5);
@@ -285,7 +292,6 @@ export default function CustomerDashboard() {
         const itemTotal = parseFloat(item.total_price);
         const itemUnitPrice = parseFloat(item.unit_price);
         const itemQty = parseFloat(item.quantity);
-        const itemDiscount = 0; // Discount not tracked at item level currently
         const gstAmount = Math.round((itemTotal * 0.18) * 100) / 100;
         const sgstAmount = Math.round((gstAmount / 2) * 100) / 100;
         const cgstAmount = Math.round((gstAmount - sgstAmount) * 100) / 100;
@@ -294,12 +300,11 @@ export default function CustomerDashboard() {
         
         doc.text(String(idx + 1), colSNo, y + 4);
         doc.text(String(productUniqueId), colProductId, y + 4);
-        doc.text(doc.splitTextToSize(itemLabel, 50)[0], colDesc, y + 4);
+        doc.text(doc.splitTextToSize(itemLabel, 32)[0], colDesc, y + 4);
+        doc.text(String(item.hsn_code || ''), colHsn, y + 4);
         doc.text(String(itemQty), colQty, y + 4);
-        doc.text('', colUnit, y + 4); // Unit column empty
         doc.text(`${itemUnitPrice.toFixed(2)}`, colUPrice, y + 4);
         doc.text(`${itemTotal.toFixed(2)}`, colTotal, y + 4);
-        doc.text(itemDiscount > 0 ? `${itemDiscount}%` : '', colDisc, y + 4);
         doc.text('18%', colGST, y + 4);
         doc.text(`${sgstAmount.toFixed(2)}`, colSGST, y + 4);
         doc.text(`${cgstAmount.toFixed(2)}`, colCGST, y + 4);
@@ -336,19 +341,18 @@ export default function CustomerDashboard() {
         if (codCharges > 0) addRow('COD Extra Charges:', codCharges);
       }
       
-      // 3. GST is applied only on Product Total (COD charges excluded)
-      const gstRate = 0.18; // 18%
-      const finalGST = Math.round(productTotal * gstRate * 100) / 100;
-      const finalSGST = Math.round((finalGST / 2) * 100) / 100;
-      const finalCGST = Math.round((finalGST - finalSGST) * 100) / 100;
+      // 3. SGST/CGST apply on Product Total + COD charges
+      const taxableTotal = productTotal + codCharges;
+      const finalSGST = Math.round(taxableTotal * 0.09 * 100) / 100;
+      const finalCGST = Math.round(taxableTotal * 0.09 * 100) / 100;
       
-      if (finalGST > 0) {
+      if (taxableTotal > 0) {
         addRow('SGST (9%):', finalSGST);
         addRow('CGST (9%):', finalCGST);
       }
       
-      // 4. Grand Total = Product + GST (+ COD charges when applicable)
-      const grandTotal = productTotal + finalGST + codCharges;
+      // 4. Grand Total = taxable total + SGST + CGST
+      const grandTotal = taxableTotal + finalSGST + finalCGST;
       
       doc.setFillColor(15, 23, 42);
       doc.rect(totalsX - 4, y - 1, pageW - margin - totalsX + 4 + margin - margin, 10, 'F');
@@ -784,7 +788,7 @@ export default function CustomerDashboard() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-white font-semibold text-lg">
-                          Order #{(order.order_number || String(order.order_id)).replace(/-\d{3}$/, '')}
+                          Order #{order.order_number || String(order.order_id)}
                         </h3>
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${getStatusColor(

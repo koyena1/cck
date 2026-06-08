@@ -2,6 +2,8 @@
 import nodemailer from 'nodemailer';
 import { generateInvoicePDFBuffer } from './generate-invoice-pdf';
 import { buildPaymentBreakdown } from './payment-breakdown';
+import { getPool } from './db';
+import { getOrCreateCustomerInvoiceNumber } from './order-numbering';
 
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
 const SMTP_USER = process.env.SMTP_USER || '';
@@ -75,19 +77,6 @@ interface OrderEmailData {
   codAdvancePaid?: number;
   codPendingAmount?: number;
   taxAmount?: number;
-}
-
-function buildInvoiceNumber(order: Record<string, any>): string {
-  const dealerNameSource = String(order.dealer_business_name || order.dealer_full_name || 'PR');
-  const dealerNameFirstTwo = dealerNameSource.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'PR';
-  const dealerUniqueId = String(order.dealer_unique_id || '').trim().toUpperCase();
-  const fallbackDealerId = order.dealer_id
-    ? String(order.dealer_id).padStart(3, '0')
-    : order.assigned_dealer_id
-      ? String(order.assigned_dealer_id).padStart(3, '0')
-      : 'NA';
-
-  return `PR-${dealerNameFirstTwo}-${dealerUniqueId || fallbackDealerId}`;
 }
 
 /**
@@ -466,7 +455,7 @@ ${COMPANY_NAME} Team
     let invoiceFileName = 'Invoice.pdf';
     if (fullOrderData) {
       try {
-        const invoiceNumber = buildInvoiceNumber(fullOrderData);
+        const invoiceNumber = await getOrCreateCustomerInvoiceNumber(getPool(), fullOrderData);
         invoiceFileName = `Invoice-${invoiceNumber}.pdf`;
         const codFlatAmt = fullOrderData._codFlatAmount || 500;
         invoicePdfBuffer = generateInvoicePDFBuffer(

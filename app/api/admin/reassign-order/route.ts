@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 import { calculateDistance } from '@/lib/distance-calculator';
 import { acceptOrderTask, ensureOrderTaskAcceptanceColumns, formatAcceptanceSummary } from '@/lib/order-task-acceptance';
 
@@ -177,24 +178,7 @@ export async function POST(request: Request) {
         WHERE order_id = $2
       `, [dealerId, orderId]);
 
-      // Replace dealer UID in order number with the newly assigned dealer's UID
-      const newDealerUidResult = await pool.query(
-        'SELECT unique_dealer_id FROM dealers WHERE dealer_id = $1',
-        [dealerId]
-      );
-      const newDealerUid = newDealerUidResult.rows[0]?.unique_dealer_id;
-      if (newDealerUid) {
-        await pool.query(`
-          UPDATE orders
-          SET order_number = CASE
-            WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-              THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-            ELSE order_number || '-' || $1
-          END
-          WHERE order_id = $2
-            AND order_number NOT LIKE '%-' || $1
-        `, [newDealerUid, orderId]);
-      }
+      await updateOrderNumberForDealer(pool, orderId, dealerId);
 
       // Record in status history so Admin portal reflects it
       await pool.query(`

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { syncDealerStockThresholdAlerts } from '@/lib/dealer-stock-alerts';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 
 // POST - Dealer accepts or declines order request
 export async function POST(request: Request) {
@@ -84,13 +85,6 @@ export async function POST(request: Request) {
           WHERE id = $2
         `, [notes, requestId]);
 
-        // Look up the dealer's unique_dealer_id to append to the order number
-        const dealerUidResult = await pool.query(
-          `SELECT unique_dealer_id FROM dealers WHERE dealer_id = $1`,
-          [resolvedDealerIdPost]
-        );
-        const dealerUniqueId = dealerUidResult.rows[0]?.unique_dealer_id;
-
         // Always update the order status to Accepted
         await pool.query(`
           UPDATE orders
@@ -100,19 +94,7 @@ export async function POST(request: Request) {
           WHERE order_id = $2
         `, [resolvedDealerIdPost, orderRequest.order_id]);
 
-        // Append/ensure dealer UID at end of order number (replace if different UID already there)
-        if (dealerUniqueId) {
-          await pool.query(`
-            UPDATE orders
-            SET order_number = CASE
-              WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-                THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-              ELSE order_number || '-' || $1
-            END
-            WHERE order_id = $2
-              AND order_number NOT LIKE '%-' || $1
-          `, [dealerUniqueId, orderRequest.order_id]);
-        }
+        await updateOrderNumberForDealer(pool, orderRequest.order_id, resolvedDealerIdPost);
 
         // Cancel any other pending requests for this order
         await pool.query(`

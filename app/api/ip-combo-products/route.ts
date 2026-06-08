@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       cable,
       dvr,
       nvr,
+      hsn_code,
       price,
       original_price,
       price_note,
@@ -67,10 +68,10 @@ export async function POST(request: NextRequest) {
     
     const result = await pool.query(
       `INSERT INTO ip_combo_products 
-       (name, brand, channels, camera_type, resolution, hdd, cable, dvr, nvr, price, original_price, price_note, image, specs, rating, reviews, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+       (name, brand, channels, camera_type, resolution, hdd, cable, dvr, nvr, hsn_code, price, original_price, price_note, image, specs, rating, reviews, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING *`,
-      [name, brand, channels, camera_type, resolution, hdd, cable, dvr || false, nvr || false, price, original_price, price_note || null, image, specs, rating || 4.5, reviews || 0, is_active !== undefined ? is_active : true]
+      [name, brand, channels, camera_type, resolution, hdd, cable, dvr || false, nvr || false, hsn_code || null, price, original_price, price_note || null, image, specs, rating || 4.5, reviews || 0, is_active !== undefined ? is_active : true]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
@@ -111,6 +112,7 @@ export async function PUT(request: NextRequest) {
       cable,
       dvr,
       nvr,
+      hsn_code,
       price,
       original_price,
       price_note,
@@ -126,11 +128,11 @@ export async function PUT(request: NextRequest) {
     const result = await pool.query(
       `UPDATE ip_combo_products 
          SET name = $1, brand = $2, channels = $3, camera_type = $4, resolution = $5, 
-           hdd = $6, cable = $7, dvr = $8, nvr = $9, price = $10, original_price = $11, price_note = $12, image = $13, 
-           specs = $14, rating = $15, reviews = $16, is_active = $17, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $18
+           hdd = $6, cable = $7, dvr = $8, nvr = $9, hsn_code = $10, price = $11, original_price = $12, price_note = $13, image = $14, 
+           specs = $15, rating = $16, reviews = $17, is_active = $18, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $19
        RETURNING *`,
-        [name, brand, channels, camera_type, resolution, hdd, cable, dvr || false, nvr || false, price, original_price, price_note || null, image, specs, rating, reviews, is_active, id]
+        [name, brand, channels, camera_type, resolution, hdd, cable, dvr || false, nvr || false, hsn_code || null, price, original_price, price_note || null, image, specs, rating, reviews, is_active, id]
     );
 
     if (result.rows.length === 0) {

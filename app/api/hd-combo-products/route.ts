@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       cable,
       dvr,
       nvr,
+      hsn_code,
       price,
       original_price,
       price_note,
@@ -91,8 +92,8 @@ export async function POST(request: NextRequest) {
 
     const query = `
       INSERT INTO hd_combo_products 
-      (name, brand, channels, camera_type, resolution, hdd, cable, dvr, nvr, price, original_price, price_note, price_including_gst, image, specs, rating, reviews, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      (name, brand, channels, camera_type, resolution, hdd, cable, dvr, nvr, hsn_code, price, original_price, price_note, price_including_gst, image, specs, rating, reviews, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *
     `;
 
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
       cable,
       dvr || false,
       nvr || false,
+      hsn_code || null,
       parseFloat(price),
       parseFloat(original_price),
       price_note || null,
@@ -165,6 +167,7 @@ export async function PUT(request: NextRequest) {
       cable,
       dvr,
       nvr,
+      hsn_code,
       price,
       original_price,
       price_note,
@@ -188,17 +191,18 @@ export async function PUT(request: NextRequest) {
         cable = $7,
         dvr = $8,
         nvr = $9,
-        price = $10,
-        original_price = $11,
-        price_note = $12,
-        price_including_gst = $13,
-        image = $14,
-        specs = $15,
-        rating = $16,
-        reviews = $17,
-        is_active = $18,
+        hsn_code = $10,
+        price = $11,
+        original_price = $12,
+        price_note = $13,
+        price_including_gst = $14,
+        image = $15,
+        specs = $16,
+        rating = $17,
+        reviews = $18,
+        is_active = $19,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $19
+      WHERE id = $20
       RETURNING *
     `;
 
@@ -212,6 +216,7 @@ export async function PUT(request: NextRequest) {
       cable,
       dvr || false,
       nvr || false,
+      hsn_code || null,
       parseFloat(price),
       parseFloat(original_price),
       price_note || null,

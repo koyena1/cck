@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 
 // GET - Check for expired order requests and auto-escalate
 export async function GET(request: Request) {
@@ -141,19 +142,7 @@ export async function GET(request: Request) {
             WHERE order_id = $2
           `, [nextDealer.dealer_id, request.order_id]);
 
-          // Replace dealer UID in order number with the new dealer's UID
-          if (nextDealer.unique_dealer_id) {
-            await pool.query(`
-              UPDATE orders
-              SET order_number = CASE
-                WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-                  THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-                ELSE order_number || '-' || $1
-              END
-              WHERE order_id = $2
-                AND order_number NOT LIKE '%-' || $1
-            `, [nextDealer.unique_dealer_id, request.order_id]);
-          }
+          await updateOrderNumberForDealer(pool, request.order_id, nextDealer.dealer_id);
 
           await pool.query(`
             INSERT INTO order_status_history (order_id, status, remarks, created_at)

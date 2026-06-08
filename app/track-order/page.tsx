@@ -172,7 +172,7 @@ export default function TrackOrderPage() {
                         >
                           <div className="flex items-center justify-between mb-3">
                             <div>
-                              <p className="font-mono font-bold text-slate-900">{order.order_number?.replace(/-\d{3}$/, '') ?? order.order_number}</p>
+                              <p className="font-mono font-bold text-slate-900">{order.order_number}</p>
                               <p className="text-xs text-slate-500">
                                 {new Date(order.created_at).toLocaleDateString('en-IN', {
                                   day: '2-digit',

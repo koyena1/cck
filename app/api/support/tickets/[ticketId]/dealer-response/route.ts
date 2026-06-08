@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { ensureSupportTicketTables } from '@/lib/support-ticket';
 import { sendSupportTicketBellNotifications } from '@/lib/support-ticket-notifications';
+import { updateOrderNumberForDealer } from '@/lib/order-numbering';
 
 export async function POST(
   request: NextRequest,
@@ -230,25 +231,7 @@ export async function POST(
         [parsedDealerId, ticket.reference_order_id]
       );
 
-      const dealerResult = await pool.query(
-        `SELECT unique_dealer_id FROM dealers WHERE dealer_id = $1 LIMIT 1`,
-        [parsedDealerId]
-      );
-
-      const uniqueDealerId = dealerResult.rows[0]?.unique_dealer_id;
-      if (uniqueDealerId) {
-        await pool.query(
-          `UPDATE orders
-           SET order_number = CASE
-             WHEN order_number ~ '^PR-[0-9]{6}-[0-9]+-[0-9]+$'
-               THEN REGEXP_REPLACE(order_number, '-[0-9]+$', '') || '-' || $1
-             ELSE order_number || '-' || $1
-           END
-           WHERE order_id = $2
-             AND order_number NOT LIKE '%-' || $1`,
-          [uniqueDealerId, ticket.reference_order_id]
-        );
-      }
+      await updateOrderNumberForDealer(pool, ticket.reference_order_id, parsedDealerId);
 
       await pool.query(
         `INSERT INTO order_status_history (order_id, status, remarks, created_at)
