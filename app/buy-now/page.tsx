@@ -115,6 +115,7 @@ function BuyNowContent() {
     const storedLandmark = localStorage.getItem('customerLandmark');
     const storedDistrict = localStorage.getItem('customerDistrict');
     const storedState = localStorage.getItem('customerState');
+    const storedGstin = localStorage.getItem('customerGSTNumber');
 
     setIsLoggedIn(!!token);
 
@@ -127,6 +128,7 @@ function BuyNowContent() {
     if (storedLandmark) setLandmark(storedLandmark);
     if (storedDistrict) setDistrict(storedDistrict);
     if (storedState) setState(storedState);
+    if (storedGstin) setGstNumber(storedGstin);
 
     if (token && storedEmail) {
       fetchAvailablePoints(storedEmail);
@@ -255,6 +257,7 @@ function BuyNowContent() {
   const [pincodeDetected, setPincodeDetected] = useState(false);
   const [pincodeError, setPincodeError] = useState('');
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([]);
+  const [gstNumber, setGstNumber] = useState('');
 
   const hydrateCustomerProfile = async (customerEmail: string) => {
     try {
@@ -282,6 +285,10 @@ function BuyNowContent() {
         if (customer.city) {
           setCity(customer.city);
           localStorage.setItem('customerCity', customer.city);
+        }
+        if (customer.gstin) {
+          setGstNumber(customer.gstin);
+          localStorage.setItem('customerGSTNumber', customer.gstin);
         }
         if (customer.landmark) {
           setLandmark(customer.landmark);
@@ -530,9 +537,10 @@ function BuyNowContent() {
   };
 
   const calculateCODTotalWithGST = () => {
-    const baseWithGST = calculateTotalWithGST();
-    if (!settings) return baseWithGST;
-    return roundTo2(baseWithGST + settings.codAdvanceAmount);
+    if (!settings) return calculateTotalWithGST();
+    const subtotal = calculateTotal();
+    const taxableAmount = roundTo2(subtotal + settings.codAdvanceAmount);
+    return roundTo2(taxableAmount + calculateGST(taxableAmount));
   };
 
   const getProductsTotal = () => {
@@ -546,8 +554,9 @@ function BuyNowContent() {
   const calculateCODAdvancePayment = () => {
     if (!settings) return 0;
     
-    // COD base now includes product total + 18% GST before adding COD extra charges.
-    let baseAmount = calculateTotalWithGST() + settings.codAdvanceAmount;
+    const subtotal = calculateTotal();
+    const taxableAmount = roundTo2(subtotal + settings.codAdvanceAmount);
+    const baseAmount = roundTo2(taxableAmount + calculateGST(taxableAmount));
     
     // Calculate percentage advance payment
     const advancePayment = (baseAmount * settings.codPercentage) / 100;
@@ -565,6 +574,7 @@ function BuyNowContent() {
       amcDetails: withAmc && amcMaterial && amcDuration ? { material: amcMaterial, duration: amcDuration } : null,
       amcCost: withAmc && settings && amcMaterial && amcDuration ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) : 0,
       total: calculateTotal(),
+      gstNumber,
       customerDetails: {
         name: customerName,
         email,
@@ -574,10 +584,10 @@ function BuyNowContent() {
         state,
         district,
         pinCode,
-        landmark
-      }
+        landmark,
+      },
     };
-    
+
     localStorage.setItem('orderDetails', JSON.stringify(orderDetails));
     router.push('/checkout');
   };
@@ -714,19 +724,19 @@ function BuyNowContent() {
       return;
     }
 
-    // Calculate COD charges with GST added before COD extra charges.
     const productsTotal = getProductsTotal();
     const installationCost = withInstallation ? settings.installationCost : 0;
-    const amcCost = (withAmc && amcMaterial && amcDuration) 
-      ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0) 
+    const amcCost = (withAmc && amcMaterial && amcDuration)
+      ? (settings.amcOptions[`${amcMaterial}_${amcDuration}` as keyof typeof settings.amcOptions] || 0)
       : 0;
     const subtotalBeforeGST = calculateTotal();
-    const gstAmount = calculateGST(subtotalBeforeGST);
-    const totalWithGST = roundTo2(subtotalBeforeGST + gstAmount);
     const extraCODAmount = settings.codAdvanceAmount;
+    const taxableAmount = roundTo2(subtotalBeforeGST + extraCODAmount);
+    const gstAmount = calculateGST(taxableAmount);
+    const totalWithGST = roundTo2(taxableAmount + gstAmount);
     
-    // Base amount includes: Product subtotal + GST + Extra COD charges
-    const baseAmount = roundTo2(totalWithGST + extraCODAmount);
+    // Base amount includes: Product subtotal + COD extra + GST on both
+    const baseAmount = totalWithGST;
     const advancePayment = calculateCODAdvancePayment();
     const remainingAmount = roundTo2(baseAmount - advancePayment);
 
@@ -746,8 +756,8 @@ function BuyNowContent() {
     }
     
     confirmMessage +=
-      `GST (18%): RS ${gstAmount.toLocaleString()}\n` +
-      `Product Total (Incl. GST): RS ${totalWithGST.toLocaleString()}\n` +
+      `GST (18% on product + COD): RS ${gstAmount.toLocaleString()}\n` +
+      `Total Amount (Incl. GST): RS ${totalWithGST.toLocaleString()}\n` +
       `Extra COD Charges: RS ${extraCODAmount.toLocaleString()}\n` +
       `--------------------------------\n` +
       `Base Amount: RS ${baseAmount.toLocaleString()}\n\n` +
@@ -807,10 +817,10 @@ function BuyNowContent() {
       if (isGuest) {
         // Guest checkout data structure
         const subtotalBeforeGST = calculateTotal();
-        const taxAmount = calculateGST(subtotalBeforeGST);
-        const gstInclusiveTotal = roundTo2(subtotalBeforeGST + taxAmount);
         const codExtra = paymentMethod === 'cod' ? (settings?.codAdvanceAmount ?? 0) : 0;
-        const finalTotalAmount = roundTo2(gstInclusiveTotal + codExtra);
+        const taxableAmount = roundTo2(subtotalBeforeGST + codExtra);
+        const taxAmount = calculateGST(taxableAmount);
+        const finalTotalAmount = roundTo2(taxableAmount + taxAmount);
 
         orderData = {
           customerName,
@@ -821,6 +831,7 @@ function BuyNowContent() {
           city,
           state,
           district,
+          gstNumber,
           orderType: 'product',
           productName: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} Products`,
           productPrice: getProductsTotal() / (cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)),
@@ -839,10 +850,10 @@ function BuyNowContent() {
       } else {
         // Registered user data structure (with referrals/rewards)
         const subtotalBeforeGST = calculateTotal();
-        const taxAmount = calculateGST(subtotalBeforeGST);
-        const gstInclusiveTotal = roundTo2(subtotalBeforeGST + taxAmount);
         const codExtra = paymentMethod === 'cod' ? (settings?.codAdvanceAmount ?? 0) : 0;
-        const finalTotalAmount = roundTo2(gstInclusiveTotal + codExtra);
+        const taxableAmount = roundTo2(subtotalBeforeGST + codExtra);
+        const taxAmount = calculateGST(taxableAmount);
+        const finalTotalAmount = roundTo2(taxableAmount + taxAmount);
 
         orderData = {
           customerName,
@@ -854,6 +865,7 @@ function BuyNowContent() {
           district,
           pinCode,
           landmark,
+          gstNumber,
           products: cartItems,
           productsTotal: getProductsTotal(),
           withInstallation,
@@ -1468,6 +1480,19 @@ function BuyNowContent() {
                 {pincodeError && !pincodeLoading && (
                   <p className="text-xs text-red-500 mt-1">{pincodeError}</p>
                 )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  GST Number (optional)
+                </label>
+                <input
+                  type="text"
+                  value={gstNumber}
+                  onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                  placeholder="GSTIN or GST number"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e63946] focus:border-transparent"
+                />
               </div>
 
               <div className="md:col-span-2">

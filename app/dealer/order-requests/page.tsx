@@ -449,9 +449,7 @@ export default function DealerOrderRequestsPage() {
       y = 48;
 
       // Customer-facing order number — strip dealer UID suffix (e.g. PR-090326-008-101 → PR-090326-008)
-      const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(order.order_number)
-        ? order.order_number.replace(/-\d+$/, '')
-        : order.order_number;
+      const customerOrderNumber = order.order_number;
 
       // ── Invoice metadata ─────────────────────────────────────────────────
       doc.setTextColor(15, 23, 42);

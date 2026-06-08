@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { notifyNewOrderPlaced } from '@/lib/portal-notifications';
+import { buildPaymentBreakdown } from '@/lib/payment-breakdown';
 
 export async function POST(request: Request) {
   try {
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       pincode,
       city,
       state,
+      gstNumber,
       
       // Additional Options
       includesInstallation = false,
@@ -122,6 +124,23 @@ export async function POST(request: Request) {
     try {
       await client.query('BEGIN');
 
+      const settingsForTotalsResult = await client.query(
+        'SELECT cod_advance_amount FROM installation_settings LIMIT 1'
+      );
+      const computedPaymentBreakdown = buildPaymentBreakdown({
+        productsTotal: subtotal,
+        subtotal,
+        installationCharges,
+        amcCharges,
+        deliveryCharges,
+        taxAmount,
+        totalAmount,
+        paymentMethod,
+        codFlatAmount: settingsForTotalsResult.rows[0]?.cod_advance_amount,
+        discountAmount,
+      });
+      const computedGrandTotal = computedPaymentBreakdown.totalAmount;
+
       // Determine payment status strictly from actual payment evidence.
       // COD should remain Pending until advance payment is verified in /api/razorpay/verify-payment.
       let paymentStatus = 'Pending';
@@ -133,44 +152,83 @@ export async function POST(request: Request) {
       const advanceAmountToStore = 0;
 
       // Insert order with guest flag
+      let gstColumnName: string | null = null;
+      try {
+        const gstColumnsResult = await client.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name IN ('customer_gstin', 'gst_number')`
+        );
+        gstColumnName = gstColumnsResult.rows[0]?.column_name || null;
+
+        if (!gstColumnName) {
+          await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_gstin VARCHAR(50)`);
+          gstColumnName = 'customer_gstin';
+        }
+      } catch (schemaError) {
+        console.log('Could not ensure customer_gstin column exists:', schemaError);
+      }
+
+      let orderItemsHsnColumn: string | null = null;
+      try {
+        const orderItemsHsnResult = await client.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'order_items' AND column_name = 'hsn_code'`
+        );
+        orderItemsHsnColumn = orderItemsHsnResult.rows[0]?.column_name || null;
+
+        if (!orderItemsHsnColumn) {
+          await client.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(50)`);
+          orderItemsHsnColumn = 'hsn_code';
+        }
+      } catch (schemaError) {
+        console.log('Could not ensure order_items.hsn_code column exists:', schemaError);
+      }
+
+      const orderColumns = [
+        'customer_name', 'customer_phone', 'customer_email',
+        'order_type', 'combo_id',
+        'installation_address', 'pincode', 'city', 'state',
+        'camera_type', 'brand', 'channels', 'dvr_model',
+        'indoor_cameras', 'outdoor_cameras', 'storage_size', 'cable_option',
+        'includes_accessories', 'includes_installation',
+        'subtotal', 'installation_charges', 'delivery_charges', 'tax_amount', 'discount_amount', 'total_amount',
+        'payment_method', 'payment_status', 'advance_amount',
+        'razorpay_order_id', 'payment_id',
+        'is_guest_order', 'status',
+      ];
+
+      const orderValues = [
+        customerName, customerPhone, customerEmail || null,
+        orderType, comboId || null,
+        installationAddress, pincode, city || null, state || null,
+        cameraType || null, brand || null, channels || null, dvrModel || null,
+        indoorCameras ? JSON.stringify(indoorCameras) : null,
+        outdoorCameras ? JSON.stringify(outdoorCameras) : null,
+        storageSize || null, cableOption || null,
+        includesAccessories || false, includesInstallation || false,
+        subtotal || 0, installationCharges || 0, deliveryCharges || 0,
+        taxAmount || 0, discountAmount || 0, computedGrandTotal,
+        paymentMethod, paymentStatus, advanceAmountToStore,
+        razorpayOrderId || null, razorpayPaymentId || null,
+        true, // is_guest_order
+        'Pending', // status
+      ];
+
+      if (gstColumnName) {
+        orderColumns.push(gstColumnName);
+        orderValues.push(gstNumber || null);
+      }
+
+      const placeholders = orderColumns.map((_, index) => `$${index + 1}`).join(', ');
       const orderResult = await client.query(
         `INSERT INTO orders (
-          customer_name, customer_phone, customer_email,
-          order_type, combo_id,
-          installation_address, pincode, city, state,
-          camera_type, brand, channels, dvr_model,
-          indoor_cameras, outdoor_cameras, storage_size, cable_option,
-          includes_accessories, includes_installation,
-          subtotal, installation_charges, delivery_charges, tax_amount, discount_amount, total_amount,
-          payment_method, payment_status, advance_amount,
-          razorpay_order_id, payment_id,
-          is_guest_order, status
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-          $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32
-        ) RETURNING order_id, order_number, order_token`,
-        [
-          customerName, customerPhone, customerEmail || null,
-          orderType, comboId || null,
-          installationAddress, pincode, city || null, state || null,
-          cameraType || null, brand || null, channels || null, dvrModel || null,
-          indoorCameras ? JSON.stringify(indoorCameras) : null,
-          outdoorCameras ? JSON.stringify(outdoorCameras) : null,
-          storageSize || null, cableOption || null,
-          includesAccessories || false, includesInstallation || false,
-          subtotal || 0, installationCharges || 0, deliveryCharges || 0,
-          taxAmount || 0, discountAmount || 0, totalAmount,
-          paymentMethod, paymentStatus, advanceAmountToStore,
-          razorpayOrderId || null, razorpayPaymentId || null,
-          true, // is_guest_order
-          'Pending' // status
-        ]
+          ${orderColumns.join(', ')}
+        ) VALUES (${placeholders}) RETURNING order_id, order_number, order_token`,
+        orderValues
       );
 
       const { order_id, order_number, order_token } = orderResult.rows[0];
 
       // Build email items list in parallel with DB inserts (from known request values)
-      const emailOrderItems: Array<{ item_name: string; quantity: number; unit_price: number; total_price: number; item_type: string; product_code?: string }> = [];
+      const emailOrderItems: Array<{ item_name: string; quantity: number; unit_price: number; total_price: number; item_type: string; product_code?: string; hsn_code?: string }> = [];
 
       // Insert order item with combined price when installation/AMC is included
       if (productId || productName) {
@@ -191,20 +249,41 @@ export async function POST(request: Request) {
           displayProductName = `${displayProductName} (with ${inclusions.join(' + ')})`;
         }
         
+        let productIdValue: any = productId ?? null;
+        if (typeof productIdValue === 'string') {
+          if (/^PIC(\d+)$/i.test(productIdValue)) {
+            productIdValue = Number(RegExp.$1);
+          } else if (/^\d+$/.test(productIdValue)) {
+            productIdValue = Number(productIdValue);
+          }
+        }
+
+        let productCode: string | undefined;
+        let hsnCode: string | undefined;
+        if (productIdValue != null) {
+          const productCodeResult = await client.query(
+            'SELECT product_code, hsn_code FROM dealer_products WHERE id = $1',
+            [productIdValue]
+          );
+          productCode = productCodeResult.rows[0]?.product_code || `PIC${String(productIdValue).padStart(3, '0')}`;
+          hsnCode = productCodeResult.rows[0]?.hsn_code || undefined;
+        }
+
+        const itemColumns = ['order_id', 'product_id', 'item_type', 'item_name', 'quantity', 'unit_price', 'total_price'];
+        const itemValues = [order_id, productIdValue || null, 'Product', displayProductName, quantity, combinedUnitPrice, combinedLineTotal];
+
+        if (orderItemsHsnColumn) {
+          itemColumns.push(orderItemsHsnColumn);
+          itemValues.push(hsnCode || null);
+        }
+
+        const placeholderString = itemColumns.map((_, index) => `$${index + 1}`).join(', ');
         await client.query(
           `INSERT INTO order_items (
-            order_id, product_id, item_type, item_name, quantity, unit_price, total_price
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [order_id, productId || null, 'Product', displayProductName, quantity, combinedUnitPrice, combinedLineTotal]
+            ${itemColumns.join(', ')}
+          ) VALUES (${placeholderString})`,
+          itemValues
         );
-        let productCode: string | undefined;
-        if (productId) {
-          const productCodeResult = await client.query(
-            'SELECT product_code FROM dealer_products WHERE id = $1',
-            [productId]
-          );
-          productCode = productCodeResult.rows[0]?.product_code || `PIC${String(productId).padStart(3, '0')}`;
-        }
 
         emailOrderItems.push({ 
           item_name: displayProductName, 
@@ -213,6 +292,7 @@ export async function POST(request: Request) {
           total_price: combinedLineTotal, 
           item_type: 'Product',
           product_code: productCode,
+          hsn_code: hsnCode,
         });
       }
 
@@ -256,9 +336,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch full order with dealer details + COD settings for invoice PDF
-      const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(order_number)
-        ? order_number.replace(/-\d+$/, '')
-        : order_number;
+      const customerOrderNumber = order_number;
 
       const [fullOrderResult, codSettingsResult, canonicalOrderItemsResult] = await Promise.all([
         pool.query(`
@@ -292,7 +370,8 @@ export async function POST(request: Request) {
                to_jsonb(dp)->>'product_code',
                CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END,
                'PIC' || LPAD(oi.id::text, 3, '0')
-             ) AS product_code
+             ) AS product_code,
+             COALESCE(oi.hsn_code, to_jsonb(dp)->>'hsn_code') AS hsn_code
            FROM order_items oi
            LEFT JOIN dealer_products dp ON dp.id = oi.product_id
            WHERE oi.order_id = $1
@@ -306,7 +385,7 @@ export async function POST(request: Request) {
         customer_name: customerName, customer_phone: customerPhone, customer_email: customerEmail || null,
         installation_address: installationAddress, pincode, city: city || null, state: state || null,
         payment_method: paymentMethod, payment_status: paymentStatus,
-        total_amount: totalAmount, subtotal: subtotal || 0,
+        total_amount: computedGrandTotal, subtotal: subtotal || 0,
         installation_charges: installationCharges || 0, delivery_charges: deliveryCharges || 0,
         tax_amount: taxAmount || 0, discount_amount: discountAmount || 0,
         advance_amount: codAdvanceAmount || 0, order_type: orderType,
@@ -327,6 +406,7 @@ export async function POST(request: Request) {
         total_price: number;
         item_type?: string;
         product_code?: string;
+        hsn_code?: string;
       }>;
 
       await notifyNewOrderPlaced({
@@ -335,7 +415,7 @@ export async function POST(request: Request) {
         customerName,
         city: orderDataForEmail.city || city || null,
         pincode: orderDataForEmail.pincode || pincode || null,
-        totalAmount,
+        totalAmount: computedGrandTotal,
         district: orderDataForEmail.dealer_district || null,
       });
 
@@ -356,7 +436,7 @@ export async function POST(request: Request) {
             orderToken: order_token,
             customerName,
             customerEmail,
-            totalAmount,
+            totalAmount: computedGrandTotal,
             paymentMethod,
             paymentStatus,
             orderDate: new Date().toISOString(),
@@ -401,9 +481,9 @@ export async function POST(request: Request) {
         message: 'Order placed successfully',
         order: {
           orderId: order_id,
-          orderNumber: order_number,
+          orderNumber: orderDataForEmail.order_number || order_number,
           orderToken: order_token,
-          totalAmount,
+          totalAmount: computedGrandTotal,
           paymentStatus,
           status: 'Pending',
           trackingUrl,

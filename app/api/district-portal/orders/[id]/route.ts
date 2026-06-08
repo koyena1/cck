@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { ensureOrderTaskAcceptanceColumns } from '@/lib/order-task-acceptance';
+import { buildPaymentBreakdown } from '@/lib/payment-breakdown';
 
 /**
  * GET /api/district-portal/orders/[id]?district=<district>
@@ -199,13 +200,26 @@ export async function GET(
     const pointsVal = parseFloat(order.points_redeemed || 0);
     const storedTotal = parseFloat(order.total_amount || 0);
 
-    const baseComponents = productsVal + installationVal + amcVal + deliveryVal + taxVal - discountVal - referralVal - pointsVal;
-    const derivedCodExtra = (order.payment_method === 'cod' && storedTotal > baseComponents + 0.01)
-      ? Math.round((storedTotal - baseComponents) * 100) / 100
-      : 0;
+    const paymentBreakdown = buildPaymentBreakdown({
+      productsTotal: order.products_total,
+      subtotal: order.subtotal,
+      installationCharges: order.installation_charges,
+      amcCharges: order.amc_cost,
+      deliveryCharges: order.delivery_charges,
+      taxAmount: order.tax_amount,
+      totalAmount: order.total_amount,
+      paymentMethod: order.payment_method,
+      codFlatAmount: codExtraCharge,
+      discountAmount: order.discount_amount,
+      referralDiscount: order.referral_discount,
+      pointsRedeemed: order.points_redeemed,
+    });
+    const grandTotal = paymentBreakdown.totalAmount;
+    order.total_amount = grandTotal;
+    order.tax_amount = paymentBreakdown.gstAmount;
 
     const codAdvanceRequired = (order.payment_method === 'cod' && codPercentage > 0)
-      ? Math.round(storedTotal * codPercentage / 100)
+      ? Math.round(grandTotal * codPercentage / 100)
       : 0;
 
     let calculatedCodAdvance = 0;
@@ -215,7 +229,7 @@ export async function GET(
     }
 
     const effectivePaid = Math.max(advancePaid, totalPaid);
-    const remainingBalance = Math.max(0, storedTotal - effectivePaid);
+    const remainingBalance = Math.max(0, grandTotal - effectivePaid);
 
     return NextResponse.json({
       success: true,
@@ -227,23 +241,24 @@ export async function GET(
       allocationLog: allocationLogResult.rows,
       progressUpdates: progressUpdatesResult.rows,
       paymentSummary: {
-        total_amount: storedTotal,
+        total_amount: grandTotal,
+        stored_total_amount: paymentBreakdown.storedTotalAmount,
         subtotal: parseFloat(order.subtotal || 0),
-        products_total: parseFloat(order.products_total || 0),
-        installation_charges: installationVal,
-        delivery_charges: deliveryVal,
-        tax_amount: taxVal,
+        products_total: paymentBreakdown.actualProductPrice,
+        installation_charges: paymentBreakdown.installationCharges,
+        delivery_charges: paymentBreakdown.deliveryCharges,
+        tax_amount: paymentBreakdown.gstAmount,
         discount_amount: discountVal,
         referral_discount: referralVal,
         points_redeemed: pointsVal,
-        amc_cost: amcVal,
+        amc_cost: paymentBreakdown.amcCharges,
         advance_paid: advancePaid,
         transactions_paid: totalPaid,
         effective_paid: effectivePaid,
         remaining_balance: remainingBalance,
         is_cod_advance_paid: isCodAdvancePaid,
         cod_extra_charge: codExtraCharge,
-        derived_cod_extra: derivedCodExtra,
+        derived_cod_extra: paymentBreakdown.codExtraCharges,
         cod_percentage: codPercentage,
         cod_advance_required: codAdvanceRequired,
         cod_advance_calculated: calculatedCodAdvance,

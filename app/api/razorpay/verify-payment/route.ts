@@ -166,6 +166,12 @@ export async function POST(request: Request) {
       order_number 
     } = await request.json();
 
+    console.log(`\n🔍 PAYMENT VERIFICATION START`);
+    console.log(`   Order Number: ${order_number}`);
+    console.log(`   Razorpay Order ID: ${razorpay_order_id}`);
+    console.log(`   Payment ID: ${razorpay_payment_id}`);
+    console.log(`   DEV_MODE: ${DEV_MODE}`);
+
     const pool = getPool();
 
     // Development mode: Auto-approve payment
@@ -265,7 +271,9 @@ export async function POST(request: Request) {
 
               // Fetch order items to include in invoice email
               const orderItemsResult = await pool.query(
-                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code
+                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type,
+                  COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code,
+                  COALESCE(oi.hsn_code, to_jsonb(dp)->>'hsn_code') AS hsn_code
                  FROM order_items oi
                  LEFT JOIN dealer_products dp ON dp.id = oi.product_id
                  WHERE oi.order_id = $1
@@ -458,7 +466,9 @@ export async function POST(request: Request) {
 
               // Fetch order items to include in invoice email
               const orderItemsResult = await pool.query(
-                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code
+                `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type,
+                        COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code,
+                        COALESCE(oi.hsn_code, to_jsonb(dp)->>'hsn_code') AS hsn_code
                  FROM order_items oi
                  LEFT JOIN dealer_products dp ON dp.id = oi.product_id
                  WHERE oi.order_id = $1

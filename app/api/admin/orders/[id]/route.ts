@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { ensureOrderTaskAcceptanceColumns } from '@/lib/order-task-acceptance';
+import { buildPaymentBreakdown } from '@/lib/payment-breakdown';
 
 /**
  * GET /api/admin/orders/[id]
@@ -168,15 +169,27 @@ export async function GET(
     const pointsVal = parseFloat(order.points_redeemed || 0);
     const storedTotal = parseFloat(order.total_amount || 0);
 
-    const baseComponents = productsVal + installationVal + amcVal + deliveryVal + taxVal - discountVal - referralVal - pointsVal;
-    // derived_cod_extra = what was actually charged above the base (0 if checkout forgot to add it)
-    const derivedCodExtra = (order.payment_method === 'cod' && storedTotal > baseComponents + 0.01)
-      ? Math.round((storedTotal - baseComponents) * 100) / 100
-      : 0;
+    const paymentBreakdown = buildPaymentBreakdown({
+      productsTotal: order.products_total,
+      subtotal: order.subtotal,
+      installationCharges: order.installation_charges,
+      amcCharges: order.amc_cost,
+      deliveryCharges: order.delivery_charges,
+      taxAmount: order.tax_amount,
+      totalAmount: order.total_amount,
+      paymentMethod: order.payment_method,
+      codFlatAmount: codExtraCharge,
+      discountAmount: order.discount_amount,
+      referralDiscount: order.referral_discount,
+      pointsRedeemed: order.points_redeemed,
+    });
+    const grandTotal = paymentBreakdown.totalAmount;
+    order.total_amount = grandTotal;
+    order.tax_amount = paymentBreakdown.gstAmount;
 
     // COD advance required based on stored total (30% of total_amount)
     const codAdvanceRequired = (order.payment_method === 'cod' && codPercentage > 0)
-      ? Math.round(storedTotal * codPercentage / 100)
+      ? Math.round(grandTotal * codPercentage / 100)
       : 0;
 
     // If advance_amount = 0 but payment was made, recalculate from stored total
@@ -188,7 +201,7 @@ export async function GET(
 
     // Use the larger of DB advance_amount vs recalculated vs sum of payment transactions
     const effectivePaid = Math.max(advancePaid, totalPaid);
-    const remainingBalance = Math.max(0, storedTotal - effectivePaid);
+    const remainingBalance = Math.max(0, grandTotal - effectivePaid);
 
     return NextResponse.json({
       success: true,
@@ -200,16 +213,17 @@ export async function GET(
       allocationLog: allocationLogResult.rows,
       progressUpdates: progressUpdatesResult.rows,
       paymentSummary: {
-        total_amount: parseFloat(order.total_amount || 0),
+        total_amount: grandTotal,
+        stored_total_amount: paymentBreakdown.storedTotalAmount,
         subtotal: parseFloat(order.subtotal || 0),
-        products_total: parseFloat(order.products_total || 0),
-        installation_charges: parseFloat(order.installation_charges || 0),
-        delivery_charges: parseFloat(order.delivery_charges || 0),
-        tax_amount: parseFloat(order.tax_amount || 0),
+        products_total: paymentBreakdown.actualProductPrice,
+        installation_charges: paymentBreakdown.installationCharges,
+        delivery_charges: paymentBreakdown.deliveryCharges,
+        tax_amount: paymentBreakdown.gstAmount,
         discount_amount: parseFloat(order.discount_amount || 0),
         referral_discount: parseFloat(order.referral_discount || 0),
         points_redeemed: parseFloat(order.points_redeemed || 0),
-        amc_cost: parseFloat(order.amc_cost || 0),
+        amc_cost: paymentBreakdown.amcCharges,
         advance_paid: advancePaid,
         transactions_paid: totalPaid,
         effective_paid: effectivePaid,
@@ -217,7 +231,7 @@ export async function GET(
         // COD-specific
         is_cod_advance_paid: isCodAdvancePaid,
         cod_extra_charge: codExtraCharge,           // from settings (info only)
-        derived_cod_extra: derivedCodExtra,          // actually charged (derived from stored total)
+        derived_cod_extra: paymentBreakdown.codExtraCharges,
         cod_percentage: codPercentage,
         cod_advance_required: codAdvanceRequired,    // what should be/was collected
         cod_advance_calculated: calculatedCodAdvance,

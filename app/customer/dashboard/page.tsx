@@ -85,9 +85,7 @@ export default function CustomerDashboard() {
       y = 48;
 
       // Strip dealer UID suffix (e.g. PR-090326-008-101 → PR-090326-008)
-      const customerOrderNo = /^PR-\d{6}-\d+-\d+$/.test(o.order_number)
-        ? o.order_number.replace(/-\d+$/, '')
-        : o.order_number;
+      const customerOrderNo = o.order_number;
 
       doc.setTextColor(15, 23, 42);
       doc.setFontSize(9);
@@ -238,15 +236,6 @@ export default function CustomerDashboard() {
         yRight += 4.5;
       }
 
-      const customerGSTIN = o.customer_gstin || o.gstin || '';
-      if (customerGSTIN) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('GST No.:', col2, yRight);
-        doc.setFont('helvetica', 'normal');
-        doc.text(` ${customerGSTIN}`, col2 + 16, yRight);
-        yRight += 4.5;
-      }
-
       const buyerPhone = o.customer_phone || o.phone || '';
       if (buyerPhone) {
         doc.setFont('helvetica', 'bold');
@@ -255,6 +244,13 @@ export default function CustomerDashboard() {
         doc.text(` ${buyerPhone}`, col2 + 13, yRight);
         yRight += 4.5;
       }
+
+      const customerGSTIN = o.customer_gstin || o.gstin || '';
+      doc.setFont('helvetica', 'bold');
+      doc.text('GST Number:', col2, yRight);
+      doc.setFont('helvetica', 'normal');
+      doc.text(` ${customerGSTIN || '-'}`, col2 + 22, yRight);
+      yRight += 4.5;
 
       y = Math.max(yLeft, yRight) + 3;
       doc.setDrawColor(200, 210, 230);

@@ -38,7 +38,9 @@ export async function POST(request: Request) {
           WHERE o.order_id = $1
         `, [orderId]),
         pool.query(
-            `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code
+            `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type,
+                    COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.id::text, 3, '0')) AS product_code,
+                    to_jsonb(dp)->>'hsn_code' AS hsn_code
            FROM order_items oi
            LEFT JOIN dealer_products dp ON dp.id = oi.product_id
            WHERE oi.order_id = $1`,
@@ -54,9 +56,7 @@ export async function POST(request: Request) {
       order._codPercentage = parseFloat(codSettingsRes.rows[0]?.cod_percentage || '0');
 
       const actualOrderNumber = order.order_number;
-      const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(actualOrderNumber)
-        ? actualOrderNumber.replace(/-\d+$/, '')
-        : actualOrderNumber;
+      const customerOrderNumber = actualOrderNumber;
 
       const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order.order_token}`;
 

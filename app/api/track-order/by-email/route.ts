@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
+import { buildPaymentBreakdown } from '@/lib/payment-breakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,15 @@ export async function POST(request: Request) {
         city,
         state,
         pincode,
+        subtotal,
+        COALESCE(NULLIF(to_jsonb(orders)->>'products_total', '')::numeric, subtotal) AS products_total,
+        installation_charges,
+        delivery_charges,
+        tax_amount,
+        discount_amount,
+        COALESCE(NULLIF(to_jsonb(orders)->>'referral_discount', '')::numeric, 0) AS referral_discount,
+        COALESCE(NULLIF(to_jsonb(orders)->>'points_redeemed', '')::numeric, 0) AS points_redeemed,
+        COALESCE(NULLIF(to_jsonb(orders)->>'amc_cost', '')::numeric, 0) AS amc_cost,
         total_amount,
         status,
         payment_method,
@@ -53,6 +63,10 @@ export async function POST(request: Request) {
     }
 
     const orderIds = orders.map((order) => order.order_id);
+    const codSettingsResult = await pool.query(
+      `SELECT cod_advance_amount FROM installation_settings LIMIT 1`
+    );
+    const codFlatAmount = codSettingsResult.rows[0]?.cod_advance_amount || 500;
 
     const historyResult = await pool.query(
       `SELECT
@@ -106,11 +120,29 @@ export async function POST(request: Request) {
       });
     }
 
-    const ordersWithHistory = orders.map((order) => ({
-      ...order,
-      statusHistory: historyByOrderId.get(Number(order.order_id)) || [],
-      latestProgressStatus: latestProgressByOrderId.get(Number(order.order_id))?.status_label || null,
-    }));
+    const ordersWithHistory = orders.map((order) => {
+      const paymentBreakdown = buildPaymentBreakdown({
+        productsTotal: order.products_total,
+        subtotal: order.subtotal,
+        installationCharges: order.installation_charges,
+        amcCharges: order.amc_cost,
+        deliveryCharges: order.delivery_charges,
+        taxAmount: order.tax_amount,
+        totalAmount: order.total_amount,
+        paymentMethod: order.payment_method,
+        codFlatAmount,
+        discountAmount: order.discount_amount,
+        referralDiscount: order.referral_discount,
+        pointsRedeemed: order.points_redeemed,
+      });
+
+      return {
+        ...order,
+        total_amount: paymentBreakdown.totalAmount,
+        statusHistory: historyByOrderId.get(Number(order.order_id)) || [],
+        latestProgressStatus: latestProgressByOrderId.get(Number(order.order_id))?.status_label || null,
+      };
+    });
 
     return NextResponse.json({
       success: true,

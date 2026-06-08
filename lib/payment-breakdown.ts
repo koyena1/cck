@@ -22,8 +22,11 @@ export interface PaymentBreakdownResult {
   deliveryCharges: number;
   netBaseAmount: number;
   gstAmount: number;
+  sgstAmount: number;
+  cgstAmount: number;
   codExtraCharges: number;
   totalAmount: number;
+  storedTotalAmount: number;
 }
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
@@ -49,24 +52,15 @@ export function buildPaymentBreakdown(input: PaymentBreakdownInput): PaymentBrea
   const grossBaseAmount = round2(actualProductPrice + installationCharges + amcCharges + deliveryCharges);
   const netBaseAmount = round2(Math.max(0, grossBaseAmount - discountAmount - referralDiscount - pointsRedeemed));
 
-  const totalAmount = round2(toAmount(input.totalAmount));
-  const storedTaxAmount = round2(toAmount(input.taxAmount));
+  const storedTotalAmount = round2(toAmount(input.totalAmount));
   const codFlatAmount = round2(toAmount(input.codFlatAmount));
 
-  let gstAmount = storedTaxAmount;
-  if (gstAmount <= 0) {
-    if (isCod && codFlatAmount > 0) {
-      gstAmount = round2(Math.max(0, totalAmount - netBaseAmount - codFlatAmount));
-    } else {
-      gstAmount = round2(Math.max(0, totalAmount - netBaseAmount));
-    }
-  }
-
-  const codExtraCharges = isCod
-    ? (codFlatAmount > 0
-      ? codFlatAmount
-      : round2(Math.max(0, totalAmount - netBaseAmount - gstAmount)))
-    : 0;
+  const codExtraCharges = isCod ? codFlatAmount : 0;
+  const taxableAmount = round2(netBaseAmount + codExtraCharges);
+  const sgstAmount = round2(taxableAmount * 0.09);
+  const cgstAmount = round2(taxableAmount * 0.09);
+  const gstAmount = round2(sgstAmount + cgstAmount);
+  const totalAmount = round2(taxableAmount + gstAmount);
 
   return {
     actualProductPrice,
@@ -74,8 +68,11 @@ export function buildPaymentBreakdown(input: PaymentBreakdownInput): PaymentBrea
     amcCharges,
     deliveryCharges,
     netBaseAmount,
-    gstAmount: round2(gstAmount),
+    gstAmount,
+    sgstAmount,
+    cgstAmount,
     codExtraCharges: round2(codExtraCharges),
     totalAmount,
+    storedTotalAmount,
   };
 }

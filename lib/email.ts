@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 import { generateInvoicePDFBuffer } from './generate-invoice-pdf';
 import { buildPaymentBreakdown } from './payment-breakdown';
 import { getPool } from './db';
-import { getOrCreateCustomerInvoiceNumber } from './order-numbering';
+import { buildOrderNumberFromOrder, getOrCreateCustomerInvoiceNumber } from './order-numbering';
 
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
 const SMTP_USER = process.env.SMTP_USER || '';
@@ -49,6 +49,7 @@ function getTransporter() {
 interface OrderItem {
   item_name: string;
   product_code?: string;
+  hsn_code?: string;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -108,33 +109,42 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
       fullOrderData,
     } = data;
 
+    const normalizedFullOrderData: Record<string, any> | undefined = fullOrderData
+      ? {
+          ...fullOrderData,
+          order_number: buildOrderNumberFromOrder(fullOrderData),
+          customer_gstin: fullOrderData.customer_gstin || fullOrderData.gst_number || fullOrderData.gstNumber || fullOrderData.gstin || '',
+        }
+      : fullOrderData;
+    const displayOrderNumber = normalizedFullOrderData?.order_number || orderNumber;
     const isCOD = paymentMethod === 'cod';
+
+    const paymentBreakdown = buildPaymentBreakdown({
+      productsTotal: productTotal ?? normalizedFullOrderData?.products_total,
+      subtotal: orderDetails?.subtotal ?? normalizedFullOrderData?.subtotal ?? baseAmount,
+      installationCharges: installationCharges ?? orderDetails?.installation_charges ?? normalizedFullOrderData?.installation_charges,
+      amcCharges: orderDetails?.amc_cost ?? normalizedFullOrderData?.amc_cost,
+      deliveryCharges: orderDetails?.delivery_charges ?? normalizedFullOrderData?.delivery_charges,
+      taxAmount: taxAmount ?? orderDetails?.tax_amount ?? normalizedFullOrderData?.tax_amount,
+      totalAmount,
+      paymentMethod,
+      codFlatAmount: codExtraCharges ?? normalizedFullOrderData?._codFlatAmount,
+      discountAmount: orderDetails?.discount_amount ?? normalizedFullOrderData?.discount_amount,
+      referralDiscount: orderDetails?.referral_discount ?? normalizedFullOrderData?.referral_discount,
+      pointsRedeemed: orderDetails?.points_redeemed ?? normalizedFullOrderData?.points_redeemed,
+    });
+    const resolvedGrandTotal = roundTo2(paymentBreakdown.totalAmount);
     const resolvedCodAdvancePaid = isCOD
       ? parseFloat(String(
           codAdvancePaid
           ?? orderDetails?.advance_amount
-          ?? fullOrderData?.advance_amount
+          ?? normalizedFullOrderData?.advance_amount
           ?? 0
         )) || 0
       : 0;
     const resolvedCodPendingAmount = isCOD
-      ? Math.max(0, totalAmount - resolvedCodAdvancePaid)
+      ? Math.max(0, resolvedGrandTotal - resolvedCodAdvancePaid)
       : 0;
-
-    const paymentBreakdown = buildPaymentBreakdown({
-      productsTotal: productTotal ?? fullOrderData?.products_total,
-      subtotal: orderDetails?.subtotal ?? fullOrderData?.subtotal ?? baseAmount,
-      installationCharges: installationCharges ?? orderDetails?.installation_charges ?? fullOrderData?.installation_charges,
-      amcCharges: orderDetails?.amc_cost ?? fullOrderData?.amc_cost,
-      deliveryCharges: orderDetails?.delivery_charges ?? fullOrderData?.delivery_charges,
-      taxAmount: taxAmount ?? orderDetails?.tax_amount ?? fullOrderData?.tax_amount,
-      totalAmount,
-      paymentMethod,
-      codFlatAmount: codExtraCharges ?? fullOrderData?._codFlatAmount,
-      discountAmount: orderDetails?.discount_amount ?? fullOrderData?.discount_amount,
-      referralDiscount: orderDetails?.referral_discount ?? fullOrderData?.referral_discount,
-      pointsRedeemed: orderDetails?.points_redeemed ?? fullOrderData?.points_redeemed,
-    });
 
     const resolvedTaxAmount = roundTo2(paymentBreakdown.gstAmount);
     const resolvedCodExtraCharges = roundTo2(paymentBreakdown.codExtraCharges);
@@ -143,7 +153,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
     const resolvedAmcCharges = roundTo2(paymentBreakdown.amcCharges);
     const resolvedDeliveryCharges = roundTo2(paymentBreakdown.deliveryCharges);
 
-    const subject = `Order Confirmation - ${orderNumber} | ${COMPANY_NAME}`;
+    const subject = `Order Confirmation - ${displayOrderNumber} | ${COMPANY_NAME}`;
     
     const htmlContent = `
 <!DOCTYPE html>
@@ -222,7 +232,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         <div class="order-info">
           <div class="order-info-row">
             <span class="label">Order Number:</span>
-            <span class="value"><strong>${orderNumber}</strong></span>
+            <span class="value"><strong>${displayOrderNumber}</strong></span>
           </div>
           <div class="order-info-row">
             <span class="label">Order Date:</span>
@@ -240,7 +250,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         <div class="total-row">
           <div class="order-info-row" style="border: none; margin: 0;">
             <span class="label">Total Amount:</span>
-            <span class="value">RS ${totalAmount.toLocaleString('en-IN')}</span>
+            <span class="value">RS ${resolvedGrandTotal.toLocaleString('en-IN')}</span>
           </div>
         </div>
       </div>
@@ -283,7 +293,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
         ` : ''}
         <div class="breakdown-row" style="background: linear-gradient(to right, #eff6ff, #dbeafe); padding: 15px; border-radius: 8px; margin-top: 12px; border: 2px solid #0ea5e9;">
           <span class="breakdown-label" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">Grand Total:</span>
-          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">RS ${totalAmount.toLocaleString('en-IN')}</span>
+          <span class="breakdown-value" style="font-size: 16px; font-weight: 700; color: #0c4a6e;">RS ${resolvedGrandTotal.toLocaleString('en-IN')}</span>
         </div>
       </div>
 
@@ -394,16 +404,16 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
     `;
 
     const textContent = `
-Order Confirmation - ${orderNumber}
+Order Confirmation - ${displayOrderNumber}
 
 Hello ${customerName},
 
 Your order has been successfully placed!
 
 Order Details:
-- Order Number: ${orderNumber}
+- Order Number: ${displayOrderNumber}
 - Order Date: ${new Date(orderDate).toLocaleDateString()}
-- Total Amount: RS ${totalAmount.toLocaleString('en-IN')}
+- Total Amount: RS ${resolvedGrandTotal.toLocaleString('en-IN')}
 - Payment Method: ${paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
 - Payment Status: ${paymentStatus}
 
@@ -417,7 +427,7 @@ ${resolvedInstallationCharges > 0 ? `Installation Charges: RS ${resolvedInstalla
 ` : ''}${resolvedDeliveryCharges > 0 ? `Delivery Charges: RS ${resolvedDeliveryCharges.toLocaleString('en-IN')}
 ` : ''}${resolvedTaxAmount > 0 ? `GST (18%): RS ${resolvedTaxAmount.toLocaleString('en-IN')}
 ` : ''}${isCOD && resolvedCodExtraCharges > 0 ? `COD Extra Charges: RS ${resolvedCodExtraCharges.toLocaleString('en-IN')}
-` : ''}Grand Total: RS ${totalAmount.toLocaleString('en-IN')}
+` : ''}Grand Total: RS ${resolvedGrandTotal.toLocaleString('en-IN')}
 
 ${isCOD ? `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -453,13 +463,13 @@ ${COMPANY_NAME} Team
     // Generate PDF invoice if full order data is available
     let invoicePdfBuffer: Buffer | null = null;
     let invoiceFileName = 'Invoice.pdf';
-    if (fullOrderData) {
+    if (normalizedFullOrderData) {
       try {
-        const invoiceNumber = await getOrCreateCustomerInvoiceNumber(getPool(), fullOrderData);
+        const invoiceNumber = await getOrCreateCustomerInvoiceNumber(getPool(), normalizedFullOrderData);
         invoiceFileName = `Invoice-${invoiceNumber}.pdf`;
-        const codFlatAmt = fullOrderData._codFlatAmount || 500;
+        const codFlatAmt = normalizedFullOrderData._codFlatAmount || 500;
         invoicePdfBuffer = generateInvoicePDFBuffer(
-          fullOrderData,
+          normalizedFullOrderData,
           orderItems || [],
           invoiceNumber,
           codFlatAmt
@@ -482,28 +492,50 @@ ${COMPANY_NAME} Team
     }
 
     // Production mode - send actual email
+    console.log(`📧 SMTP CONFIG: host=${EMAIL_CONFIG.host}, port=${EMAIL_CONFIG.port}, user=${EMAIL_CONFIG.auth.user}`);
+    console.log(`📧 FROM_EMAIL: ${FROM_EMAIL}`);
+    
     const transport = getTransporter();
     if (!transport) {
-      console.error('❌ Email transporter not available');
+      console.error('❌ Email transporter not available - SMTP credentials might be missing or invalid');
+      console.error(`   SMTP_USER: ${SMTP_USER}`);
+      console.error(`   SMTP_PASS: ${SMTP_PASS ? '***' + SMTP_PASS.slice(-3) : 'EMPTY'}`);
+      console.error(`   EMAIL_DEV_MODE: ${DEV_MODE}`);
       return false;
     }
 
-    await transport.sendMail({
-      from: `"${COMPANY_NAME}" <${FROM_EMAIL}>`,
-      to: customerEmail,
-      subject,
-      text: textContent,
-      html: htmlContent,
-      attachments: invoicePdfBuffer
-        ? [{ filename: invoiceFileName, content: invoicePdfBuffer, contentType: 'application/pdf' }]
-        : [],
-    });
+    console.log(`📧 Sending email to ${customerEmail} with subject: ${subject}`);
+    console.log(`   PDF Attachment: ${invoicePdfBuffer ? `${invoiceFileName} (${invoicePdfBuffer.length} bytes)` : 'NONE'}`);
+    
+    try {
+      const info = await transport.sendMail({
+        from: `"${COMPANY_NAME}" <${FROM_EMAIL}>`,
+        to: customerEmail,
+        subject,
+        text: textContent,
+        html: htmlContent,
+        attachments: invoicePdfBuffer
+          ? [{ filename: invoiceFileName, content: invoicePdfBuffer, contentType: 'application/pdf' }]
+          : [],
+      });
 
-    console.log(`✓ Order confirmation email sent to ${customerEmail}`);
-    return true;
+      console.log(`✅ Order confirmation email sent to ${customerEmail}`);
+      console.log(`   Response ID: ${info.response}`);
+      return true;
+    } catch (sendError) {
+      console.error(`❌ SMTP send failed for ${customerEmail}:`, sendError);
+      console.error(`   Error details:`, {
+        code: (sendError as any).code,
+        message: (sendError as any).message,
+        response: (sendError as any).response,
+      });
+      return false;
+    }
 
   } catch (error) {
     console.error('❌ Failed to send order confirmation email:', error);
+    console.error(`   Error type: ${(error as any).constructor.name}`);
+    console.error(`   Error message: ${(error as any).message}`);
     return false;
   }
 }
@@ -521,9 +553,7 @@ export async function sendOrderStatusUpdateEmail(
 ): Promise<boolean> {
   try {
     const trackingUrl = `${WEBSITE_URL}/guest-track-order?token=${orderToken}`;
-    const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(orderNumber)
-      ? orderNumber.replace(/-\d+$/, '')
-      : orderNumber;
+    const customerOrderNumber = orderNumber;
     const subject = `Order Update: ${newStatus} - ${customerOrderNumber}`;
 
     const htmlContent = `

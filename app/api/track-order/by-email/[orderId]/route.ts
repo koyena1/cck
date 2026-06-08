@@ -146,6 +146,7 @@ export async function POST(
       referralDiscount: order.referral_discount,
       pointsRedeemed: order.points_redeemed,
     });
+    const grandTotal = paymentBreakdown.totalAmount;
 
     const transactionsPaid = transactionsRows
       .filter((t: any) => ['payment', 'advance', 'cod_advance', 'partial_payment'].includes(t.transaction_type))
@@ -168,16 +169,17 @@ export async function POST(
         : dbAdvancePaid;
 
     const effectivePaid = Math.max(advancePaid, transactionsPaid);
-    const fallbackPaid = order.payment_status === 'paid' ? storedTotal : 0;
+    const fallbackPaid = order.payment_status === 'paid' ? grandTotal : 0;
     const totalPaidByCustomer = Math.max(effectivePaid, fallbackPaid);
     const amountPendingOnDelivery = order.payment_method === 'cod'
-      ? Math.max(0, storedTotal - advancePaid)
+      ? Math.max(0, grandTotal - advancePaid)
       : 0;
 
     return NextResponse.json({
       success: true,
       order: {
         ...order,
+        total_amount: grandTotal,
         statusHistory: statusHistoryResult.rows,
         progressUpdates: progressUpdatesResult.rows,
         paymentSummary: {
@@ -190,7 +192,8 @@ export async function POST(
           amount_already_paid: advancePaid,
           amount_pending_on_delivery: amountPendingOnDelivery,
           total_paid_by_customer: totalPaidByCustomer,
-          total_amount: paymentBreakdown.totalAmount,
+          total_amount: grandTotal,
+          stored_total_amount: paymentBreakdown.storedTotalAmount,
         },
       },
     });

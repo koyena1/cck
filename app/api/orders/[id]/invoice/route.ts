@@ -97,7 +97,7 @@ export async function GET(
           END,
           'PIC' || LPAD(oi.id::text, 3, '0')
         ) AS product_code,
-        resolved_dp.hsn_code,
+        COALESCE(oi.hsn_code, resolved_dp.hsn_code) AS hsn_code,
         oi.item_type,
         oi.item_name,
         oi.quantity,
@@ -122,7 +122,14 @@ export async function GET(
       ORDER BY oi.id ASC
     `, [orderId]);
 
-    const invoiceNumber = await getOrCreateCustomerInvoiceNumber(pool, order);
+    let invoiceNumber: string = `PR-NA-0000`;
+    try {
+      invoiceNumber = await getOrCreateCustomerInvoiceNumber(pool, order);
+    } catch (invErr) {
+      console.error('Could not generate or fetch customer invoice number:', invErr);
+      // Fallback invoice number (will not block invoice rendering)
+      invoiceNumber = `PR-NA-0000`;
+    }
     const normalizedOrderNumber = buildOrderNumberFromOrder(order);
     order.order_number = normalizedOrderNumber;
 

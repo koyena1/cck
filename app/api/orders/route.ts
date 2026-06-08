@@ -3,6 +3,7 @@ import { getPool } from '@/lib/db';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { notifyNewOrderPlaced } from '@/lib/portal-notifications';
 import { ensureOrderTaskAcceptanceColumns } from '@/lib/order-task-acceptance';
+import { buildPaymentBreakdown } from '@/lib/payment-breakdown';
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
       state,
       pinCode,
       landmark,
+      gstNumber,
       products,
       productsTotal,
       withInstallation,
@@ -25,6 +27,7 @@ export async function POST(request: Request) {
       withAmc,
       amcDetails,
       amcCost,
+      taxAmount,
       totalAmount,
       paymentMethod,
       status,
@@ -33,6 +36,53 @@ export async function POST(request: Request) {
       referralDiscount,
       pointsRedeemed,
     } = orderData;
+    const subtotal = productsTotal;
+
+    let customerGstinColumn: string | null = null;
+    try {
+      const customerGstinColumnsResult = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name IN ('customer_gstin', 'gst_number')`
+      );
+      customerGstinColumn = customerGstinColumnsResult.rows[0]?.column_name || null;
+
+      if (!customerGstinColumn) {
+        await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_gstin VARCHAR(50)`);
+        customerGstinColumn = 'customer_gstin';
+      }
+    } catch (schemaError) {
+      console.log('Could not ensure customer_gstin column exists:', schemaError);
+    }
+
+    let orderItemsHsnColumn: string | null = null;
+    try {
+      const orderItemsHsnResult = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'order_items' AND column_name = 'hsn_code'`
+      );
+      orderItemsHsnColumn = orderItemsHsnResult.rows[0]?.column_name || null;
+
+      if (!orderItemsHsnColumn) {
+        await pool.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(50)`);
+        orderItemsHsnColumn = 'hsn_code';
+      }
+    } catch (schemaError) {
+      console.log('Could not ensure order_items.hsn_code column exists:', schemaError);
+    }
+
+    const settingsForTotalsResult = await pool.query(
+      'SELECT cod_advance_amount FROM installation_settings LIMIT 1'
+    );
+    const computedPaymentBreakdown = buildPaymentBreakdown({
+      productsTotal,
+      subtotal,
+      installationCharges: installationCost,
+      amcCharges: amcCost,
+      totalAmount,
+      paymentMethod,
+      codFlatAmount: settingsForTotalsResult.rows[0]?.cod_advance_amount,
+      referralDiscount,
+      pointsRedeemed,
+    });
+    const computedGrandTotal = computedPaymentBreakdown.totalAmount;
 
     // Start transaction
     await pool.query('BEGIN');
@@ -96,42 +146,43 @@ export async function POST(request: Request) {
 
       // Insert order - with or without referral columns based on what exists
       let query, values;
-      
-      if (referralColumnsExist) {
-        // Include referral columns
-        query = `
-          INSERT INTO orders (
-            customer_name,
-            customer_phone,
-            customer_email,
-            order_type,
-            installation_address,
-            pincode,
-            city,
-            state,
-            landmark,
-            products,
-            products_total,
-            includes_installation,
-            installation_charges,
-            with_amc,
-            amc_details,
-            amc_cost,
-            total_amount,
-            payment_method,
-            payment_status,
-            status,
-            referral_code_used,
-            referral_discount,
-            points_redeemed,
-            is_first_order,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW())
-          RETURNING *
-        `;
 
-        values = [
+      const appendGstinColumn = (columns: string[], params: any[]) => {
+        if (customerGstinColumn) {
+          columns.push(customerGstinColumn);
+          params.push(gstNumber || null);
+        }
+      };
+
+      if (referralColumnsExist) {
+        const orderColumns = [
+          'customer_name',
+          'customer_phone',
+          'customer_email',
+          'order_type',
+          'installation_address',
+          'pincode',
+          'city',
+          'state',
+          'landmark',
+          'products',
+          'products_total',
+          'includes_installation',
+          'installation_charges',
+          'with_amc',
+          'amc_details',
+          'amc_cost',
+          'total_amount',
+          'payment_method',
+          'payment_status',
+          'status',
+          'referral_code_used',
+          'referral_discount',
+          'points_redeemed',
+          'is_first_order',
+        ];
+
+        const orderValues = [
           customerName,
           phone,
           email,
@@ -148,7 +199,7 @@ export async function POST(request: Request) {
           withAmc || false,
           amcDetails ? JSON.stringify(amcDetails) : null,
           amcCost || 0,
-          totalAmount,
+          computedGrandTotal,
           paymentMethod,
           paymentMethod === 'cod' ? 'Pending' : 'Pending',
           status || 'Pending',
@@ -157,37 +208,41 @@ export async function POST(request: Request) {
           pointsRedeemed || 0,
           isFirstOrder,
         ];
-      } else {
-        // Exclude referral columns for backward compatibility
+
+        appendGstinColumn(orderColumns, orderValues);
+        const placeholders = orderColumns.map((_, index) => `$${index + 1}`).join(', ');
+
         query = `
           INSERT INTO orders (
-            customer_name,
-            customer_phone,
-            customer_email,
-            order_type,
-            installation_address,
-            pincode,
-            city,
-            state,
-            landmark,
-            products,
-            products_total,
-            includes_installation,
-            installation_charges,
-            with_amc,
-            amc_details,
-            amc_cost,
-            total_amount,
-            payment_method,
-            payment_status,
-            status,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW())
-          RETURNING *
+            ${orderColumns.join(', ')}
+          ) VALUES (${placeholders}) RETURNING *
         `;
+        values = orderValues;
+      } else {
+        const orderColumns = [
+          'customer_name',
+          'customer_phone',
+          'customer_email',
+          'order_type',
+          'installation_address',
+          'pincode',
+          'city',
+          'state',
+          'landmark',
+          'products',
+          'products_total',
+          'includes_installation',
+          'installation_charges',
+          'with_amc',
+          'amc_details',
+          'amc_cost',
+          'total_amount',
+          'payment_method',
+          'payment_status',
+          'status',
+        ];
 
-        values = [
+        const orderValues = [
           customerName,
           phone,
           email,
@@ -204,11 +259,21 @@ export async function POST(request: Request) {
           withAmc || false,
           amcDetails ? JSON.stringify(amcDetails) : null,
           amcCost || 0,
-          totalAmount,
+          computedGrandTotal,
           paymentMethod,
           paymentMethod === 'cod' ? 'Pending' : 'Pending',
           status || 'Pending',
         ];
+
+        appendGstinColumn(orderColumns, orderValues);
+        const placeholders = orderColumns.map((_, index) => `$${index + 1}`).join(', ');
+
+        query = `
+          INSERT INTO orders (
+            ${orderColumns.join(', ')}
+          ) VALUES (${placeholders}) RETURNING *
+        `;
+        values = orderValues;
       }
 
       const result = await pool.query(query, values);
@@ -222,19 +287,12 @@ export async function POST(request: Request) {
         const additionalCharges = (withInstallation ? (installationCost || 0) : 0) + (withAmc ? (amcCost || 0) : 0);
         const totalProducts = productsList.length || 1;
         
-        // When installation or AMC is included, add those costs to the product price
-        // so the invoice shows a single line item with the combined total
         for (const p of productsList) {
           const qty = p.quantity || 1;
-          
-          // Calculate the share of additional charges for this product
           const additionalPerProduct = additionalCharges / totalProducts;
-          
-          // Combined unit price includes product price + share of installation/AMC
           const combinedUnitPrice = p.price + (additionalPerProduct / qty);
           const combinedTotalPrice = (p.price * qty) + additionalPerProduct;
-          
-          // Build product name with indication of what's included
+
           let productName = p.name;
           const inclusions = [];
           if (withInstallation) inclusions.push('Installation');
@@ -242,22 +300,53 @@ export async function POST(request: Request) {
           if (inclusions.length > 0) {
             productName = `${p.name} (with ${inclusions.join(' + ')})`;
           }
-          
+
+          let productIdValue: any = p.product_id ?? p.productId ?? null;
+          if (!productIdValue && typeof p.id === 'string') {
+            if (/^PIC(\d+)$/i.test(p.id)) {
+              productIdValue = Number(RegExp.$1);
+            } else if (/^\d+$/.test(p.id)) {
+              productIdValue = Number(p.id);
+            }
+          }
+          if (typeof productIdValue === 'string' && /^\d+$/.test(productIdValue)) {
+            productIdValue = Number(productIdValue);
+          }
+
+          let itemHsnCode: string | null = null;
+          if (productIdValue != null) {
+            try {
+              const productLookup = await pool.query(
+                'SELECT product_code, hsn_code FROM dealer_products WHERE id = $1 LIMIT 1',
+                [productIdValue]
+              );
+              itemHsnCode = productLookup.rows[0]?.hsn_code || null;
+            } catch (lookupError) {
+              console.log('Could not lookup HSN for product in order_items:', lookupError);
+            }
+          }
+
+          const itemColumns = ['order_id', 'product_id', 'item_name', 'quantity', 'unit_price', 'total_price', 'item_type'];
+          const itemValues = [createdOrder.order_id, productIdValue, productName, qty, combinedUnitPrice, combinedTotalPrice, 'Product'];
+
+          if (orderItemsHsnColumn) {
+            itemColumns.push(orderItemsHsnColumn);
+            itemValues.push(itemHsnCode);
+          }
+
+          const itemPlaceholders = itemColumns.map((_, index) => `$${index + 1}`).join(', ');
           await pool.query(
-            `INSERT INTO order_items (order_id, item_name, quantity, unit_price, total_price, item_type)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [createdOrder.order_id, productName, qty, combinedUnitPrice, combinedTotalPrice, 'Product']
+            `INSERT INTO order_items (${itemColumns.join(', ')}) VALUES (${itemPlaceholders})`,
+            itemValues
           );
         }
-        
-        // Note: We no longer insert separate rows for Installation or AMC
-        // They are now included in the product price above
       } catch (itemsError) {
         console.error('Non-blocking error inserting order_items:', itemsError);
       }
 
       // Commit transaction
       await pool.query('COMMIT');
+      let responseOrderNumber = createdOrder.order_number;
 
       // 🚀 TRIGGER ORDER ALLOCATION TO NEAREST DEALER
       try {
@@ -292,13 +381,14 @@ export async function POST(request: Request) {
           [createdOrder.order_id]
         );
         const notifyOrder = notifyOrderResult.rows[0] || createdOrder;
+        responseOrderNumber = notifyOrder.order_number || createdOrder.order_number;
         await notifyNewOrderPlaced({
           orderId: createdOrder.order_id,
-          orderNumber: notifyOrder.order_number || createdOrder.order_number,
+          orderNumber: responseOrderNumber,
           customerName,
           city: notifyOrder.city || city || null,
           pincode: notifyOrder.pincode || pinCode || null,
-          totalAmount,
+          totalAmount: computedGrandTotal,
           district: notifyOrder.dealer_district || null,
         });
       } catch (notifyErr) {
@@ -329,7 +419,9 @@ export async function POST(request: Request) {
               WHERE o.order_id = $1
             `, [createdOrder.order_id]),
             pool.query(
-              `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type, COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code
+              `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type,
+                      COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code,
+                      COALESCE(oi.hsn_code, to_jsonb(dp)->>'hsn_code') AS hsn_code
                FROM order_items oi
                LEFT JOIN dealer_products dp ON dp.id = oi.product_id
                WHERE oi.order_id = $1
@@ -347,10 +439,7 @@ export async function POST(request: Request) {
           const actualOrderNumber = refreshedOrder.order_number || createdOrder.order_number;
           const actualOrderToken  = refreshedOrder.order_token  || createdOrder.order_token;
 
-          // Customer-facing order number (strip dealer UID suffix like -101)
-          const customerOrderNumber = /^PR-\d{6}-\d+-\d+$/.test(actualOrderNumber)
-            ? actualOrderNumber.replace(/-\d+$/, '')
-            : actualOrderNumber;
+          const customerOrderNumber = actualOrderNumber;
 
           const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${actualOrderToken}`;
           const normalizedPaymentStatus = String(refreshedOrder.payment_status || '').toLowerCase();
@@ -364,7 +453,7 @@ export async function POST(request: Request) {
               orderToken: actualOrderToken,
               customerName,
               customerEmail: email,
-              totalAmount,
+              totalAmount: computedGrandTotal,
               paymentMethod,
               paymentStatus: refreshedOrder.payment_status || 'Pending',
               orderDate: refreshedOrder.created_at || new Date().toISOString(),
@@ -393,7 +482,11 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        order: createdOrder,
+        order: {
+          ...createdOrder,
+          order_number: responseOrderNumber || createdOrder.order_number,
+          total_amount: computedGrandTotal,
+        },
       });
     } catch (err) {
       await pool.query('ROLLBACK');

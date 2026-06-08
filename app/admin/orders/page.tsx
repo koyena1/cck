@@ -123,9 +123,7 @@ function ViewDetailsModal({
       y = 48;
 
       // Strip dealer UID suffix (e.g. PR-090326-008-101 → PR-090326-008)
-      const customerOrderNo = /^PR-\d{6}-\d+-\d+$/.test(o.order_number)
-        ? o.order_number.replace(/-\d+$/, '')
-        : o.order_number;
+      const customerOrderNo = o.order_number;
 
       doc.setTextColor(15, 23, 42);
       doc.setFontSize(9);

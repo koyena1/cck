@@ -199,15 +199,6 @@ export function generateInvoicePDFBuffer(
       yRight += 4.5;
     }
 
-    const customerGSTIN = order.customer_gstin || order.gstin || '';
-    if (customerGSTIN) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('GST No.:', col2, yRight);
-      doc.setFont('helvetica', 'normal');
-      doc.text(` ${customerGSTIN}`, col2 + 16, yRight);
-      yRight += 4.5;
-    }
-
     const customerPhone = order.customer_phone || order.phone || '';
     if (customerPhone) {
       doc.setFont('helvetica', 'bold');
@@ -216,6 +207,13 @@ export function generateInvoicePDFBuffer(
       doc.text(` ${customerPhone}`, col2 + 13, yRight);
       yRight += 4.5;
     }
+
+    const customerGSTIN = order.customer_gstin || order.gst_number || order.gstNumber || order.gstin || order.gstin_number || '';
+    doc.setFont('helvetica', 'bold');
+    doc.text('GST Number:', col2, yRight);
+    doc.setFont('helvetica', 'normal');
+    doc.text(` ${customerGSTIN || '-'}`, col2 + 22, yRight);
+    yRight += 4.5;
 
     y = Math.max(yLeft, yRight) + 3;
 
@@ -277,11 +275,12 @@ export function generateInvoicePDFBuffer(
       
       const fallbackSource = (item.product_id ?? (item as any).item_id ?? (item as any).id ?? (idx + 1));
       const productUniqueId = item.product_code || `PIC${String(fallbackSource).padStart(3, '0')}`;
+      const itemHSN = item.hsn_code || (item as any).hsn || (item as any).hsnCode || '-';
       doc.text(String(idx + 1), colSNo, y + 4);
       doc.text(String(productUniqueId), colProductId, y + 4);
       const nameLines = doc.splitTextToSize(item.item_name, 32);
       doc.text(nameLines[0], colDesc, y + 4);
-      doc.text(String(item.hsn_code || ''), colHsn, y + 4);
+      doc.text(String(itemHSN), colHsn, y + 4);
       doc.text(String(itemQty), colQty, y + 4);
       doc.text(`${itemUnitPrice.toFixed(2)}`, colUPrice, y + 4);
       doc.text(`${itemTotal.toFixed(2)}`, colTotal, y + 4);

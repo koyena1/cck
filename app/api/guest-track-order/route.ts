@@ -29,12 +29,7 @@ export async function POST(request: Request) {
     const orderResult = await pool.query(
       `SELECT 
         o.order_id,
-        -- Strip dealer UID suffix only if present (PR-DDMMYY-SEQ-DEALERID → PR-DDMMYY-SEQ)
-        CASE
-          WHEN o.order_number ~ '^PR-[0-9]+-[0-9]+-[0-9]+$'
-            THEN REGEXP_REPLACE(o.order_number, '-[0-9]+$', '')
-          ELSE o.order_number
-        END AS order_number,
+        o.order_number,
         o.order_token,
         o.customer_name,
         o.customer_phone,
@@ -223,16 +218,16 @@ export async function POST(request: Request) {
       referralDiscount: order.referral_discount,
       pointsRedeemed: order.points_redeemed,
     });
+    const grandTotal = paymentBreakdown.totalAmount;
 
-    const totalAmount = parseFloat(String(order.total_amount || 0));
     const codPercentage = parseFloat(String(codSettings.cod_percentage || 0));
     const dbAdvanceAmount = parseFloat(String(order.advance_amount || 0));
-    const codAdvanceFromPercentage = codPercentage > 0 ? Math.round((totalAmount * codPercentage) / 100) : 0;
+    const codAdvanceFromPercentage = codPercentage > 0 ? Math.round((grandTotal * codPercentage) / 100) : 0;
     const amountAlreadyPaid = order.payment_method === 'cod'
       ? Math.max(dbAdvanceAmount, codAdvanceFromPercentage)
-      : (String(order.payment_status || '').toLowerCase() === 'paid' ? totalAmount : 0);
+      : (String(order.payment_status || '').toLowerCase() === 'paid' ? grandTotal : 0);
     const amountPendingOnDelivery = order.payment_method === 'cod'
-      ? Math.max(0, totalAmount - amountAlreadyPaid)
+      ? Math.max(0, grandTotal - amountAlreadyPaid)
       : 0;
 
     return NextResponse.json({
@@ -252,7 +247,7 @@ export async function POST(request: Request) {
           cod_extra_charges: paymentBreakdown.codExtraCharges,
           amount_already_paid: amountAlreadyPaid,
           amount_pending_on_delivery: amountPendingOnDelivery,
-          total_amount: paymentBreakdown.totalAmount,
+          total_amount: grandTotal,
         },
       }
     });
