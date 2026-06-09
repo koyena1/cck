@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       customerEmail,
       
       // Product/Order Details
+      products,
       productId,
       productName,
       productPrice,
@@ -230,26 +231,30 @@ export async function POST(request: Request) {
       // Build email items list in parallel with DB inserts (from known request values)
       const emailOrderItems: Array<{ item_name: string; quantity: number; unit_price: number; total_price: number; item_type: string; product_code?: string; hsn_code?: string }> = [];
 
-      // Insert order item with combined price when installation/AMC is included
-      if (productId || productName) {
-        // Calculate additional charges (installation + AMC)
+      const productsList = Array.isArray(products) && products.length > 0
+        ? products
+        : (productId || productName)
+          ? [{ id: productId, product_id: productId, name: productName || 'Custom Product', price: productPrice || (subtotal / quantity), quantity }]
+          : [];
+
+      if (productsList.length > 0) {
         const additionalCharges = (includesInstallation ? installationCharges : 0) + (includesAmc ? amcCharges : 0);
-        
-        // Combined unit price includes product + installation + AMC
-        const baseUnitPrice = productPrice || (subtotal / quantity);
-        const combinedLineTotal = subtotal + additionalCharges;
-        const combinedUnitPrice = combinedLineTotal / quantity;
-        
-        // Build product name with indication of what's included
-        let displayProductName = productName || 'Custom Product';
+        const additionalPerProduct = additionalCharges / productsList.length;
         const inclusions = [];
         if (includesInstallation) inclusions.push('Installation');
         if (includesAmc) inclusions.push('AMC');
-        if (inclusions.length > 0) {
-          displayProductName = `${displayProductName} (with ${inclusions.join(' + ')})`;
-        }
-        
-        let productIdValue: any = productId ?? null;
+
+        for (const product of productsList) {
+          const productQuantity = product.quantity || 1;
+          const productUnitPrice = parseFloat(String(product.price || product.productPrice || 0)) || 0;
+          const productBaseTotal = productUnitPrice * productQuantity;
+          const combinedLineTotal = productBaseTotal + additionalPerProduct;
+          const combinedUnitPrice = combinedLineTotal / productQuantity;
+          const displayProductName = inclusions.length > 0
+            ? `${product.name || productName || 'Custom Product'} (with ${inclusions.join(' + ')})`
+            : (product.name || productName || 'Custom Product');
+
+          let productIdValue: any = product.product_id ?? product.productId ?? productId ?? product.id ?? null;
         if (typeof productIdValue === 'string') {
           if (/^PIC(\d+)$/i.test(productIdValue)) {
             productIdValue = Number(RegExp.$1);
@@ -258,42 +263,45 @@ export async function POST(request: Request) {
           }
         }
 
-        let productCode: string | undefined;
-        let hsnCode: string | undefined;
-        if (productIdValue != null) {
-          const productCodeResult = await client.query(
-            'SELECT product_code, hsn_code FROM dealer_products WHERE id = $1',
-            [productIdValue]
+          let productCode: string | undefined = product.product_code;
+          let hsnCode: string | undefined = product.hsn_code || product.hsnCode;
+          if (productIdValue != null) {
+            const productCodeResult = await client.query(
+              `SELECT to_jsonb(dealer_products)->>'product_code' AS product_code,
+                      to_jsonb(dealer_products)->>'hsn_code' AS hsn_code
+               FROM dealer_products WHERE id = $1`,
+              [productIdValue]
+            );
+            productCode = productCodeResult.rows[0]?.product_code || productCode || `PIC${String(productIdValue).padStart(3, '0')}`;
+            hsnCode = productCodeResult.rows[0]?.hsn_code || hsnCode;
+          }
+
+          const itemColumns = ['order_id', 'product_id', 'item_type', 'item_name', 'quantity', 'unit_price', 'total_price'];
+          const itemValues = [order_id, productIdValue || null, 'Product', displayProductName, productQuantity, combinedUnitPrice, combinedLineTotal];
+
+          if (orderItemsHsnColumn) {
+            itemColumns.push(orderItemsHsnColumn);
+            itemValues.push(hsnCode || null);
+          }
+
+          const placeholderString = itemColumns.map((_, index) => `$${index + 1}`).join(', ');
+          await client.query(
+            `INSERT INTO order_items (
+              ${itemColumns.join(', ')}
+            ) VALUES (${placeholderString})`,
+            itemValues
           );
-          productCode = productCodeResult.rows[0]?.product_code || `PIC${String(productIdValue).padStart(3, '0')}`;
-          hsnCode = productCodeResult.rows[0]?.hsn_code || undefined;
+
+          emailOrderItems.push({
+            item_name: displayProductName,
+            quantity: productQuantity,
+            unit_price: combinedUnitPrice,
+            total_price: combinedLineTotal,
+            item_type: 'Product',
+            product_code: productCode,
+            hsn_code: hsnCode,
+          });
         }
-
-        const itemColumns = ['order_id', 'product_id', 'item_type', 'item_name', 'quantity', 'unit_price', 'total_price'];
-        const itemValues = [order_id, productIdValue || null, 'Product', displayProductName, quantity, combinedUnitPrice, combinedLineTotal];
-
-        if (orderItemsHsnColumn) {
-          itemColumns.push(orderItemsHsnColumn);
-          itemValues.push(hsnCode || null);
-        }
-
-        const placeholderString = itemColumns.map((_, index) => `$${index + 1}`).join(', ');
-        await client.query(
-          `INSERT INTO order_items (
-            ${itemColumns.join(', ')}
-          ) VALUES (${placeholderString})`,
-          itemValues
-        );
-
-        emailOrderItems.push({ 
-          item_name: displayProductName, 
-          quantity, 
-          unit_price: combinedUnitPrice, 
-          total_price: combinedLineTotal, 
-          item_type: 'Product',
-          product_code: productCode,
-          hsn_code: hsnCode,
-        });
       }
 
       // Note: We no longer insert separate rows for Installation or AMC
@@ -359,7 +367,7 @@ export async function POST(request: Request) {
         pool.query('SELECT cod_advance_amount, cod_percentage FROM installation_settings LIMIT 1'),
         pool.query(
           `SELECT
-             oi.id as item_id,
+             COALESCE((to_jsonb(oi)->>'item_id')::int, (to_jsonb(oi)->>'id')::int, 0) as item_id,
              oi.product_id,
              oi.item_name,
              oi.quantity,
@@ -369,13 +377,13 @@ export async function POST(request: Request) {
              COALESCE(
                to_jsonb(dp)->>'product_code',
                CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END,
-               'PIC' || LPAD(oi.id::text, 3, '0')
+               'PIC' || LPAD(COALESCE(to_jsonb(oi)->>'item_id', to_jsonb(oi)->>'id', '0'), 3, '0')
              ) AS product_code,
              COALESCE(oi.hsn_code, to_jsonb(dp)->>'hsn_code') AS hsn_code
            FROM order_items oi
            LEFT JOIN dealer_products dp ON dp.id = oi.product_id
            WHERE oi.order_id = $1
-           ORDER BY oi.id`,
+           ORDER BY COALESCE((to_jsonb(oi)->>'item_id')::int, (to_jsonb(oi)->>'id')::int, 0)`,
           [order_id]
         ),
       ]);
@@ -421,13 +429,10 @@ export async function POST(request: Request) {
 
       const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order_token}`;
 
-      // Send order confirmation email only after successful payment.
-      // For pending online/COD flows, verify-payment route will send it post payment.
+      // Send order confirmation email as soon as the order is created.
       let emailSent = false;
-      const normalizedPaymentStatus = String(paymentStatus || '').toLowerCase();
-      const canSendPostPaymentEmail = normalizedPaymentStatus === 'paid' || normalizedPaymentStatus === 'advance paid';
 
-      if (customerEmail && canSendPostPaymentEmail) {
+      if (false && customerEmail) {
         try {
           console.log(`📧 Sending order confirmation email to ${customerEmail} for order ${customerOrderNumber}`);
 
@@ -438,7 +443,7 @@ export async function POST(request: Request) {
             customerEmail,
             totalAmount: computedGrandTotal,
             paymentMethod,
-            paymentStatus,
+            paymentStatus: orderDataForEmail.payment_status || paymentStatus || 'Pending',
             orderDate: new Date().toISOString(),
             trackingUrl,
             orderItems: canonicalOrderItems.length > 0 ? canonicalOrderItems : emailOrderItems,
@@ -472,8 +477,6 @@ export async function POST(request: Request) {
           console.error('Email sending error (non-blocking):', emailError);
           // Don't fail the order creation if email fails
         }
-      } else if (customerEmail && !canSendPostPaymentEmail) {
-        console.log(`⏭️ Skipping pre-payment confirmation email for order ${customerOrderNumber}; current payment status: ${paymentStatus}`);
       }
 
       return NextResponse.json({
@@ -509,3 +512,4 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 }
+

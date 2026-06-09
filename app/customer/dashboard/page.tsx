@@ -297,7 +297,7 @@ export default function CustomerDashboard() {
         doc.text(String(idx + 1), colSNo, y + 4);
         doc.text(String(productUniqueId), colProductId, y + 4);
         doc.text(doc.splitTextToSize(itemLabel, 32)[0], colDesc, y + 4);
-        doc.text(String(item.hsn_code || ''), colHsn, y + 4);
+        doc.text(String(item.hsn_code || item.hsn || item.hsnCode || '-'), colHsn, y + 4);
         doc.text(String(itemQty), colQty, y + 4);
         doc.text(`${itemUnitPrice.toFixed(2)}`, colUPrice, y + 4);
         doc.text(`${itemTotal.toFixed(2)}`, colTotal, y + 4);
@@ -592,7 +592,7 @@ export default function CustomerDashboard() {
 
         {/* Reward System Not Available Notice */}
         {!rewardSystemAvailable && (
-          <div className="bg-gradient-to-r from-purple-900 to-blue-900 border-2 border-purple-500 rounded-xl p-6 mb-8">
+          <div className="bg-linear-to-r from-purple-900 to-blue-900 border-2 border-purple-500 rounded-xl p-6 mb-8">
             <h3 className="text-xl font-bold text-white mb-3 flex items-center">
               <AlertCircle className="w-6 h-6 mr-2 text-yellow-400" />
               Reward System Not Activated
@@ -624,7 +624,7 @@ export default function CustomerDashboard() {
         {rewardSystemAvailable && rewardInfo && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* Reward Points Card */}
-            <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white shadow-xl">
+            <div className="bg-linear-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <Coins className="w-8 h-8" />
                 <span className="text-2xl font-bold">{rewardInfo.customer.rewardPoints}</span>
@@ -634,7 +634,7 @@ export default function CustomerDashboard() {
             </div>
 
             {/* Referrals Card */}
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-6 text-white shadow-xl">
+            <div className="bg-linear-to-br from-blue-500 to-purple-600 rounded-xl p-6 text-white shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <Award className="w-8 h-8" />
                 <span className="text-2xl font-bold">{rewardInfo.referralStats.successfulReferrals}</span>
@@ -644,7 +644,7 @@ export default function CustomerDashboard() {
             </div>
 
             {/* Total Earned Card */}
-            <div className="bg-gradient-to-br from-green-500 to-teal-600 rounded-xl p-6 text-white shadow-xl">
+            <div className="bg-linear-to-br from-green-500 to-teal-600 rounded-xl p-6 text-white shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <TrendingUp className="w-8 h-8" />
                 <span className="text-2xl font-bold">RS {rewardInfo.referralStats.totalEarnedFromReferrals}</span>
@@ -658,7 +658,7 @@ export default function CustomerDashboard() {
         {/* Simple Stats - Show if reward system is NOT available */}
         {!rewardSystemAvailable && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-6 text-white shadow-xl">
+            <div className="bg-linear-to-br from-blue-500 to-blue-700 rounded-xl p-6 text-white shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <ShoppingBag className="w-8 h-8" />
                 <span className="text-3xl font-bold">{orders.length}</span>
@@ -667,7 +667,7 @@ export default function CustomerDashboard() {
               <p className="text-sm opacity-90">All time purchases</p>
             </div>
 
-            <div className="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white shadow-xl">
+            <div className="bg-linear-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <Package className="w-8 h-8" />
                 <span className="text-3xl font-bold">
@@ -678,7 +678,7 @@ export default function CustomerDashboard() {
               <p className="text-sm opacity-90">Awaiting processing</p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-500 to-teal-600 rounded-xl p-6 text-white shadow-xl">
+            <div className="bg-linear-to-br from-green-500 to-teal-600 rounded-xl p-6 text-white shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <Package className="w-8 h-8" />
                 <span className="text-3xl font-bold">
@@ -693,7 +693,7 @@ export default function CustomerDashboard() {
 
         {/* Mystery Box Section - Only if reward system is available */}
         {rewardSystemAvailable && rewardInfo?.customer.mysteryBoxAvailable && (
-          <div className="bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 rounded-xl p-8 mb-8 text-white shadow-2xl">
+          <div className="bg-linear-to-r from-pink-600 via-purple-600 to-indigo-600 rounded-xl p-8 mb-8 text-white shadow-2xl">
             <div className="flex flex-col md:flex-row items-center justify-between">
               <div className="flex items-center mb-4 md:mb-0">
                 <Gift className="w-16 h-16 mr-4 animate-bounce" />

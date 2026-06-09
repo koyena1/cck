@@ -105,12 +105,15 @@ export async function GET(
 
     // Order line items
     const orderItemsResult = await pool.query(`
-      SELECT oi.id, oi.order_id, COALESCE(oi.product_id, resolved_dp.id) AS product_id, ${productCodeSelect}, oi.item_type, oi.item_name, oi.quantity, oi.unit_price, oi.total_price
+      SELECT oi.id, oi.order_id, COALESCE(oi.product_id, resolved_dp.id) AS product_id, ${productCodeSelect},
+             COALESCE(oi.hsn_code, resolved_dp.hsn_code) AS hsn_code,
+             oi.item_type, oi.item_name, oi.quantity, oi.unit_price, oi.total_price
       FROM order_items oi
       LEFT JOIN LATERAL (
         SELECT
           dp.id,
-          to_jsonb(dp)->>'product_code' AS product_code
+          to_jsonb(dp)->>'product_code' AS product_code,
+          to_jsonb(dp)->>'hsn_code' AS hsn_code
         FROM dealer_products dp
         WHERE dp.id = oi.product_id
            OR (

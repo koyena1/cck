@@ -833,6 +833,7 @@ function BuyNowContent() {
           district,
           gstNumber,
           orderType: 'product',
+          products: cartItems,
           productName: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} Products`,
           productPrice: getProductsTotal() / (cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)),
           quantity: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
@@ -931,7 +932,7 @@ function BuyNowContent() {
         }
       } else {
         console.error('❌ Order failed:', result);
-        alert('Failed to place order. Please try again.');
+        alert(result.message || result.error || 'Failed to place order. Please try again.');
         return null;
       }
     } catch (error) {

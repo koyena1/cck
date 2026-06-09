@@ -391,7 +391,7 @@ export default function TrackOrderDetailPage() {
         doc.text(String(idx + 1), colSNo, y + 4);
         doc.text(String(productUniqueId), colProductId, y + 4);
         doc.text(doc.splitTextToSize(itemLabel, 32)[0], colDesc, y + 4);
-        doc.text(String(item.hsn_code || ''), colHsn, y + 4);
+        doc.text(String(item.hsn_code || item.hsn || item.hsnCode || '-'), colHsn, y + 4);
         doc.text(String(itemQty), colQty, y + 4);
         doc.text(`${itemUnitPrice.toFixed(2)}`, colUPrice, y + 4);
         doc.text(`${itemTotal.toFixed(2)}`, colTotal, y + 4);

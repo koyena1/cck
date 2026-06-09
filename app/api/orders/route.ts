@@ -84,14 +84,16 @@ export async function POST(request: Request) {
     });
     const computedGrandTotal = computedPaymentBreakdown.totalAmount;
 
-    // Start transaction
-    await pool.query('BEGIN');
+    // Use a dedicated client so every statement in the transaction runs on the same connection.
+    const client = await pool.connect();
+    let clientReleased = false;
+    await client.query('BEGIN');
 
     try {
       // Check if referral columns exist in the database (for backward compatibility)
       let referralColumnsExist = false;
       try {
-        const columnCheck = await pool.query(`
+        const columnCheck = await client.query(`
           SELECT column_name 
           FROM information_schema.columns 
           WHERE table_name = 'orders' 
@@ -104,8 +106,8 @@ export async function POST(request: Request) {
 
       // Check if this is the first order for this customer
       let isFirstOrder = false;
-      if (email) {
-        const orderCountResult = await pool.query(
+      if (false && email) {
+        const orderCountResult = await client.query(
           'SELECT COUNT(*) as order_count FROM orders WHERE customer_email = $1',
           [email]
         );
@@ -116,12 +118,12 @@ export async function POST(request: Request) {
       if (referralCode && email && isFirstOrder && referralColumnsExist) {
         try {
           // Get referrer and referred customer IDs
-          const referrerResult = await pool.query(
+          const referrerResult = await client.query(
             'SELECT customer_id FROM customers WHERE referral_id = $1',
             [referralCode]
           );
 
-          const referredResult = await pool.query(
+          const referredResult = await client.query(
             'SELECT customer_id FROM customers WHERE email = $1',
             [email]
           );
@@ -131,7 +133,7 @@ export async function POST(request: Request) {
             const referredId = referredResult.rows[0].customer_id;
 
             // Create pending referral transaction
-            await pool.query(
+            await client.query(
               `INSERT INTO referral_transactions 
               (referrer_customer_id, referred_customer_id, referral_code, referrer_reward, referred_discount, status)
               VALUES ($1, $2, $3, $4, $5, 'pending')`,
@@ -276,7 +278,7 @@ export async function POST(request: Request) {
         values = orderValues;
       }
 
-      const result = await pool.query(query, values);
+      const result = await client.query(query, values);
       const createdOrder = result.rows[0];
 
       // Insert individual order_items rows so downstream queries (verify-payment, email) can find them
@@ -316,8 +318,10 @@ export async function POST(request: Request) {
           let itemHsnCode: string | null = null;
           if (productIdValue != null) {
             try {
-              const productLookup = await pool.query(
-                'SELECT product_code, hsn_code FROM dealer_products WHERE id = $1 LIMIT 1',
+              const productLookup = await client.query(
+                `SELECT to_jsonb(dealer_products)->>'product_code' AS product_code,
+                        to_jsonb(dealer_products)->>'hsn_code' AS hsn_code
+                 FROM dealer_products WHERE id = $1 LIMIT 1`,
                 [productIdValue]
               );
               itemHsnCode = productLookup.rows[0]?.hsn_code || null;
@@ -335,7 +339,7 @@ export async function POST(request: Request) {
           }
 
           const itemPlaceholders = itemColumns.map((_, index) => `$${index + 1}`).join(', ');
-          await pool.query(
+          await client.query(
             `INSERT INTO order_items (${itemColumns.join(', ')}) VALUES (${itemPlaceholders})`,
             itemValues
           );
@@ -345,7 +349,9 @@ export async function POST(request: Request) {
       }
 
       // Commit transaction
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
+      client.release();
+      clientReleased = true;
       let responseOrderNumber = createdOrder.order_number;
 
       // 🚀 TRIGGER ORDER ALLOCATION TO NEAREST DEALER
@@ -420,12 +426,16 @@ export async function POST(request: Request) {
             `, [createdOrder.order_id]),
             pool.query(
               `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.item_type,
-                      COALESCE(to_jsonb(dp)->>'product_code', CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END, 'PIC' || LPAD(oi.item_id::text, 3, '0')) AS product_code,
+                      COALESCE(
+                        to_jsonb(dp)->>'product_code',
+                        CASE WHEN oi.product_id IS NOT NULL THEN 'PIC' || LPAD(oi.product_id::text, 3, '0') END,
+                        'PIC' || LPAD(COALESCE(to_jsonb(oi)->>'item_id', to_jsonb(oi)->>'id', '0'), 3, '0')
+                      ) AS product_code,
                       COALESCE(oi.hsn_code, to_jsonb(dp)->>'hsn_code') AS hsn_code
                FROM order_items oi
                LEFT JOIN dealer_products dp ON dp.id = oi.product_id
                WHERE oi.order_id = $1
-               ORDER BY oi.item_id`,
+               ORDER BY COALESCE((to_jsonb(oi)->>'item_id')::int, (to_jsonb(oi)->>'id')::int, 0)`,
               [createdOrder.order_id]
             ),
             pool.query('SELECT cod_advance_amount, cod_percentage FROM installation_settings LIMIT 1'),
@@ -442,38 +452,38 @@ export async function POST(request: Request) {
           const customerOrderNumber = actualOrderNumber;
 
           const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${actualOrderToken}`;
-          const normalizedPaymentStatus = String(refreshedOrder.payment_status || '').toLowerCase();
-          const canSendPostPaymentEmail = normalizedPaymentStatus === 'paid' || normalizedPaymentStatus === 'advance paid';
+          const emailSent = await sendOrderConfirmationEmail({
+            orderNumber: customerOrderNumber,
+            orderToken: actualOrderToken,
+            customerName,
+            customerEmail: email,
+            totalAmount: computedGrandTotal,
+            paymentMethod,
+            paymentStatus: refreshedOrder.payment_status || 'Pending',
+            orderDate: refreshedOrder.created_at || new Date().toISOString(),
+            trackingUrl,
+            orderItems: orderItemsResult.rows,
+            fullOrderData: refreshedOrder,
+          });
 
-          if (!canSendPostPaymentEmail) {
-            console.log(`⏭️ Skipping pre-payment confirmation email for order ${customerOrderNumber}; current payment status: ${refreshedOrder.payment_status}`);
-          } else {
-            const emailSent = await sendOrderConfirmationEmail({
-              orderNumber: customerOrderNumber,
-              orderToken: actualOrderToken,
-              customerName,
-              customerEmail: email,
-              totalAmount: computedGrandTotal,
-              paymentMethod,
-              paymentStatus: refreshedOrder.payment_status || 'Pending',
-              orderDate: refreshedOrder.created_at || new Date().toISOString(),
-              trackingUrl,
-              orderItems: orderItemsResult.rows,
-              fullOrderData: refreshedOrder,
-            });
+          await pool.query(
+            `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              createdOrder.order_id,
+              email,
+              'order_confirmation',
+              `Order Confirmation - ${customerOrderNumber}`,
+              emailSent ? 'sent' : 'failed',
+              emailSent ? new Date() : null,
+            ]
+          );
 
-            if (emailSent) {
-              const pool2 = getPool();
-              await pool2.query(
-                `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [createdOrder.order_id, email, 'order_confirmation', `Order Confirmation - ${customerOrderNumber}`, 'sent', new Date()]
-              );
-              await pool2.query(
-                'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
-                [createdOrder.order_id]
-              );
-            }
+          if (emailSent) {
+            await pool.query(
+              'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
+              [createdOrder.order_id]
+            );
           }
         } catch (emailError) {
           console.error('Order confirmation email error (non-blocking):', emailError);
@@ -489,7 +499,14 @@ export async function POST(request: Request) {
         },
       });
     } catch (err) {
-      await pool.query('ROLLBACK');
+      if (!clientReleased) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (rollbackError) {
+          console.error('Order transaction rollback failed:', rollbackError);
+        }
+        client.release();
+      }
       throw err;
     }
   } catch (error) {

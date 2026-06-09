@@ -97,7 +97,7 @@ export async function GET(
           END,
           'PIC' || LPAD(oi.id::text, 3, '0')
         ) AS product_code,
-        COALESCE(oi.hsn_code, resolved_dp.hsn_code) AS hsn_code,
+        COALESCE(oi.hsn_code, resolved_dp.hsn_code, category_hsn.hsn_code) AS hsn_code,
         oi.item_type,
         oi.item_name,
         oi.quantity,
@@ -118,6 +118,28 @@ export async function GET(
         ORDER BY CASE WHEN dp.id = oi.product_id THEN 0 ELSE 1 END, dp.id
         LIMIT 1
       ) resolved_dp ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT hsn_code
+        FROM (
+          SELECT hsn_code FROM hd_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM ip_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM wifi_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM sim_4g_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM solar_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM body_worn_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM hd_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          UNION ALL
+          SELECT hsn_code FROM ip_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+        ) matched
+        WHERE hsn_code IS NOT NULL AND hsn_code <> ''
+        LIMIT 1
+      ) category_hsn ON TRUE
       WHERE oi.order_id = $1
       ORDER BY oi.id ASC
     `, [orderId]);

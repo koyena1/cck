@@ -295,19 +295,18 @@ function ViewDetailsModal({
       doc.setFillColor(15, 23, 42);
       doc.rect(margin, y, pageW - 2 * margin, 7, 'F');
       doc.setTextColor(255, 255, 255);
-      const colSNo = margin + 2, colProductId = margin + 10, colDesc = margin + 36, colQty = margin + 65;
-      const colUnit = margin + 80, colUPrice = margin + 92, colTotal = margin + 110;
-      const colDisc = margin + 128, colGST = margin + 142;
-      const colSGST = margin + 158, colCGST = margin + 172;
+      const colSNo = margin + 2, colProductId = margin + 10, colDesc = margin + 36, colHsn = margin + 72, colQty = margin + 92;
+      const colUnit = margin + 102, colUPrice = margin + 113, colTotal = margin + 132;
+      const colGST = margin + 150, colSGST = margin + 163, colCGST = margin + 177;
       doc.setFontSize(7.5);
       doc.text('S.No', colSNo, y + 5);
       doc.text('Product Unique_ID', colProductId, y + 5);
       doc.text('Description', colDesc, y + 5);
+      doc.text('HSN Code', colHsn, y + 5);
       doc.text('Qty', colQty, y + 5);
       doc.text('Unit', colUnit, y + 5);
       doc.text('UnitPrice', colUPrice, y + 5);
       doc.text('Total', colTotal, y + 5);
-      doc.text('Discount', colDisc, y + 5);
       doc.text('GST%', colGST, y + 5);
       doc.text('SGST', colSGST, y + 5);
       doc.text('CGST', colCGST, y + 5);
@@ -323,22 +322,22 @@ function ViewDetailsModal({
         const itemTotal = parseFloat(item.total_price);
         const itemUnitPrice = parseFloat(item.unit_price);
         const itemQty = parseFloat(item.quantity);
-        const itemDiscount = 0; // Discount not tracked at item level currently
         const gstAmount = Math.round((itemTotal * 0.18) * 100) / 100;
         const sgstAmount = Math.round((gstAmount / 2) * 100) / 100;
         const cgstAmount = Math.round((gstAmount - sgstAmount) * 100) / 100;
         const fallbackSource = item.product_id ?? item.id ?? item.item_id ?? (idx + 1);
         const productUniqueId = item.product_code || `PIC${String(fallbackSource).padStart(3, '0')}`;
         const itemLabel = item.item_name;
+        const itemHsn = item.hsn_code || item.hsn || item.hsnCode || '-';
         
         doc.text(String(idx + 1), colSNo, y + 4);
         doc.text(String(productUniqueId), colProductId, y + 4);
         doc.text(doc.splitTextToSize(itemLabel, 50)[0], colDesc, y + 4);
+        doc.text(String(itemHsn), colHsn, y + 4);
         doc.text(String(itemQty), colQty, y + 4);
         doc.text('', colUnit, y + 4); // Unit column empty
         doc.text(`${itemUnitPrice.toFixed(2)}`, colUPrice, y + 4);
         doc.text(`${itemTotal.toFixed(2)}`, colTotal, y + 4);
-        doc.text(itemDiscount > 0 ? `${itemDiscount}%` : '', colDisc, y + 4);
         doc.text('18%', colGST, y + 4);
         doc.text(`${sgstAmount.toFixed(2)}`, colSGST, y + 4);
         doc.text(`${cgstAmount.toFixed(2)}`, colCGST, y + 4);
@@ -701,6 +700,25 @@ function ViewDetailsModal({
               ))}
             </div>
 
+            <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/40">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase text-yellow-700 dark:text-yellow-400">Customer Invoice</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Download the customer invoice with product IDs and HSN codes.
+                  </p>
+                </div>
+                <button
+                  onClick={handleDownloadInvoice}
+                  disabled={downloadingInvoice}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-yellow-500 px-4 py-2 text-xs font-black text-slate-900 transition-colors hover:bg-yellow-400 disabled:opacity-50"
+                >
+                  {downloadingInvoice ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  {downloadingInvoice ? 'Generating...' : 'Download Invoice'}
+                </button>
+              </div>
+            </div>
+
             {/* Order Items Table */}
             {orderItems && orderItems.length > 0 && (
               <div className="mt-4">
@@ -712,6 +730,7 @@ function ViewDetailsModal({
                     <thead>
                       <tr className="bg-slate-100 dark:bg-slate-800">
                         <th className="text-left px-3 py-2 text-[10px] font-black uppercase text-slate-500">Item</th>
+                        <th className="text-left px-3 py-2 text-[10px] font-black uppercase text-slate-500">HSN</th>
                         <th className="text-left px-3 py-2 text-[10px] font-black uppercase text-slate-500">Type</th>
                         <th className="text-center px-3 py-2 text-[10px] font-black uppercase text-slate-500">Qty</th>
                         <th className="text-right px-3 py-2 text-[10px] font-black uppercase text-slate-500">Unit Price</th>
@@ -725,6 +744,7 @@ function ViewDetailsModal({
                             {item.item_name}
                             {item.product_code && <div className="text-[11px] font-bold text-slate-500">{item.product_code}</div>}
                           </td>
+                          <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300 font-mono text-xs">{item.hsn_code || '—'}</td>
                           <td className="px-3 py-2.5">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
                               item.item_type === 'Product'
