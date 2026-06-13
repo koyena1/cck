@@ -129,6 +129,20 @@ type BusinessBestsellerSection = {
   products: BestsellerProduct[];
 };
 
+const mapBestsellerProduct = (product: any): BestsellerProduct => ({
+  id: Number(product.id) || 0,
+  product_name: product.product_name || '',
+  brand_name: product.brand_name || '',
+  base_price: Number(product.base_price) || 0,
+  original_price: product.original_price !== null ? Number(product.original_price) || null : null,
+  price_note: product.price_note || '',
+  image: product.image || '/pdt.png',
+  product_description: product.product_description || '',
+  product_specifications: product.product_specifications || '',
+  segment: product.segment || 'CCTV',
+  sold: Number(product.sold) || 0,
+});
+
 export default function HomePage() {
   const router = useRouter();
   const { addToCart, setIsCartOpen } = useCart();
@@ -295,6 +309,8 @@ export default function HomePage() {
   const [canScrollCategoryRight, setCanScrollCategoryRight] = useState(false);
   const bestsellerScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [bestsellerArrowState, setBestsellerArrowState] = useState<Record<string, { left: boolean; right: boolean }>>({});
+  const [bestsellerSearchTerms, setBestsellerSearchTerms] = useState<Record<string, string>>({});
+  const [searchingBestsellerSections, setSearchingBestsellerSections] = useState<Record<string, boolean>>({});
 
   // Initialize with fallback tech types
   const getInitialTechTypes = () => {
@@ -417,19 +433,7 @@ export default function HomePage() {
             business_key: section.business_key || '',
             business_name: section.business_name || 'Bestseller',
             products: Array.isArray(section.products)
-              ? section.products.map((product: any) => ({
-                  id: Number(product.id) || 0,
-                  product_name: product.product_name || '',
-                  brand_name: product.brand_name || '',
-                  base_price: Number(product.base_price) || 0,
-                  original_price: product.original_price !== null ? Number(product.original_price) || null : null,
-                  price_note: product.price_note || '',
-                  image: product.image || '/pdt.png',
-                  product_description: product.product_description || '',
-                  product_specifications: product.product_specifications || '',
-                  segment: product.segment || 'CCTV',
-                  sold: Number(product.sold) || 0,
-                }))
+              ? section.products.map(mapBestsellerProduct)
               : [],
           }));
 
@@ -520,6 +524,42 @@ export default function HomePage() {
     router.push(
       `/buy-now?productId=${product.id}&productName=${encodeURIComponent(product.product_name)}&price=${Number(product.base_price) || 0}`
     );
+  };
+
+  const handleBestsellerSegmentSearch = async (section: BusinessBestsellerSection) => {
+    const businessKey = section.business_key || 'best-seller';
+    const searchTerm = (bestsellerSearchTerms[businessKey] || '').trim();
+
+    try {
+      setSearchingBestsellerSections((prev) => ({ ...prev, [businessKey]: true }));
+
+      const params = new URLSearchParams({
+        business: businessKey,
+        limit: '10',
+      });
+
+      if (searchTerm) {
+        params.set('search', searchTerm);
+      }
+
+      const response = await fetch(`/api/bestseller-products?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success && Array.isArray(data.products)) {
+        const mappedProducts = data.products.map(mapBestsellerProduct);
+        setBusinessBestsellerSections((prev) =>
+          prev.map((item) =>
+            item.business_key === businessKey ? { ...item, products: mappedProducts } : item
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to search bestseller products:', error);
+    } finally {
+      setSearchingBestsellerSections((prev) => ({ ...prev, [businessKey]: false }));
+    }
   };
 
   useEffect(() => {
@@ -911,6 +951,9 @@ export default function HomePage() {
 
   const handleCOD = () => submitOrder('cod');
   const handleRazorpay = () => submitOrder('razorpay');
+  const bestSellerSectionForSearch = businessBestsellerSections.find(
+    (section) => section.business_key === 'best-seller'
+  );
 
   return (
     <div className="bg-white min-h-screen">
@@ -1049,13 +1092,48 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-wide">Best Sellers</h2>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/bestsellers')}
-              className="w-full sm:w-auto"
-            >
-              View All
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              {bestSellerSectionForSearch && (
+                <>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      value={bestsellerSearchTerms[bestSellerSectionForSearch.business_key] || ''}
+                      onChange={(event) =>
+                        setBestsellerSearchTerms((prev) => ({
+                          ...prev,
+                          [bestSellerSectionForSearch.business_key]: event.target.value,
+                        }))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          handleBestsellerSegmentSearch(bestSellerSectionForSearch);
+                        }
+                      }}
+                      placeholder="Search Best Sellers"
+                      className="h-10 pl-9"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleBestsellerSegmentSearch(bestSellerSectionForSearch)}
+                    disabled={!!searchingBestsellerSections[bestSellerSectionForSearch.business_key]}
+                    className="w-full sm:w-auto"
+                  >
+                    <Search className="w-4 h-4" />
+                    {searchingBestsellerSections[bestSellerSectionForSearch.business_key] ? 'Searching' : 'Search'}
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => router.push('/bestsellers')}
+                className="w-full sm:w-auto"
+              >
+                View All
+              </Button>
+            </div>
           </div>
 
           {loadingBestsellers ? (
@@ -1075,13 +1153,44 @@ export default function HomePage() {
                       <h3 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-wide">
                         {section.business_name}
                       </h3>
-                      <Button
-                        variant="outline"
-                        onClick={() => router.push(`/bestsellers?business=${section.business_key}`)}
-                        className="w-full sm:w-auto"
-                      >
-                        View All
-                      </Button>
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                          <Input
+                            value={bestsellerSearchTerms[section.business_key] || ''}
+                            onChange={(event) =>
+                              setBestsellerSearchTerms((prev) => ({
+                                ...prev,
+                                [section.business_key]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                handleBestsellerSegmentSearch(section);
+                              }
+                            }}
+                            placeholder={`Search ${section.business_name}`}
+                            className="h-10 pl-9"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleBestsellerSegmentSearch(section)}
+                          disabled={!!searchingBestsellerSections[section.business_key]}
+                          className="w-full sm:w-auto"
+                        >
+                          <Search className="w-4 h-4" />
+                          {searchingBestsellerSections[section.business_key] ? 'Searching' : 'Search'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push(`/bestsellers?business=${section.business_key}`)}
+                          className="w-full sm:w-auto"
+                        >
+                          View All
+                        </Button>
+                      </div>
                     </div>
                   )}
 

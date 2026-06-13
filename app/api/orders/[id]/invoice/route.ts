@@ -121,21 +121,21 @@ export async function GET(
       LEFT JOIN LATERAL (
         SELECT hsn_code
         FROM (
-          SELECT hsn_code FROM hd_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM hd_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM ip_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM ip_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM wifi_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM wifi_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM sim_4g_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM sim_4g_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM solar_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM solar_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM body_worn_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM body_worn_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM hd_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM hd_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
           UNION ALL
-          SELECT hsn_code FROM ip_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.item_name))
+          SELECT hsn_code FROM ip_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
         ) matched
         WHERE hsn_code IS NOT NULL AND hsn_code <> ''
         LIMIT 1

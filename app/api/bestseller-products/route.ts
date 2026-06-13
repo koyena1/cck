@@ -46,22 +46,45 @@ function getFallbackPatterns(businessKey: string | null) {
   return FALLBACK_SEGMENT_PATTERNS[businessKey] || [];
 }
 
-async function fetchFallbackProducts(pool: ReturnType<typeof getPool>, businessKey: string | null, limit: number) {
+async function fetchFallbackProducts(
+  pool: ReturnType<typeof getPool>,
+  businessKey: string | null,
+  limit: number,
+  searchPattern: string | null = null
+) {
   const patterns = getFallbackPatterns(businessKey);
   const hasPatterns = patterns.length > 0;
-  const businessParamIndex = hasPatterns ? 2 : 1;
-  const limitParamIndex = hasPatterns ? 3 : 2;
-  const params: any[] = hasPatterns
-    ? [patterns, businessKey || 'best-seller', limit]
-    : [businessKey || 'best-seller', limit];
-  const patternClause = hasPatterns
-    ? `
+  const params: any[] = [];
+  let patternClause = '';
+
+  if (hasPatterns) {
+    const patternParamIndex = params.push(patterns);
+    patternClause = `
       AND (
-        LOWER(COALESCE(dp.segment, '')) LIKE ANY($1::text[])
-        OR LOWER(COALESCE(dp.product_type, '')) LIKE ANY($1::text[])
+        LOWER(COALESCE(dp.segment, '')) LIKE ANY($${patternParamIndex}::text[])
+        OR LOWER(COALESCE(dp.product_type, '')) LIKE ANY($${patternParamIndex}::text[])
       )
-    `
-    : '';
+    `;
+  }
+
+  const businessParamIndex = params.push(businessKey || 'best-seller');
+
+  let searchClause = '';
+  if (searchPattern) {
+    const searchParamIndex = params.push(searchPattern);
+    searchClause = `
+      AND (
+        LOWER(COALESCE(dp.model_number, '')) LIKE $${searchParamIndex}
+        OR LOWER(COALESCE(dp.company, '')) LIKE $${searchParamIndex}
+        OR LOWER(COALESCE(dp.segment, '')) LIKE $${searchParamIndex}
+        OR LOWER(COALESCE(dp.product_type, '')) LIKE $${searchParamIndex}
+        OR LOWER(COALESCE(dp.description, '')) LIKE $${searchParamIndex}
+        OR LOWER(COALESCE(dp.specifications, '')) LIKE $${searchParamIndex}
+      )
+    `;
+  }
+
+  const limitParamIndex = params.push(limit);
 
   const sql = `
     WITH order_sales AS (
@@ -105,6 +128,7 @@ async function fetchFallbackProducts(pool: ReturnType<typeof getPool>, businessK
     LEFT JOIN inventory_sales inv ON inv.product_id = dp.id
     WHERE dp.is_active = true
     ${patternClause}
+    ${searchClause}
     ORDER BY sold DESC, dp.model_number ASC
     LIMIT $${limitParamIndex}
   `;
@@ -233,6 +257,8 @@ export async function GET(request: NextRequest) {
     const grouped = request.nextUrl.searchParams.get('grouped') === 'true';
     const businessParam = request.nextUrl.searchParams.get('business');
     const businessFilter = businessParam ? normalizeBusinessKey(businessParam) : null;
+    const searchTerm = (request.nextUrl.searchParams.get('search') || '').trim();
+    const searchPattern = searchTerm ? `%${searchTerm.toLowerCase()}%` : null;
     const fetchAll = request.nextUrl.searchParams.get('all') === 'true';
     const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '10', 10);
     const limit = fetchAll
@@ -433,10 +459,19 @@ export async function GET(request: NextRequest) {
           WHERE hb.is_active = true
             AND dp.is_active = true
             AND ($2::text IS NULL OR hb.business_name = $2)
+            AND (
+              $3::text IS NULL
+              OR LOWER(COALESCE(dp.model_number, '')) LIKE $3
+              OR LOWER(COALESCE(dp.company, '')) LIKE $3
+              OR LOWER(COALESCE(dp.segment, '')) LIKE $3
+              OR LOWER(COALESCE(dp.product_type, '')) LIKE $3
+              OR LOWER(COALESCE(dp.description, '')) LIKE $3
+              OR LOWER(COALESCE(dp.specifications, '')) LIKE $3
+            )
           ORDER BY sold DESC, hb.display_order ASC, dp.model_number ASC
           LIMIT $1
         `,
-        [limit, businessFilter]
+        [limit, businessFilter, searchPattern]
       );
     } catch (error) {
       console.error('Bestseller query failed, falling back to manual sold only:', error);
@@ -465,15 +500,24 @@ export async function GET(request: NextRequest) {
           WHERE hb.is_active = true
             AND dp.is_active = true
             AND ($2::text IS NULL OR hb.business_name = $2)
+            AND (
+              $3::text IS NULL
+              OR LOWER(COALESCE(dp.model_number, '')) LIKE $3
+              OR LOWER(COALESCE(dp.company, '')) LIKE $3
+              OR LOWER(COALESCE(dp.segment, '')) LIKE $3
+              OR LOWER(COALESCE(dp.product_type, '')) LIKE $3
+              OR LOWER(COALESCE(dp.description, '')) LIKE $3
+              OR LOWER(COALESCE(dp.specifications, '')) LIKE $3
+            )
           ORDER BY sold DESC, hb.display_order ASC, dp.model_number ASC
           LIMIT $1
         `,
-        [limit, businessFilter]
+        [limit, businessFilter, searchPattern]
       );
     }
 
     if (result.rows.length === 0) {
-      const fallbackResult = await fetchFallbackProducts(pool, businessFilter, limit);
+      const fallbackResult = await fetchFallbackProducts(pool, businessFilter, limit, searchPattern);
       return NextResponse.json({ success: true, products: fallbackResult.rows, business: businessFilter });
     }
 

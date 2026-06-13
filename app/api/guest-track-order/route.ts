@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     const isNumericOrderId = Number.isInteger(numericOrderId) && numericOrderId > 0;
     const normalizedOrderNumber = searchValue.toUpperCase();
 
-    // Allow guest search by token, numeric order_id, or order_number
+    // Allow tokenized email links for any customer order, while keeping
+    // numeric/order-number lookup scoped to guest orders.
     const orderResult = await pool.query(
       `SELECT 
         o.order_id,
@@ -59,17 +60,21 @@ export async function POST(request: Request) {
         o.created_at,
         o.updated_at
       FROM orders o
-      WHERE o.is_guest_order = true
-        AND (
+      WHERE (
           o.order_token = $1
-          OR ($2::int IS NOT NULL AND o.order_id = $2)
-          OR UPPER(o.order_number) = $3
           OR (
-            o.order_number ~ '^PR-[0-9]+-[0-9]+-[0-9]+$'
-            AND UPPER(REGEXP_REPLACE(o.order_number, '-[0-9]+$', '')) = $3
+            o.is_guest_order = true
+            AND (
+              ($2::int IS NOT NULL AND o.order_id = $2)
+              OR UPPER(o.order_number) = $3
+              OR (
+                o.order_number ~ '^PR-[0-9]+-[0-9]+-[0-9]+$'
+                AND UPPER(REGEXP_REPLACE(o.order_number, '-[0-9]+$', '')) = $3
+              )
+            )
           )
         )
-      ORDER BY o.created_at DESC
+      ORDER BY CASE WHEN o.order_token = $1 THEN 0 ELSE 1 END, o.created_at DESC
       LIMIT 1`,
       [searchValue, isNumericOrderId ? numericOrderId : null, normalizedOrderNumber]
     );
@@ -100,6 +105,7 @@ export async function POST(request: Request) {
           END,
           'PIC' || LPAD(oi.id::text, 3, '0')
         ) AS product_code,
+        COALESCE(oi.hsn_code, resolved_dp.hsn_code, category_hsn.hsn_code) AS hsn_code,
         oi.item_type,
         oi.item_name,
         oi.quantity,
@@ -109,7 +115,8 @@ export async function POST(request: Request) {
       LEFT JOIN LATERAL (
         SELECT
           dp.id,
-          to_jsonb(dp)->>'product_code' AS product_code
+          to_jsonb(dp)->>'product_code' AS product_code,
+          to_jsonb(dp)->>'hsn_code' AS hsn_code
         FROM dealer_products dp
         WHERE dp.id = oi.product_id
            OR (
@@ -119,6 +126,28 @@ export async function POST(request: Request) {
         ORDER BY CASE WHEN dp.id = oi.product_id THEN 0 ELSE 1 END, dp.id
         LIMIT 1
       ) resolved_dp ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT hsn_code
+        FROM (
+          SELECT hsn_code FROM hd_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM ip_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM wifi_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM sim_4g_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM solar_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM body_worn_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM hd_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM ip_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+        ) matched
+        WHERE hsn_code IS NOT NULL AND hsn_code <> ''
+        LIMIT 1
+      ) category_hsn ON TRUE
       WHERE order_id = $1
       ORDER BY oi.id`,
       [order.order_id]

@@ -30,7 +30,6 @@ export function CODAdvanceDialog({
   const autoOpenDelayMs = 5000;
 
   useEffect(() => {
-    // Load Razorpay script if not already loaded
     if (typeof window !== 'undefined' && !(window as any).Razorpay) {
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -39,12 +38,10 @@ export function CODAdvanceDialog({
     }
   }, []);
 
-  // Auto-trigger payment when dialog opens
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     if (isOpen && !paymentTriggered && orderNumber) {
-      // Keep the dialog visible before auto-opening the gateway.
       timer = setTimeout(() => {
         setPaymentTriggered(true);
         handlePayAdvance();
@@ -65,7 +62,6 @@ export function CODAdvanceDialog({
     setProcessing(true);
 
     try {
-      // Check if Razorpay script is loaded
       if (typeof window === 'undefined' || !(window as any).Razorpay) {
         console.error('Razorpay script not loaded');
         alert('Payment system is loading. Please wait a moment and try again.');
@@ -78,7 +74,7 @@ export function CODAdvanceDialog({
       console.log('Amount:', advanceAmount);
       console.log('Order Number:', orderNumber);
 
-      // Create Razorpay order for advance payment
+      // Revert receipt to original format (with _ADVANCE suffix) as backend likely expects it
       const razorpayResponse = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,7 +102,6 @@ export function CODAdvanceDialog({
 
       console.log('🚀 Opening Razorpay payment gateway...');
 
-      // Production mode: Use real Razorpay
       if (!razorpayData.keyId) {
         alert('Razorpay key is missing. Please configure NEXT_PUBLIC_RAZORPAY_KEY_ID.');
         setProcessing(false);
@@ -123,7 +118,8 @@ export function CODAdvanceDialog({
         order_id: razorpayData.orderId,
         handler: async function (response: any) {
           console.log('✅ Payment successful, verifying...');
-          // Verify payment
+          console.log('📦 Payment response from Razorpay:', response);
+
           const verifyResponse = await fetch('/api/razorpay/verify-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -136,14 +132,20 @@ export function CODAdvanceDialog({
           });
 
           const verifyData = await verifyResponse.json();
+          // 🔍 Detailed logging – this will show exactly why verification fails
+          console.log('🔍 Verification API full response:', verifyData);
+          console.log('🔍 Verification success flag:', verifyData.success);
+          console.log('🔍 Verification error message:', verifyData.error);
 
           if (verifyData.success) {
             console.log('✅ Payment verified successfully');
             setProcessing(false);
             onPaymentSuccess();
           } else {
-            console.error('❌ Payment verification failed');
-            alert('Payment verification failed');
+            // Show the actual error from the backend
+            const errorMsg = verifyData.error || 'Unknown error from verification API';
+            console.error('❌ Payment verification failed:', errorMsg, verifyData);
+            alert(`Payment verification failed: ${errorMsg}`);
             setProcessing(false);
             setPaymentTriggered(false);
           }
@@ -183,7 +185,6 @@ export function CODAdvanceDialog({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
@@ -192,19 +193,16 @@ export function CODAdvanceDialog({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
             <CreditCard className="w-8 h-8 text-orange-600" />
           </div>
         </div>
 
-        {/* Title */}
         <h2 className="text-2xl font-bold text-slate-900 text-center mb-2">
           COD Advance Payment Required
         </h2>
 
-        {/* Description */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="flex gap-2">
             <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
@@ -215,7 +213,6 @@ export function CODAdvanceDialog({
           </div>
         </div>
 
-        {/* Payment Details */}
         <div className="bg-slate-50 rounded-lg p-4 mb-6 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Order Total:</span>
@@ -231,7 +228,6 @@ export function CODAdvanceDialog({
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="space-y-3">
           {!processing && !paymentTriggered && (
             <Button
@@ -263,7 +259,6 @@ export function CODAdvanceDialog({
           )}
         </div>
 
-        {/* Note */}
         <p className="text-xs text-slate-500 text-center mt-4">
           Secure payment powered by Razorpay. Your payment details are safe.
         </p>

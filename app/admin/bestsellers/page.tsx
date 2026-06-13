@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, FileSpreadsheet, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -61,6 +61,7 @@ const initialFormState: CreateFormState = {
 };
 
 export default function AdminBestsellersPage() {
+  const excelUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [activeBusiness, setActiveBusiness] = useState<string>(BEST_SELLER_SECTION.key);
   const [products, setProducts] = useState<AdminBestsellerProduct[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -75,6 +76,7 @@ export default function AdminBestsellersPage() {
   const [editFormState, setEditFormState] = useState<CreateFormState>(initialFormState);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
+  const [uploadingExcel, setUploadingExcel] = useState(false);
   const [searchText, setSearchText] = useState('');
 
   const fetchProducts = async () => {
@@ -128,6 +130,9 @@ export default function AdminBestsellersPage() {
       p.segment.toLowerCase().includes(q)
     );
   }, [products, searchText]);
+
+  const activeBusinessName = ALL_SECTIONS.find((item) => item.key === activeBusiness)?.name || BEST_SELLER_SECTION.name;
+  const excelSampleUrl = `/api/admin/bestseller-products?action=excel-sample&business=${encodeURIComponent(activeBusiness)}`;
 
   const toggleSelection = (productId: number) => {
     setSelectedIds((prev) =>
@@ -219,6 +224,47 @@ export default function AdminBestsellersPage() {
       alert('Failed to read selected image.');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleExcelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    const isExcelFile = /\.(xlsx|xls)$/i.test(file.name);
+    if (!isExcelFile) {
+      alert('Please select an Excel file.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('business', activeBusiness);
+
+    setUploadingExcel(true);
+    try {
+      const response = await fetch('/api/admin/bestseller-products', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        const rowErrors = Array.isArray(data.errors) && data.errors.length > 0
+          ? `\n\n${data.errors.slice(0, 10).join('\n')}`
+          : '';
+        throw new Error(`${data.error || 'Failed to upload Excel file'}${rowErrors}`);
+      }
+
+      await fetchProducts();
+      alert(`Uploaded ${data.uploaded} rows. Created ${data.created}, updated ${data.updated}, selected ${data.selectedCount} for ${activeBusinessName}.`);
+    } catch (error) {
+      console.error('Failed to upload bestseller Excel:', error);
+      alert(error instanceof Error ? error.message : 'Failed to upload Excel file.');
+    } finally {
+      setUploadingExcel(false);
     }
   };
 
@@ -387,16 +433,44 @@ export default function AdminBestsellersPage() {
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 sm:justify-end">
             <div className="text-sm text-slate-600 dark:text-slate-200 font-semibold">
-              {ALL_SECTIONS.find((item) => item.key === activeBusiness)?.name}: {selectedIds.length} selected
+              {activeBusinessName}: {selectedIds.length} selected
             </div>
+            <Button
+              type="button"
+              asChild
+              variant="outline"
+              className="border-slate-300 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
+            >
+              <a href={excelSampleUrl}>
+                <Download className="w-4 h-4" />
+                Download Excel
+              </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => excelUploadInputRef.current?.click()}
+              disabled={uploadingExcel}
+              className="border-green-300 text-green-700 hover:bg-green-50 dark:text-green-300 dark:border-green-600 dark:hover:bg-green-950/40"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {uploadingExcel ? 'Uploading...' : 'Upload Excel'}
+            </Button>
+            <input
+              ref={excelUploadInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleExcelUpload}
+              className="hidden"
+            />
             <Button
               type="button"
               onClick={() => setShowCreateForm((prev) => !prev)}
               className="bg-slate-900 hover:bg-slate-800 text-white font-bold dark:bg-slate-700 dark:hover:bg-slate-600"
             >
-              {showCreateForm ? 'Close Create Form' : `Create Product For ${ALL_SECTIONS.find((item) => item.key === activeBusiness)?.name}`}
+              {showCreateForm ? 'Close Create Form' : `Create Product For ${activeBusinessName}`}
             </Button>
           </div>
         </div>

@@ -80,6 +80,83 @@ interface OrderEmailData {
   taxAmount?: number;
 }
 
+async function getInvoiceItemsForAttachment(
+  orderId: unknown,
+  fallbackItems: OrderItem[] = []
+): Promise<OrderItem[]> {
+  const numericOrderId = Number(orderId);
+  if (!Number.isInteger(numericOrderId) || numericOrderId <= 0) {
+    return fallbackItems;
+  }
+
+  try {
+    const result = await getPool().query(
+      `SELECT
+        oi.id,
+        COALESCE(oi.product_id, resolved_dp.id) AS product_id,
+        COALESCE(
+          resolved_dp.product_code,
+          CASE
+            WHEN COALESCE(oi.product_id, resolved_dp.id) IS NOT NULL
+            THEN 'PIC' || LPAD(COALESCE(oi.product_id, resolved_dp.id)::text, 3, '0')
+          END,
+          'PIC' || LPAD(oi.id::text, 3, '0')
+        ) AS product_code,
+        COALESCE(oi.hsn_code, resolved_dp.hsn_code, category_hsn.hsn_code) AS hsn_code,
+        oi.item_type,
+        oi.item_name,
+        oi.quantity,
+        oi.unit_price,
+        oi.total_price
+      FROM order_items oi
+      LEFT JOIN LATERAL (
+        SELECT
+          dp.id,
+          to_jsonb(dp)->>'product_code' AS product_code,
+          to_jsonb(dp)->>'hsn_code' AS hsn_code
+        FROM dealer_products dp
+        WHERE dp.id = oi.product_id
+           OR (
+             oi.product_id IS NULL
+             AND LOWER(TRIM(dp.model_number)) = LOWER(TRIM(oi.item_name))
+           )
+        ORDER BY CASE WHEN dp.id = oi.product_id THEN 0 ELSE 1 END, dp.id
+        LIMIT 1
+      ) resolved_dp ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT hsn_code
+        FROM (
+          SELECT hsn_code FROM hd_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM ip_combo_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM wifi_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM sim_4g_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM solar_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM body_worn_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM hd_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+          UNION ALL
+          SELECT hsn_code FROM ip_camera_products WHERE LOWER(TRIM(name)) = LOWER(TRIM(SPLIT_PART(oi.item_name, ' (with ', 1)))
+        ) matched
+        WHERE hsn_code IS NOT NULL AND hsn_code <> ''
+        LIMIT 1
+      ) category_hsn ON TRUE
+      WHERE oi.order_id = $1
+      ORDER BY oi.id ASC`,
+      [numericOrderId]
+    );
+
+    return result.rows.length > 0 ? result.rows : fallbackItems;
+  } catch (error) {
+    console.error('⚠️ Could not fetch invoice-ready order items:', error);
+    return fallbackItems;
+  }
+}
+
 /**
  * Send order confirmation email to customer with tracking link
  */
@@ -468,9 +545,13 @@ ${COMPANY_NAME} Team
         const invoiceNumber = await getOrCreateCustomerInvoiceNumber(getPool(), normalizedFullOrderData);
         invoiceFileName = `Invoice-${invoiceNumber}.pdf`;
         const codFlatAmt = normalizedFullOrderData._codFlatAmount || 500;
+        const invoiceItems = await getInvoiceItemsForAttachment(
+          normalizedFullOrderData.order_id,
+          orderItems || []
+        );
         invoicePdfBuffer = generateInvoicePDFBuffer(
           normalizedFullOrderData,
-          orderItems || [],
+          invoiceItems,
           invoiceNumber,
           codFlatAmt
         );

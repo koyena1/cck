@@ -452,38 +452,44 @@ export async function POST(request: Request) {
           const customerOrderNumber = actualOrderNumber;
 
           const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${actualOrderToken}`;
-          const emailSent = await sendOrderConfirmationEmail({
-            orderNumber: customerOrderNumber,
-            orderToken: actualOrderToken,
-            customerName,
-            customerEmail: email,
-            totalAmount: computedGrandTotal,
-            paymentMethod,
-            paymentStatus: refreshedOrder.payment_status || 'Pending',
-            orderDate: refreshedOrder.created_at || new Date().toISOString(),
-            trackingUrl,
-            orderItems: orderItemsResult.rows,
-            fullOrderData: refreshedOrder,
-          });
 
-          await pool.query(
-            `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              createdOrder.order_id,
-              email,
-              'order_confirmation',
-              `Order Confirmation - ${customerOrderNumber}`,
-              emailSent ? 'sent' : 'failed',
-              emailSent ? new Date() : null,
-            ]
-          );
+          // Determine final payment status from the refreshed order or created order
+          const finalPaymentStatus = refreshedOrder.payment_status || createdOrder.payment_status || 'Pending';
 
-          if (emailSent) {
+          // For COD and Razorpay flows, do not send the full order confirmation until payment is completed.
+          if ((paymentMethod === 'cod' || paymentMethod === 'razorpay') && finalPaymentStatus !== 'Paid') {
+            console.log(`📧 Skipping order confirmation email for ${customerOrderNumber} — payment not completed (status=${finalPaymentStatus})`);
+          } else {
+            const emailSent = await sendOrderConfirmationEmail({
+              orderNumber: customerOrderNumber,
+              orderToken: actualOrderToken,
+              customerName,
+              customerEmail: email,
+              totalAmount: computedGrandTotal,
+              paymentMethod,
+              paymentStatus: refreshedOrder.payment_status || 'Pending',
+              orderDate: refreshedOrder.created_at || new Date().toISOString(),
+              trackingUrl,
+              orderItems: orderItemsResult.rows,
+              fullOrderData: refreshedOrder,
+            });
+
             await pool.query(
-              'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
-              [createdOrder.order_id]
+              `INSERT INTO email_logs (order_id, recipient_email, email_type, subject, email_status, sent_at)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                createdOrder.order_id,
+                email,
+                'order_confirmation',
+                `Order Confirmation - ${customerOrderNumber}`,
+                emailSent ? 'sent' : 'failed',
+                emailSent ? new Date() : null,
+              ]
             );
+
+            if (emailSent) {
+              await pool.query('UPDATE orders SET tracking_link_sent = true WHERE order_id = $1', [createdOrder.order_id]);
+            }
           }
         } catch (emailError) {
           console.error('Order confirmation email error (non-blocking):', emailError);

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import jsPDF from 'jspdf';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   Calendar,
   User,
   CreditCard,
+  Download,
   Loader2,
   RefreshCw,
   Search,
@@ -44,6 +46,7 @@ function GuestTrackOrderContent() {
   const [orderToken, setOrderToken] = useState(tokenParam || '');
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
 
@@ -155,6 +158,144 @@ function GuestTrackOrderContent() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleDownloadInvoice = async () => {
+    if (!order?.order_id) return;
+
+    setDownloadingInvoice(true);
+    try {
+      const phoneParam = order.customer_phone ? `?phone=${encodeURIComponent(order.customer_phone)}` : '';
+      const response = await fetch(`/api/orders/${order.order_id}/invoice${phoneParam}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch invoice data');
+      }
+
+      const { order: invoiceOrder, items, invoiceNumber } = data;
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      let cursorY = margin;
+
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PROTECHTUR', pageWidth / 2, cursorY, { align: 'center' });
+
+      cursorY += 8;
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Customer Invoice', pageWidth / 2, cursorY, { align: 'center' });
+
+      cursorY += 12;
+      doc.setFontSize(10);
+      doc.text(`Invoice No: ${invoiceNumber}`, margin, cursorY);
+      doc.text(`Order No: ${invoiceOrder.order_number}`, pageWidth - margin, cursorY, { align: 'right' });
+
+      cursorY += 6;
+      doc.text(`Date: ${new Date(invoiceOrder.created_at).toLocaleDateString('en-IN')}`, margin, cursorY);
+      doc.text(`Payment Status: ${invoiceOrder.payment_status || 'N/A'}`, pageWidth - margin, cursorY, { align: 'right' });
+
+      cursorY += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bill To:', margin, cursorY);
+      doc.setFont('helvetica', 'normal');
+      cursorY += 5;
+      doc.text(invoiceOrder.customer_name || 'N/A', margin, cursorY);
+      cursorY += 5;
+      doc.text(invoiceOrder.installation_address || 'N/A', margin, cursorY);
+      cursorY += 5;
+      const cityState = [invoiceOrder.city, invoiceOrder.state].filter(Boolean).join(', ');
+      if (cityState) {
+        doc.text(cityState, margin, cursorY);
+        cursorY += 5;
+      }
+      if (invoiceOrder.pincode) {
+        doc.text(`PIN: ${invoiceOrder.pincode}`, margin, cursorY);
+        cursorY += 5;
+      }
+      if (invoiceOrder.customer_phone) {
+        doc.text(`Phone: ${invoiceOrder.customer_phone}`, margin, cursorY);
+        cursorY += 5;
+      }
+
+      cursorY += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Item Description', margin, cursorY);
+      doc.text('Qty', pageWidth - margin - 40, cursorY, { align: 'right' });
+      doc.text('Rate', pageWidth - margin - 20, cursorY, { align: 'right' });
+      doc.text('Total', pageWidth - margin, cursorY, { align: 'right' });
+
+      cursorY += 4;
+      doc.setDrawColor(180, 180, 180);
+      doc.line(margin, cursorY, pageWidth - margin, cursorY);
+      cursorY += 6;
+      doc.setFont('helvetica', 'normal');
+
+      let itemsTotal = 0;
+      items.forEach((item: any, index: number) => {
+        if (cursorY > 270) {
+          doc.addPage();
+          cursorY = margin;
+        }
+        doc.text(item.item_name || 'Item', margin, cursorY);
+        doc.text(String(item.quantity || 0), pageWidth - margin - 40, cursorY, { align: 'right' });
+        doc.text(`Rs ${Number(item.unit_price || 0).toFixed(2)}`, pageWidth - margin - 20, cursorY, { align: 'right' });
+        doc.text(`Rs ${Number(item.total_price || 0).toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+        itemsTotal += Number(item.total_price || 0);
+        cursorY += 6;
+      });
+
+      cursorY += 6;
+      doc.setDrawColor(180, 180, 180);
+      doc.line(margin, cursorY, pageWidth - margin, cursorY);
+      cursorY += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Subtotal', pageWidth - margin - 40, cursorY, { align: 'right' });
+      doc.text(`Rs ${itemsTotal.toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+
+      const deliveryCharges = Number(invoiceOrder.delivery_charges || 0);
+      const installationCharges = Number(invoiceOrder.installation_charges || 0);
+      const taxAmount = Number(invoiceOrder.tax_amount || 0);
+      const discountAmount = Number(invoiceOrder.discount_amount || 0);
+
+      if (installationCharges) {
+        cursorY += 6;
+        doc.setFont('helvetica', 'normal');
+        doc.text('Installation Charges', pageWidth - margin - 40, cursorY, { align: 'right' });
+        doc.text(`Rs ${installationCharges.toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+      }
+      if (deliveryCharges) {
+        cursorY += 6;
+        doc.text('Delivery Charges', pageWidth - margin - 40, cursorY, { align: 'right' });
+        doc.text(`Rs ${deliveryCharges.toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+      }
+      if (taxAmount) {
+        cursorY += 6;
+        doc.text('Tax Amount', pageWidth - margin - 40, cursorY, { align: 'right' });
+        doc.text(`Rs ${taxAmount.toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+      }
+      if (discountAmount) {
+        cursorY += 6;
+        doc.text('Discount', pageWidth - margin - 40, cursorY, { align: 'right' });
+        doc.text(`- Rs ${discountAmount.toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+      }
+
+      const grandTotal = Number(invoiceOrder.total_amount || 0);
+      cursorY += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Grand Total', pageWidth - margin - 40, cursorY, { align: 'right' });
+      doc.text(`Rs ${grandTotal.toFixed(2)}`, pageWidth - margin, cursorY, { align: 'right' });
+
+      const fileName = `Invoice-${invoiceNumber || invoiceOrder.order_number || order.order_token}.pdf`;
+      doc.save(fileName);
+    } catch (err: any) {
+      console.error('Guest invoice download failed:', err);
+      setError('Failed to download invoice. Please try again.');
+    } finally {
+      setDownloadingInvoice(false);
+    }
   };
 
   const getCodPaymentBreakdown = (orderData: any) => {
@@ -318,31 +459,52 @@ function GuestTrackOrderContent() {
                     </div>
                   </div>
 
-                  <div className="border-t mt-6 pt-6 grid md:grid-cols-3 gap-4">
-                    {/* Payment Info */}
-                    <div>
-                      <p className="text-xs text-slate-600 mb-1">Payment Method</p>
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-slate-400" />
-                        <span className="font-medium text-slate-900">
-                          {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
-                        </span>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t mt-6 pt-6">
+                    <div className="grid md:grid-cols-3 gap-4 flex-1">
+                      {/* Payment Info */}
+                      <div>
+                        <p className="text-xs text-slate-600 mb-1">Payment Method</p>
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-4 h-4 text-slate-400" />
+                          <span className="font-medium text-slate-900">
+                            {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-slate-600 mb-1">Payment Status</p>
+                        <Badge className={getPaymentStatusColor(order.payment_status)}>
+                          {formatStatus(order.payment_status)}
+                        </Badge>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-slate-600 mb-1">Total Amount</p>
+                        <p className="font-bold text-xl text-[#e63946]">
+                          RS {parseFloat(order.total_amount).toLocaleString('en-IN')}
+                        </p>
                       </div>
                     </div>
 
-                    <div>
-                      <p className="text-xs text-slate-600 mb-1">Payment Status</p>
-                      <Badge className={getPaymentStatusColor(order.payment_status)}>
-                        {formatStatus(order.payment_status)}
-                      </Badge>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-600 mb-1">Total Amount</p>
-                      <p className="font-bold text-xl text-[#e63946]">
-                        RS {parseFloat(order.total_amount).toLocaleString('en-IN')}
-                      </p>
-                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={handleDownloadInvoice}
+                      disabled={downloadingInvoice}
+                      className="border-slate-300 text-slate-700 hover:bg-slate-100 whitespace-nowrap"
+                    >
+                      {downloadingInvoice ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Invoice
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   {(() => {

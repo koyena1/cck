@@ -429,11 +429,15 @@ export async function POST(request: Request) {
 
       const trackingUrl = `${process.env.NEXT_PUBLIC_WEBSITE_URL || 'http://localhost:3000'}/guest-track-order?token=${order_token}`;
 
-      // Send order confirmation email as soon as the order is created.
+      // Send order confirmation email only after successful payment for COD/Razorpay.
       let emailSent = false;
 
-      if (false && customerEmail) {
-        try {
+      try {
+        const finalPaymentStatus = orderDataForEmail.payment_status || paymentStatus || 'Pending';
+
+        if ((paymentMethod === 'cod' || paymentMethod === 'razorpay') && finalPaymentStatus !== 'Paid') {
+          console.log(`📧 Skipping order confirmation email for ${customerOrderNumber} — payment not completed (status=${finalPaymentStatus})`);
+        } else if (customerEmail) {
           console.log(`📧 Sending order confirmation email to ${customerEmail} for order ${customerOrderNumber}`);
 
           emailSent = await sendOrderConfirmationEmail({
@@ -468,15 +472,11 @@ export async function POST(request: Request) {
 
           // Update tracking_link_sent flag
           if (emailSent) {
-            await pool.query(
-              'UPDATE orders SET tracking_link_sent = true WHERE order_id = $1',
-              [order_id]
-            );
+            await pool.query('UPDATE orders SET tracking_link_sent = true WHERE order_id = $1', [order_id]);
           }
-        } catch (emailError) {
-          console.error('Email sending error (non-blocking):', emailError);
-          // Don't fail the order creation if email fails
         }
+      } catch (emailError) {
+        console.error('Email sending error (non-blocking):', emailError);
       }
 
       return NextResponse.json({
